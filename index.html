@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>D&D Battle Map</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="toolbar">
+            <h1>D&D Battle Map</h1>
+            <div class="controls">
+                <button id="addPlayer" class="btn btn-primary">Add Player</button>
+                <button id="addEnemy" class="btn btn-secondary">Add Enemy</button>
+                <button id="drawCover" class="btn btn-cover">Draw Cover</button>
+                <button id="gridSettings" class="btn btn-tertiary">Grid Settings</button>
+                <button id="clearMap" class="btn btn-danger">Clear Map</button>
+                <button id="undoMove" class="btn btn-tertiary">Undo</button>
+                <button id="btn-download" class="btn">Download Map</button>
+                <input type="file" id="btn-upload" class="btn" accept=".json" style="display:none;">
+                <label for="btn-upload" class="btn">Upload Map</label>
+
+
+                <span class="grid-info">Grid: <span id="gridSizeDisplay">5ft</span> per cell</span>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <div class="sidebar">
+                <h3>Elements</h3>
+                <div id="elementList" class="element-list">
+                    <!-- Characters and cover will be listed here -->
+                </div>
+            </div>
+
+            <div class="map-container">
+                <div id="battleMap" class="battle-map">
+                        <!-- Grid will be generated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Element Edit Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Edit Element</h3>
+            <form id="elementForm">
+                <div class="form-group">
+                    <label for="elementName">Name:</label>
+                    <input type="text" id="elementName" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="elementType">Type:</label>
+                    <select id="elementType" name="type">
+                        <option value="player">Player</option>
+                        <option value="enemy">Enemy</option>
+                        <option value="cover">Cover</option>
+                    </select>
+                </div>
+
+                <!-- Player Stats -->
+                <div class="form-group" id="playerStatsGroup" style="display: none;">
+                  <label for="maxHitPoints">Max HP:</label>
+                  <input type="number" id="maxHitPoints" name="maxHitPoints" min="1" value="20">
+                
+                  <label for="currentHitPoints">Current HP:</label>
+                  <input type="number" id="currentHitPoints" name="currentHitPoints" min="0" value="20">
+
+                  <label for="movement">Movement (ft):</label>
+                  <input type="number" id="movement" name="movement" min="0" value="30">
+                </div>
+
+                <!-- Enemy Stats -->
+                <div class="form-group" id="enemyStatsGroup" style="display: none;">
+                  <label for="damageDealt">Damage Dealt:</label>
+                  <input type="number" id="damageDealt" name="damageDealt" min="0" value="0">
+
+                  <label for="movement">Movement (ft):</label>
+                  <input type="number" id="movement" name="movement" min="0" value="30">
+                </div>
+                <div class="form-group" id="colorGroup">
+                    <label for="elementColor">Color:</label>
+                    <input type="color" id="elementColor" name="color">
+                </div>
+                <div class="form-group" id="coverTypeGroup" style="display: none;">
+                    <label for="coverType">Cover Type:</label>
+                    <select id="coverType" name="coverType">
+                        <option value="half">Half Cover</option>
+                        <option value="three-quarters">Three-Quarters Cover</option>
+                        <option value="full">Full Cover</option>
+                        <option value="difficult">Difficult Terrain</option>
+                    </select>
+                </div>
+                <div class="form-group" id="sizeGroup">
+                    <label for="elementSize">Size (grid squares):</label>
+                    <select id="elementSize" name="size">
+                        <option value="1">1x1 (Medium)</option>
+                        <option value="2">2x2 (Large)</option>
+                        <option value="3">3x3 (Huge)</option>
+                        <option value="4">4x4 (Gargantuan)</option>
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Save</button>
+                    <button type="button" id="deleteElement" class="btn btn-danger">Delete</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Grid Settings Modal -->
+    <div id="gridSettingsModal" class="modal">
+        <div class="modal-content">
+            <span class="close" data-modal="gridSettingsModal">&times;</span>
+            <h3>Grid Settings</h3>
+            <form id="gridSettingsForm">
+                <div class="form-group">
+                    <label for="gridWidth">Grid Width:</label>
+                    <input type="number" id="gridWidth" name="width" min="10" max="50" value="20">
+                </div>
+                <div class="form-group">
+                    <label for="gridHeight">Grid Height:</label>
+                    <input type="number" id="gridHeight" name="height" min="10" max="50" value="20">
+                </div>
+                <div class="form-group">
+                    <label for="cellSize">Cell Size (feet):</label>
+                    <select id="cellSize" name="cellSize">
+                        <option value="5">5 feet</option>
+                        <option value="10">10 feet</option>
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Apply Settings</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Download Map Modal -->
+    <div id="downloadModal" class="modal">
+        <div class="modal-content">
+            <span class="close" data-modal="downloadModal">&times;</span>
+            <h3>Save Map</h3>
+            <form id="downloadForm">
+                <div class="form-group">
+                    <label for="mapFileName">File Name:</label>
+                    <input type="text" id="mapFileName" name="mapFileName" placeholder="my_map.json" required>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Download</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Upload Warning Modal -->
+    <div id="uploadWarningModal" class="modal">
+        <div class="modal-content">
+            <span class="close" data-modal="uploadWarningModal">&times;</span>
+            <h3>Overwrite Map?</h3>
+            <p>Uploading a map will overwrite your current map. Continue?</p>
+            <div class="form-actions">
+                <button id="confirmUpload" class="btn btn-primary">Yes</button>
+                <button id="cancelUpload" class="btn btn-secondary">No</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        class BattleMap {
+            constructor() {
+              this.moveHistory = [];
+              this.gridWidth = 20;
+              this.gridHeight = 20;
+              this.cellSize = 5;
+              this.elements = new Map();
+              this.selectedElement = null;
+              this.draggedElement = null;
+              this.elementCounter = 0;
+              this.isDrawingCover = false;
+              this.currentCoverBlocks = [];
+
+              this.isDragging = false;
+              this.dragStartTime = 0;
+
+              // 🔹 History stack (max 5)
+              this.history = [];
+
+              this.init();
+          }
+        
+          // Save current state
+          saveState() {
+              const snapshot = JSON.stringify({
+                  elements: Array.from(this.elements.entries()),
+                  counter: this.elementCounter
+              });
+            
+              this.history.push(snapshot);
+              if (this.history.length > 5) {
+                  this.history.shift(); // keep only last 5
+              }
+          }
+
+          downloadMap(fileName = 'map.json') {
+              const data = {
+                  elements: Array.from(this.elements.entries()),
+                  elementCounter: this.elementCounter
+              };
+            
+              const json = JSON.stringify(data, null, 2);
+              const blob = new Blob([json], { type: 'application/json' });
+              const url = URL.createObjectURL(blob);
+            
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = fileName;
+              a.click();
+            
+              URL.revokeObjectURL(url);
+          }
+
+
+          uploadMap(file) {
+            
+              const reader = new FileReader();
+            
+              reader.onload = (event) => {
+                  try {
+                      const data = JSON.parse(event.target.result);
+                  
+                      if (!data.elements || !data.elementCounter) {
+                          throw new Error('Missing required map data');
+                      }
+                    
+                      // Overwrite current map
+                      this.elements.clear();
+                      this.elementCounter = data.elementCounter;
+                    
+                      data.elements.forEach(([id, el]) => {
+                          this.elements.set(id, el);
+                      });
+                    
+                      // Clear grid first
+                      document.querySelectorAll('.element').forEach(el => el.remove());
+                    
+                      // Redraw elements
+                      this.elements.forEach(el => {
+                          if (el.type === 'cover' && el.blocks && el.blocks.length) {
+                              el.blocks.forEach(b => {
+                                  const cell = this.getCell(b.row, b.col);
+                                  if (cell) {
+                                      const overlay = document.createElement('div');
+                                      overlay.className = `element cover ${el.coverType}`;
+                                      overlay.dataset.elementId = `${el.id}_${b.row}_${b.col}`;
+                                      overlay.style.backgroundColor = el.color;
+                                      overlay.textContent = this.getCoverSymbol(el.coverType);
+                                      cell.appendChild(overlay);
+                                  }
+                              });
+                            
+                              // Update top-left position for movement
+                              el.row = Math.min(...el.blocks.map(b => b.row));
+                              el.col = Math.min(...el.blocks.map(b => b.col));
+                          } else {
+                              this.createElementVisual(el);
+                          }
+                      });
+                    
+                      this.updateElementList();
+                  } catch (err) {
+                      alert('Invalid map file. Please make sure you are uploading a valid JSON map.');
+                      console.error(err);
+                  }
+              };
+            
+              reader.readAsText(file);
+          }
+
+
+
+
+
+          undoMove() {
+              if (this.moveHistory.length === 0) return;
+
+              const lastMove = this.moveHistory.pop();
+              const element = this.elements.get(lastMove.id);
+              if (!element) return;
+
+              // Restore element to previous position
+              element.row = lastMove.from.row;
+              element.col = lastMove.from.col;
+
+              // Remove old visual and redraw
+              this.removeElementVisual(element.id);
+              this.createElementVisual(element);
+          }
+
+
+
+            init() {
+                this.createGrid();
+                this.bindEvents();
+                this.updateGridSizeDisplay();
+            }
+
+            createGrid() {
+                const mapContainer = document.getElementById('battleMap');
+                mapContainer.innerHTML = '';
+
+                // Set CSS grid template
+                mapContainer.style.gridTemplateColumns = `repeat(${this.gridWidth}, 1fr)`;
+                mapContainer.style.gridTemplateRows = `repeat(${this.gridHeight}, 1fr)`;
+
+                const lineEvery = 5; // number of normal squares between bold lines
+
+                for (let row = 0; row < this.gridHeight; row++) {
+                    for (let col = 0; col < this.gridWidth; col++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'grid-cell';
+                        cell.dataset.row = row;
+                        cell.dataset.col = col;
+                    
+                        // Apply bold vertical lines
+                        if (col % lineEvery === 0) cell.style.borderLeft = '2px solid #888';
+                        if ((col + 1) % lineEvery === 0) cell.style.borderRight = '2px solid #888';
+                    
+                        // Apply bold horizontal lines
+                        if (row % lineEvery === 0) cell.style.borderTop = '2px solid #888';
+                        if ((row + 1) % lineEvery === 0) cell.style.borderBottom = '2px solid #888';
+                    
+                        // Touch-friendly events
+                        cell.addEventListener('click', this.handleCellClick.bind(this));
+                        cell.addEventListener('touchstart', this.handleTouchStart.bind(this));
+                        cell.addEventListener('touchend', this.handleTouchEnd.bind(this));
+                        cell.addEventListener('dragover', this.handleDragOver.bind(this));
+                        cell.addEventListener('drop', this.handleDrop.bind(this));
+                    
+                        mapContainer.appendChild(cell);
+                    }
+                }
+            }
+
+            bindEvents() {
+                // Toolbar buttons
+                document.getElementById('addPlayer').addEventListener('click', () => {
+                    this.addElement('player');
+                });
+
+                document.getElementById('addEnemy').addEventListener('click', () => {
+                    this.addElement('enemy');
+                });
+
+                this.isDrawingCover = false;
+                this.currentCoverId = null;
+
+                document.getElementById('drawCover').addEventListener('click', () => {
+                    const drawBtn = document.getElementById('drawCover');
+                    const toolbarButtons = document.querySelectorAll('.controls .btn');
+
+                    if (!this.isDrawingCover) {
+                        // Enter draw mode
+                        this.isDrawingCover = true;
+                        this.currentCoverId = null;
+
+                        // Change button text
+                        drawBtn.textContent = 'Finish Drawing';
+
+                        // Disable other buttons
+                        toolbarButtons.forEach(btn => {
+                            if (btn !== drawBtn) btn.disabled = true;
+                        });
+                    } else {
+                        // Finish drawing
+                        this.isDrawingCover = false;
+
+                        // Change button text back
+                        drawBtn.textContent = 'Draw Cover';
+
+                        // Enable all buttons
+                        toolbarButtons.forEach(btn => btn.disabled = false);
+                    
+                        // If there’s no blocks, remove the cover element
+                        if (this.currentCoverId) {
+                            const cover = this.elements.get(this.currentCoverId);
+                            if (cover.blocks.length === 0) {
+                                this.elements.delete(this.currentCoverId);
+                            } else {
+                                // Update cover visuals with color and type
+                                const coverTypeInput = document.getElementById('coverType');
+                                const colorInput = document.getElementById('elementColor');
+                            
+                                cover.coverType = coverTypeInput ? coverTypeInput.value : 'half';
+                                cover.color = colorInput ? colorInput.value : '#795548';
+                            
+                                // Remove temporary DOM blocks
+                                cover.blocks.forEach(b => {
+                                    const tempDiv = document.querySelector(`[data-element-id="${cover.id}_${b.row}_${b.col}"]`);
+                                    if (tempDiv) tempDiv.remove();
+                                });
+                              
+                                // Draw final blocks
+                                cover.blocks.forEach(b => {
+                                    const cell = this.getCell(b.row, b.col);
+                                    if (cell) {
+                                        const overlay = document.createElement('div');
+                                        overlay.className = `element cover ${cover.coverType}`;
+                                        overlay.dataset.elementId = `${cover.id}_${b.row}_${b.col}`;
+                                        overlay.style.backgroundColor = cover.color;
+                                        overlay.textContent = this.getCoverSymbol(cover.coverType);
+                                        cell.appendChild(overlay);
+                                    }
+                                });
+                            }
+                            this.updateElementList();
+                            this.currentCoverId = null;
+                        }
+                    }
+                });
+
+
+
+
+
+                document.getElementById('gridSettings').addEventListener('click', () => {
+                    document.getElementById('gridSettingsModal').style.display = 'block';
+                });
+
+                document.getElementById('clearMap').addEventListener('click', () => {
+                    this.clearMap();
+                });
+
+                // Download button opens modal
+                document.getElementById('btn-download').addEventListener('click', () => {
+                    document.getElementById('downloadModal').style.display = 'block';
+                });
+
+                // Handle filename form submission
+                document.getElementById('downloadForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const fileName = document.getElementById('mapFileName').value.trim() || 'my_map.json';
+                    this.downloadMap(fileName);
+                    document.getElementById('downloadModal').style.display = 'none';
+                });
+
+                // Upload button triggers file selection
+                document.getElementById('btn-upload').addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                
+                    if (this.elements.size > 0) {
+                        // Show warning modal instead of alert
+                        this.pendingUploadFile = file;
+                        document.getElementById('uploadWarningModal').style.display = 'block';
+                    } else {
+                        this.uploadMap(file);
+                    }
+                  
+                    e.target.value = ''; // reset input
+                });
+
+                // Modal buttons for upload confirmation
+                document.getElementById('confirmUpload').addEventListener('click', () => {
+                    if (this.pendingUploadFile) {
+                        this.uploadMap(this.pendingUploadFile);
+                        this.pendingUploadFile = null;
+                    }
+                    document.getElementById('uploadWarningModal').style.display = 'none';
+                });
+
+                document.getElementById('cancelUpload').addEventListener('click', () => {
+                    this.pendingUploadFile = null;
+                    document.getElementById('uploadWarningModal').style.display = 'none';
+                });
+
+
+
+
+                // Modal events
+                this.bindModalEvents();
+
+                // Prevent default touch behaviors on the map
+                document.getElementById('battleMap').addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                }, { passive: false });
+            }
+
+            bindModalEvents() {
+                const modals = document.querySelectorAll('.modal');
+                const closeBtns = document.querySelectorAll('.close');
+                
+                closeBtns.forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const modalId = e.target.dataset.modal || 'editModal';
+                        document.getElementById(modalId).style.display = 'none';
+                    });
+                });
+
+                window.addEventListener('click', (event) => {
+                    modals.forEach(modal => {
+                        if (event.target === modal) {
+                            modal.style.display = 'none';
+                        }
+                    });
+                });
+
+                // Element form
+                document.getElementById('elementForm').addEventListener('submit', this.saveElement.bind(this));
+                document.getElementById('deleteElement').addEventListener('click', this.deleteElement.bind(this));
+                document.getElementById('elementType').addEventListener('change', this.handleTypeChange.bind(this));
+
+                // Grid settings form
+                document.getElementById('gridSettingsForm').addEventListener('submit', this.applyGridSettings.bind(this));
+            }
+
+            handleTypeChange(event) {
+                const type = event.target.value;
+                const coverTypeGroup = document.getElementById('coverTypeGroup');
+                const colorGroup = document.getElementById('colorGroup');
+                const playerStatsGroup = document.getElementById('playerStatsGroup');
+                const enemyStatsGroup = document.getElementById('enemyStatsGroup');
+
+                if (type === 'cover') {
+                    coverTypeGroup.style.display = 'block';
+                    colorGroup.style.display = 'none';
+                    playerStatsGroup.style.display = 'none';
+                    enemyStatsGroup.style.display = 'none';
+                } else if (type === 'player') {
+                    coverTypeGroup.style.display = 'none';
+                    colorGroup.style.display = 'block';
+                    playerStatsGroup.style.display = 'block';
+                    enemyStatsGroup.style.display = 'none';
+                } else if (type === 'enemy') {
+                    coverTypeGroup.style.display = 'none';
+                    colorGroup.style.display = 'block';
+                    playerStatsGroup.style.display = 'none';
+                    enemyStatsGroup.style.display = 'block';
+                }
+            }
+
+            handleTouchStart(event) {
+                this.dragStartTime = Date.now();
+                const element = event.target.closest('.element');
+                if (element) {
+                    this.draggedElement = element.dataset.elementId;
+                }
+            }
+
+            handleTouchEnd(event) {
+                const touchDuration = Date.now() - this.dragStartTime;
+                const element = event.target.closest('.element');
+                
+                if (element && touchDuration > 500) {
+                    // Long press - edit element
+                    event.preventDefault();
+                    this.editElement(element.dataset.elementId);
+                } else if (this.draggedElement && touchDuration < 200) {
+                    // Quick tap - select for movement
+                    this.selectElementForMovement(this.draggedElement);
+                }
+                
+                this.draggedElement = null;
+            }
+
+            addElement(type) {
+
+                const id = `elem_${++this.elementCounter}`;
+                const defaultColors = {
+                    player: '#4CAF50',
+                    enemy: '#f44336',
+                    cover: '#795548'
+                };
+
+                const element = {
+                    id,
+                    name: this.getDefaultName(type),
+                    type,
+                    color: defaultColors[type],
+                    coverType: 'half',
+                    size: 1,
+                    row: 0,
+                    col: 0
+                };
+
+                // 🔹 Add HP only for players
+                if (type === 'player') {
+                    element.maxHitPoints = 20;        // default HP
+                    element.currentHitPoints = 20;    // start full
+                    element.movement = 30;
+                }
+              
+                // 🔹 Add damage tracker for enemies
+                if (type === 'enemy') {
+                    element.damageDealt = 0;
+                    element.movement = 30;
+                }
+
+                this.elements.set(id, element);
+                for (let r = 0; r < this.gridHeight; r++) {
+                    for (let c = 0; c < this.gridWidth; c++) {
+                        if (this.canPlaceElement(element, r, c)) {
+                            this.moveElementToPosition(element, r, c, false);
+                            this.updateElementList();
+                            return;
+                        }
+                    }
+                }
+                alert("No space to place the element!");
+            }
+
+            getDefaultName(type) {
+                const count = Array.from(this.elements.values()).filter(e => e.type === type).length + 1;
+                switch(type) {
+                    case 'player': return `Player ${count}`;
+                    case 'enemy': return `Enemy ${count}`;
+                    case 'cover': return `Cover ${count}`;
+                    default: return `Element ${count}`;
+                }
+            }
+
+            placeElementOnGrid(element) {
+                let placed = false;
+                for (let row = element.row; row < this.gridHeight && !placed; row++) {
+                    for (let col = element.col; col < this.gridWidth && !placed; col++) {
+                        if (this.canPlaceElement(element, row, col)) {
+                            this.moveElementToPosition(element, row, col, false);
+                            placed = true;
+                        }
+                    }
+                }
+            }
+
+            canPlaceElement(element, row, col) {
+                for (let r = row; r < row + element.size && r < this.gridHeight; r++) {
+                    for (let c = col; c < col + element.size && c < this.gridWidth; c++) {
+                        const cell = this.getCell(r, c);
+                        if (!cell) return false;
+                        
+                        const existingElement = cell.querySelector('.element');
+                        if (existingElement && existingElement.dataset.elementId !== element.id) {
+                            return false;
+                        }
+                    }
+                }
+                return true;
+            }
+
+            moveElementToPosition(element, targetRow, targetCol, recordHistory = true) {
+                if (recordHistory && element.row !== undefined && element.col !== undefined) {
+                    this.moveHistory.push({
+                        id: element.id,
+                        from: { row: element.row, col: element.col },
+                        to: { row: targetRow, col: targetCol }
+                    });
+                }
+              
+                if (element.type === 'cover' && element.blocks && element.blocks.length) {
+                    const minRow = Math.min(...element.blocks.map(b => b.row));
+                    const maxRow = Math.max(...element.blocks.map(b => b.row));
+                    const minCol = Math.min(...element.blocks.map(b => b.col));
+                    const maxCol = Math.max(...element.blocks.map(b => b.col));
+                                
+                    // Calculate desired move delta
+                    const deltaRow = targetRow - minRow;
+                    const deltaCol = targetCol - minCol;
+                                
+                    // Compute allowed movement range
+                    const minDeltaRow = -minRow;
+                    const maxDeltaRow = this.gridHeight - 1 - maxRow;
+                    const minDeltaCol = -minCol;
+                    const maxDeltaCol = this.gridWidth - 1 - maxCol;
+                                
+                    // Clamp deltaRow / deltaCol
+                    const clampedDeltaRow = Math.max(minDeltaRow, Math.min(deltaRow, maxDeltaRow));
+                    const clampedDeltaCol = Math.max(minDeltaCol, Math.min(deltaCol, maxDeltaCol));
+                                
+                    // Remove old DOM
+                    element.blocks.forEach(b => {
+                        const oldDiv = document.querySelector(`[data-element-id="${element.id}_${b.row}_${b.col}"]`);
+                        if (oldDiv) oldDiv.remove();
+                    });
+                  
+                    // Move blocks using clamped delta
+                    element.blocks = element.blocks.map(b => ({
+                        row: b.row + clampedDeltaRow,
+                        col: b.col + clampedDeltaCol
+                    }));
+                  
+                    element.row = Math.min(...element.blocks.map(b => b.row));
+                    element.col = Math.min(...element.blocks.map(b => b.col));
+                  
+                    // Recreate DOM
+                    element.blocks.forEach(b => {
+                        const cell = this.getCell(b.row, b.col);
+                        if (cell) {
+                            const overlay = document.createElement('div');
+                            overlay.className = `element cover ${element.coverType}`;
+                            overlay.dataset.elementId = `${element.id}_${b.row}_${b.col}`;
+                            overlay.style.backgroundColor = element.color;
+                            overlay.textContent = this.getCoverSymbol(element.coverType);
+                            cell.appendChild(overlay);
+                        }
+                    });
+                  
+                } else {
+                    // Normal element
+                    element.row = targetRow;
+                    element.col = targetCol;
+                    this.removeElementVisual(element.id);
+                    this.createElementVisual(element);
+                }
+            }    
+
+            isWithinMovementRange(element, targetRow, targetCol) {
+                const range = this.getMovementRangeInSquares(element);
+                        
+                // Manhattan distance from element’s current position
+                const distance = Math.abs(targetRow - element.row) + Math.abs(targetCol - element.col);
+                        
+                return distance <= range;
+            }
+
+
+            createElementVisual(element) {
+                for (let r = 0; r < element.size; r++) {
+                    for (let c = 0; c < element.size; c++) {
+                        const targetRow = element.row + r;
+                        const targetCol = element.col + c;
+                        const cell = this.getCell(targetRow, targetCol);
+                        
+                        if (cell) {
+                            const elementDiv = document.createElement('div');
+                            elementDiv.className = `element ${element.type}`;
+                            elementDiv.dataset.elementId = element.id;
+                            elementDiv.dataset.partRow = r;
+                            elementDiv.dataset.partCol = c;
+                            
+                            if (element.type === 'cover') {
+                                elementDiv.className += ` ${element.coverType}`;
+                                elementDiv.textContent = this.getCoverSymbol(element.coverType);
+                            } else {
+                                elementDiv.style.backgroundColor = element.color;
+                                if (r === 0 && c === 0) {
+                                    elementDiv.textContent = element.name.charAt(0).toUpperCase();
+                                }
+                            }
+                            
+                            elementDiv.title = element.name;
+                            elementDiv.draggable = true;
+
+                            // Event listeners
+                            elementDiv.addEventListener('dragstart', this.handleDragStart.bind(this));
+                            elementDiv.addEventListener('touchstart', this.handleTouchStart.bind(this));
+                            elementDiv.addEventListener('touchend', this.handleTouchEnd.bind(this));
+                            elementDiv.addEventListener('dblclick', () => this.editElement(element.id));
+
+                            cell.appendChild(elementDiv);
+                        }
+                    }
+                }
+            }
+
+            removeElementVisual(elementId) {
+              // Remove all DOM pieces of a single element
+              document.querySelectorAll(`[data-element-id="${elementId}"]`).forEach(el => el.remove());
+            }
+
+            getCoverSymbol(coverType) {
+                switch(coverType) {
+                    case 'half': return '◐';
+                    case 'three-quarters': return '◑';
+                    case 'full': return '●';
+                    case 'difficult': return '▲';
+                    default: return '■';
+                }
+            }
+
+            handleCellClick(event) {
+                const cell = event.target.closest('.grid-cell');
+                if (!cell) return;
+
+                 // If a cover is selected, move it directly without creating new blocks
+                const selected = this.selectedElement ? this.elements.get(this.selectedElement) : null;
+                if (selected?.type === 'cover' && !this.isDrawingCover) {
+                    const clickRow = parseInt(cell.dataset.row);
+                    const clickCol = parseInt(cell.dataset.col);
+
+                    // Compute the offset from the cover's top-left
+                    const minRow = Math.min(...selected.blocks.map(b => b.row));
+                    const minCol = Math.min(...selected.blocks.map(b => b.col));
+
+                    // Move cover so the clicked block stays in the same relative position
+                    this.moveElementToPosition(selected, clickRow, clickCol);
+
+                    this.selectedElement = null;
+                    this.clearSelection();
+                    this.updateElementList();
+                    return;
+                }
+
+                // ─── Draw Cover Mode ───
+                if (this.isDrawingCover) {
+                    const row = parseInt(cell.dataset.row);
+                    const col = parseInt(cell.dataset.col);
+                
+                    if (!this.currentCoverId) {
+                        // Start a new cover element
+                        const id = `cover_${++this.elementCounter}`;
+                        const cover = {
+                        id,
+                        name: `Custom Cover ${this.elementCounter}`, // add a proper name
+                        type: 'cover',
+                        color: '#795548',
+                        coverType: 'half',
+                        size: 1,
+                        row: 0,   // default top-left row
+                        col: 0,   // default top-left col
+                        blocks: [] // list of {row, col}
+                    };
+
+                        this.elements.set(id, cover);
+                        this.currentCoverId = id;
+                    }
+                  
+                    const cover = this.elements.get(this.currentCoverId);
+                    const existingBlock = cover.blocks.find(b => b.row === row && b.col === col);
+                  
+                    if (existingBlock) {
+                        // Remove block
+                        cover.blocks = cover.blocks.filter(b => b.row !== row || b.col !== col);
+                        this.removeElementVisual(`${cover.id}_${row}_${col}`);
+                    } else {
+                        // Add block
+                        cover.blocks.push({ row, col });
+                        const overlay = document.createElement('div');
+                        overlay.className = 'element cover custom-cover';
+                        overlay.dataset.elementId = `${cover.id}_${row}_${col}`;
+                        overlay.style.backgroundColor = cover.color;
+                        cell.appendChild(overlay);
+                    }
+                  
+                    return; // skip normal element movement
+                }
+                // ────────────────────────
+
+                // ─── Normal element movement ───
+                if (cell.classList.contains('grid-cell') && selected && !this.isDragging) {
+                    const element = selected;
+                    const row = parseInt(cell.dataset.row);
+                    const col = parseInt(cell.dataset.col);
+                
+                    if (
+                        element &&
+                        this.canPlaceElement(element, row, col) &&
+                        (element.type !== 'cover' ? this.isWithinMovementRange(element, row, col) : true)
+                    ) {
+                        this.moveElementToPosition(element, row, col);
+                        this.selectedElement = null;
+                        this.clearSelection();
+                        this.updateElementList();
+                    }
+                }
+            }
+
+            handleDragStart(event) {
+                this.draggedElement = event.target.dataset.elementId;
+                event.dataTransfer.effectAllowed = 'move';
+            }
+
+            handleDragOver(event) {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'move';
+            }
+
+            handleDrop(event) {
+                event.preventDefault();
+                const cell = event.target.closest('.grid-cell');
+                
+                if (cell && this.draggedElement) {
+                    const element = this.elements.get(this.draggedElement);
+                    const row = parseInt(cell.dataset.row);
+                    const col = parseInt(cell.dataset.col);
+                    
+                    if (element && this.canPlaceElement(element, row, col)) {
+                        this.moveElementToPosition(element, row, col);
+                        this.updateElementList();
+                    }
+                }
+                this.draggedElement = null;
+            }
+
+            getCell(row, col) {
+                return document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+            }
+
+            getMovementRangeInSquares(element) {
+                if (!element.movement) return 0;
+                return Math.floor(element.movement / this.cellSize); 
+            }
+
+            highlightMovementArea(elementId) {
+                // Clear existing highlights
+                document.querySelectorAll('.movement-highlight').forEach(el => el.remove());
+
+                const element = this.elements.get(elementId);
+                if (!element) return;
+
+                const range = this.getMovementRangeInSquares(element);
+
+                const visited = new Set();
+                const queue = [{ row: element.row, col: element.col, dist: 0 }];
+
+                while (queue.length > 0) {
+                    const { row, col, dist } = queue.shift();
+                    const key = `${row},${col}`;
+                
+                    if (visited.has(key)) continue;
+                    visited.add(key);
+                
+                    // Stop if distance exceeds movement range
+                    if (dist > range) continue;
+                
+                    const cell = this.getCell(row, col);
+                    if (!cell) continue;
+                
+                    // Skip if cell has cover (except starting position)
+                    const cover = cell.querySelector('.element.cover');
+                    if (cover && dist > 0) continue;
+                
+                    // Draw highlight
+                    const overlay = document.createElement('div');
+                    overlay.className = 'movement-highlight';
+                    if (element.type === 'enemy') overlay.classList.add('enemy');
+                    cell.appendChild(overlay);
+                
+                    // Add adjacent cells (Manhattan neighbors)
+                    const neighbors = [
+                        { row: row - 1, col },
+                        { row: row + 1, col },
+                        { row, col: col - 1 },
+                        { row, col: col + 1 }
+                    ];
+                
+                    neighbors.forEach(n => {
+                        if (n.row >= 0 && n.row < this.gridHeight && n.col >= 0 && n.col < this.gridWidth) {
+                            queue.push({ row: n.row, col: n.col, dist: dist + 1 });
+                        }
+                    });
+                }
+            }
+
+
+            editElement(elementId) {
+                const element = this.elements.get(elementId);
+                if (!element) return;
+
+                if (element.type === 'player') {
+                  document.getElementById('maxHitPoints').value = element.maxHitPoints || 20;
+                  document.getElementById('currentHitPoints').value = element.currentHitPoints || element.maxHitPoints || 20;
+                } else if (element.type === 'enemy') {
+                    document.getElementById('damageDealt').value = element.damageDealt || 0;
+                }
+
+                document.getElementById('elementName').value = element.name;
+                document.getElementById('elementType').value = element.type;
+                document.getElementById('elementColor').value = element.color;
+                document.getElementById('coverType').value = element.coverType;
+                document.getElementById('elementSize').value = element.size;
+                
+                // Show/hide relevant fields
+                this.handleTypeChange({ target: { value: element.type } });
+                
+                this.selectedElement = elementId;
+                document.getElementById('editModal').style.display = 'block';
+
+                if (element.type === 'cover' && element.blocks) {
+                    element.blocks.forEach(b => {
+                        const div = document.querySelector(`[data-element-id="${element.id}_${b.row}_${b.col}"]`);
+                        if (div) {
+                            div.className = `element cover ${element.coverType}`;
+                            div.textContent = this.getCoverSymbol(element.coverType);
+                            div.style.backgroundColor = element.color;
+                        }
+                    });
+                }
+            }
+
+            saveElement(event) {
+                event.preventDefault();
+
+                if (!this.selectedElement) return;
+
+                const element = this.elements.get(this.selectedElement);
+                const formData = new FormData(event.target);
+
+                if (element.type === 'player') {
+                    element.maxHitPoints = parseInt(formData.get('maxHitPoints')) || 1;
+                    element.currentHitPoints = Math.min(
+                        parseInt(formData.get('currentHitPoints')) || 0,
+                        element.maxHitPoints
+                    );
+                    element.movement = parseInt(formData.get('movement')) || 0;
+                } else if (element.type === 'enemy') {
+                    element.damageDealt = parseInt(formData.get('damageDealt')) || 0;
+                    element.movement = parseInt(formData.get('movement')) || 0;
+                }
+
+                const newSize = parseInt(formData.get('size'));
+                const nameChanged = element.name !== formData.get('name');
+                const sizeChanged = element.size !== newSize;
+
+                element.name = formData.get('name');
+                element.type = formData.get('type');
+                element.color = formData.get('color');
+                element.coverType = formData.get('coverType');
+                element.size = newSize;
+                // If element is a cover, update existing blocks instead of creating new ones
+                if (element.type === 'cover' && element.blocks) {
+                    element.blocks.forEach(b => {
+                        const div = document.querySelector(`[data-element-id="${element.id}_${b.row}_${b.col}"]`);
+                        if (div) {
+                            div.className = `element cover ${element.coverType}`;
+                            div.textContent = this.getCoverSymbol(element.coverType);
+                            div.style.backgroundColor = element.color;
+                        }
+                    });
+                } else {
+                    // For normal elements, recreate visuals
+                    document.querySelectorAll(`[data-element-id="${this.selectedElement}"]`).forEach(el => el.remove());
+                    this.createElementVisual(element);
+                }
+
+                this.updateElementList();
+                document.getElementById('editModal').style.display = 'none';
+                this.selectedElement = null;
+            }
+
+            deleteElement() {
+                // this.saveState();
+
+                if (!this.selectedElement) return;
+
+                const element = this.elements.get(this.selectedElement);
+
+                if (element.type === 'cover' && element.blocks) {
+                    // Remove all DOM blocks for this cover
+                    element.blocks.forEach(b => {
+                        const cellDiv = document.querySelector(`[data-element-id="${element.id}_${b.row}_${b.col}"]`);
+                        if (cellDiv) cellDiv.remove();
+                    });
+                } else {
+                    // Remove all DOM for normal elements
+                    document.querySelectorAll(`[data-element-id="${this.selectedElement}"]`).forEach(el => el.remove());
+                }
+
+                // Remove from elements map
+                this.elements.delete(this.selectedElement);
+
+                this.updateElementList();
+                document.getElementById('editModal').style.display = 'none';
+                this.selectedElement = null;
+            }
+
+            applyGridSettings(event) {
+                event.preventDefault();
+                const formData = new FormData(event.target);
+                
+                this.gridWidth = parseInt(formData.get('width'));
+                this.gridHeight = parseInt(formData.get('height'));
+                this.cellSize = parseInt(formData.get('cellSize'));
+                
+                // Clear all elements from grid and recreate
+                this.elements.forEach(element => {
+                    element.row = Math.min(element.row, this.gridHeight - element.size);
+                    element.col = Math.min(element.col, this.gridWidth - element.size);
+                });
+                
+                this.createGrid();
+                this.elements.forEach(element => this.createElementVisual(element));
+                this.updateElementList();
+                this.updateGridSizeDisplay();
+                
+                document.getElementById('gridSettingsModal').style.display = 'none';
+            }
+
+            updateGridSizeDisplay() {
+                document.getElementById('gridSizeDisplay').textContent = `${this.cellSize}ft`;
+            }
+
+            updateElementList() {
+                const listContainer = document.getElementById('elementList');
+                listContainer.innerHTML = '';
+
+                const sortedElements = Array.from(this.elements.values()).sort((a, b) => {
+                    if (a.type !== b.type) {
+                        const order = { player: 0, enemy: 1, cover: 2 };
+                        return order[a.type] - order[b.type];
+                    }
+                    return a.name.localeCompare(b.name);
+                });
+
+                sortedElements.forEach(element => {
+                    const item = document.createElement('div');
+                    item.className = 'element-item';
+                    
+                    if (element.stealth && element.type !== 'cover') {
+                        item.classList.add('stealth-item');
+                    }
+                    
+                    const visual = element.type === 'cover' ? 
+                        `<div class="element-color cover-symbol">${this.getCoverSymbol(element.coverType)}</div>` :
+                        `<div class="element-color" style="background-color: ${element.color}"></div>`;
+                    
+                    let statusInfo = '';
+                    if (element.type === 'player') {
+                        const hpPercent = element.maxHitPoints > 0 ? (element.currentHitPoints / element.maxHitPoints) * 100 : 100;
+                        const hpStatus = element.currentHitPoints <= 0 ? 'unconscious' : 
+                                        hpPercent <= 25 ? 'critical' :
+                                        hpPercent <= 50 ? 'bloodied' : 'healthy';
+                        
+                        statusInfo = `
+                            <div class="element-stats">
+                                <span class="hp-display ${hpStatus}">HP: ${element.currentHitPoints}/${element.maxHitPoints}</span>
+                                ${element.stealth ? '<span class="stealth-tag">STEALTH</span>' : ''}
+                            </div>
+                        `;
+                    } else if (element.type === 'enemy') {
+                        statusInfo = `
+                            <div class="element-stats">
+                                <span class="damage-display">Damage: ${element.damageDealt}</span>
+                                ${element.stealth ? '<span class="stealth-tag">STEALTH</span>' : ''}
+                            </div>
+                        `;
+                    }
+                    
+                    item.innerHTML = `
+                        <div class="element-info">
+                            ${visual}
+                            <span class="element-name">${element.name}</span>
+                            <span class="element-type">(${element.type})</span>
+                            ${element.size > 1 ? `<span class="element-size">${element.size}x${element.size}</span>` : ''}
+                        </div>
+                        ${statusInfo}
+                        <div class="element-position">
+                            Position: ${element.col + 1}, ${element.row + 1}
+                        </div>
+                    `;
+                    
+                    item.addEventListener('click', (() => {
+                        let clickTimeout = null;
+                        return () => {
+                            const elementId = element.id;
+                        
+                            if (clickTimeout) {
+                                // Double click detected within 250ms
+                                clearTimeout(clickTimeout);
+                                clickTimeout = null;
+                                this.editElement(elementId); // open edit
+                                return;
+                            }
+                          
+                            clickTimeout = setTimeout(() => {
+                                clickTimeout = null;
+                                // Single click behavior: toggle selection
+                                if (this.selectedElement === elementId) {
+                                    this.clearSelection();
+                                    this.selectedElement = null;
+                                } else {
+                                    this.selectElementForMovement(elementId);
+                                }
+                            }, 250); // 250ms threshold for double click
+                        };
+                    })());
+
+                    item.addEventListener('dblclick', () => {
+                        this.editElement(element.id);
+                    });
+
+                    listContainer.appendChild(item);
+                });
+            }
+
+            selectElementForMovement(elementId) {
+                this.clearSelection();
+                this.selectedElement = elementId;
+
+                const element = this.elements.get(elementId);
+                if (!element) return;
+                
+                document.querySelectorAll(`[data-element-id="${elementId}"]`).forEach(el => {
+                    el.classList.add('selected');
+                });
+
+                if (element.type === 'cover' && element.blocks) {
+                    // Highlight each block
+                    element.blocks.forEach(b => {
+                        const blockDiv = document.querySelector(`[data-element-id="${element.id}_${b.row}_${b.col}"]`);
+                        if (blockDiv) {
+                            blockDiv.classList.add('cover-highlight');
+                        }
+                    });
+                }
+
+                if (element.type !== 'cover') {
+                    this.highlightMovementArea(elementId);
+                }
+            }
+
+            clearSelection() {
+                document.querySelectorAll('.element.selected').forEach(el => {
+                    el.classList.remove('selected');
+                });
+
+                // Remove movement highlights
+                document.querySelectorAll('.movement-highlight').forEach(el => el.remove());
+            }
+
+            clearMap() {
+                if (confirm('Are you sure you want to clear all enemies and cover?')) {
+                    this.saveState();
+                
+                    // Remove enemies and cover from elements map
+                    this.elements.forEach((element, id) => {
+                        if (element.type === 'enemy' || element.type === 'cover') {
+                            // Remove DOM visuals
+                            if (element.type === 'cover' && element.blocks) {
+                                element.blocks.forEach(b => {
+                                    const cellDiv = document.querySelector(`[data-element-id="${element.id}_${b.row}_${b.col}"]`);
+                                    if (cellDiv) cellDiv.remove();
+                                });
+                            } else {
+                                document.querySelectorAll(`[data-element-id="${id}"]`).forEach(el => el.remove());
+                            }
+                            this.elements.delete(id);
+                        }
+                    });
+                  
+                    this.selectedElement = null;
+                    this.updateElementList();
+                }
+            }
+        }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', () => {
+            const battleMap = new BattleMap();
+
+            document.getElementById('undoMove').addEventListener('click', () => {
+                    battleMap.undoMove();
+                });
+        });
+    </script>
+</body>
+</html>
