@@ -14,6 +14,7 @@ export const useGrid = (state) => {
     battleMap.style.gridTemplateRows = `repeat(${state.grid.height}, 40px)`;
     battleMap.innerHTML = '';
 
+    // Create grid cells
     for (let y = 0; y < state.grid.height; y++) {
       for (let x = 0; x < state.grid.width; x++) {
         const cell = document.createElement('div');
@@ -22,16 +23,37 @@ export const useGrid = (state) => {
         cell.dataset.y = y;
         cell.style.gridRow = `${y + 1}`;
         cell.style.gridColumn = `${x + 1}`;
+        // Show coverBlocks visually during drawing mode
+        if (state.isDrawingCover && Array.isArray(state.coverBlocks)) {
+          if (state.coverBlocks.some(b => b.x === x && b.y === y)) {
+            const highlight = document.createElement('div');
+            highlight.classList.add('drawing-cover-highlight');
+            cell.appendChild(highlight);
+          }
+        }
         battleMap.appendChild(cell);
-        console.log(`Created cell at x=${x}, y=${y}`);
       }
     }
 
+    // Add elements
+    // Find selected cover groupId if a cover is selected
+    let selectedCoverGroupId = null;
+    if (state.highlightedElementId) {
+      const selected = state.elements.find(e => e.id === state.highlightedElementId);
+      if (selected && selected.type === 'cover' && selected.groupId) {
+        selectedCoverGroupId = selected.groupId;
+      }
+    }
     state.elements.forEach((el) => {
       const elDiv = document.createElement('div');
       elDiv.classList.add('element', el.type);
       if (el.type === 'cover') {
         elDiv.classList.add('custom-cover', el.coverType);
+        // Highlight all blocks in the selected group
+        if (selectedCoverGroupId && el.groupId === selectedCoverGroupId) {
+          elDiv.classList.add('cover-block-highlight');
+          console.log('Highlighting cover block', el.id, el.position);
+        }
       } else {
         elDiv.style.backgroundColor = el.color;
       }
@@ -41,8 +63,69 @@ export const useGrid = (state) => {
       elDiv.style.gridColumn = `${el.position.x + 1} / span ${el.size}`;
       battleMap.appendChild(elDiv);
     });
-  };
 
+    // Add movement highlights if an element is selected
+    if (state.highlightedElementId) {
+      const element = state.elements.find(e => e.id === state.highlightedElementId);
+      if (element && (element.type === 'player' || element.type === 'enemy') && element.movement) {
+        const range = Math.floor((element.movement || 30) / state.grid.cellSize);
+        const start = { x: element.position.x, y: element.position.y };
+        const width = state.grid.width;
+        const height = state.grid.height;
+        // Build a set of blocked cells (cover)
+        const blocked = new Set();
+        state.elements.forEach(el => {
+          if (el.type === 'cover') {
+            for (let dx = 0; dx < el.size; dx++) {
+              for (let dy = 0; dy < el.size; dy++) {
+                blocked.add(`${el.position.x + dx},${el.position.y + dy}`);
+              }
+            }
+          }
+        });
+
+        // BFS for reachable cells
+        const visited = new Set();
+        const queue = [{ x: start.x, y: start.y, dist: 0 }];
+        visited.add(`${start.x},${start.y}`);
+        while (queue.length > 0) {
+          const { x, y, dist } = queue.shift();
+          if (dist > range) continue;
+          // Highlight cell
+          const cell = battleMap.querySelector(`.grid-cell[data-x="${x}"][data-y="${y}"]`);
+          if (cell) {
+            const highlight = document.createElement('div');
+            highlight.classList.add('movement-highlight');
+            if (element.type === 'enemy') {
+              highlight.classList.add('enemy');
+            }
+            cell.insertBefore(highlight, cell.firstChild);
+          }
+          // Explore neighbors
+          const directions = [
+            { dx: 1, dy: 0 },
+            { dx: -1, dy: 0 },
+            { dx: 0, dy: 1 },
+            { dx: 0, dy: -1 }
+          ];
+          for (const dir of directions) {
+            const nx = x + dir.dx;
+            const ny = y + dir.dy;
+            const key = `${nx},${ny}`;
+            if (
+              nx >= 0 && nx < width &&
+              ny >= 0 && ny < height &&
+              !visited.has(key) &&
+              !blocked.has(key)
+            ) {
+              visited.add(key);
+              queue.push({ x: nx, y: ny, dist: dist + 1 });
+            }
+          }
+        }
+      }
+    }
+  };
   const updateGridInfo = () => {
     const gridInfo = document.querySelector('.grid-info');
     if (gridInfo) {

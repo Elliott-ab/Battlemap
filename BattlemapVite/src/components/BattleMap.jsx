@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { useGrid } from '../utils/grid.js';
+import { useGrid } from '../Utils/grid.js';
 
 const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlocks, updateElementPosition, pushUndo, highlightCoverGroup, battleMapRef }) => {
   const localBattleMapRef = useRef(null);
@@ -56,9 +56,11 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
   };
 
   const handleClick = (e) => {
-    if (!isDrawingCover) return;
     const cell = e.target.closest('.grid-cell');
-    if (cell) {
+    if (!cell) return;
+
+    // Cover drawing mode
+    if (isDrawingCover) {
       const x = parseInt(cell.dataset.x);
       const y = parseInt(cell.dataset.y);
       const existingHighlight = cell.querySelector('.drawing-cover-highlight');
@@ -70,6 +72,31 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
         highlight.classList.add('drawing-cover-highlight');
         cell.appendChild(highlight);
         setCoverBlocks([...coverBlocks, { x, y }]);
+      }
+      return;
+    }
+
+    // Movement or cover highlight mode
+    if (state.highlightedElementId) {
+      const element = state.elements.find(e => e.id === state.highlightedElementId);
+      if (!element) return;
+      const x = parseInt(cell.dataset.x);
+      const y = parseInt(cell.dataset.y);
+      if (element.type === 'player' || element.type === 'enemy') {
+        const range = Math.floor((element.movement || 30) / state.grid.cellSize);
+        const { x: ex, y: ey } = element.position;
+        // Check if cell is in movement range
+        if (Math.abs(x - ex) + Math.abs(y - ey) <= range) {
+          updateElementPosition(element.id, x, y);
+          pushUndo();
+        } else {
+          // Remove highlight if clicked outside range
+          setState({ ...state, highlightedElementId: null });
+        }
+      } else if (element.type === 'cover' && element.groupId) {
+        // Move the whole cover group to the clicked cell (same as drag logic)
+        updateElementPosition(element.id, x, y);
+        pushUndo();
       }
     }
   };

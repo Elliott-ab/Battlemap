@@ -1,4 +1,4 @@
-import { initialState } from '../utils/state.js';
+import { initialState } from '../Utils/state.js';
 
 let nextId = 1;
 let nextGroupId = 1;
@@ -84,34 +84,99 @@ export const useElements = (state, setState) => {
 
   const updateElementPosition = (id, x, y) => {
     const el = getElementById(id);
-    if (!el || x < 0 || y < 0 || x + el.size > state.grid.width || y + el.size > state.grid.height) {
-      console.warn(`Invalid position update for element ${id}: x=${x}, y=${y}`);
+    if (!el) {
+      console.warn(`Element with id ${id} not found`);
       return;
     }
 
-    console.log('Updating position:', { id, x, y });
+    // For cover group, clamp movement so all blocks stay in bounds and do not overlap other elements
     if (el.type === 'cover' && el.groupId) {
       const groupElements = state.elements.filter(e => e.type === 'cover' && e.groupId === el.groupId);
       const dx = x - el.position.x;
       const dy = y - el.position.y;
 
+      // Find allowed dx/dy so all blocks stay in bounds
+      let maxDx = dx;
+      let maxDy = dy;
+      groupElements.forEach(e => {
+        // Clamp dx so x >= 0 and x + size <= width
+        if (e.position.x + maxDx < 0) {
+          maxDx = -e.position.x;
+        }
+        if (e.position.x + maxDx + e.size > state.grid.width) {
+          maxDx = state.grid.width - e.size - e.position.x;
+        }
+        // Clamp dy so y >= 0 and y + size <= height
+        if (e.position.y + maxDy < 0) {
+          maxDy = -e.position.y;
+        }
+        if (e.position.y + maxDy + e.size > state.grid.height) {
+          maxDy = state.grid.height - e.size - e.position.y;
+        }
+      });
+
+      // Check for collisions with other elements
+      // Try all possible deltas from maxDx/maxDy down to 0, prioritizing the largest move
+      function isCollision(testDx, testDy) {
+        // Get new positions for group
+        const newPositions = groupElements.map(e => ({
+          x: e.position.x + testDx,
+          y: e.position.y + testDy,
+          size: e.size
+        }));
+        // Check against all other elements
+        return state.elements.some(other => {
+          // Skip elements in the same group
+          if (other.type === 'cover' && other.groupId === el.groupId) return false;
+          // Check overlap
+          return newPositions.some(pos => {
+            return (
+              pos.x < other.position.x + other.size &&
+              pos.x + pos.size > other.position.x &&
+              pos.y < other.position.y + other.size &&
+              pos.y + pos.size > other.position.y
+            );
+          });
+        });
+      }
+
+      let finalDx = maxDx;
+      let finalDy = maxDy;
+      // Try all possible moves from maxDx/maxDy down to 0
+      let found = false;
+      for (let d = 0; d <= Math.max(Math.abs(maxDx), Math.abs(maxDy)); d++) {
+        // Try moving dx/dy closer to zero
+        const tryDx = maxDx > 0 ? Math.max(maxDx - d, 0) : Math.min(maxDx + d, 0);
+        const tryDy = maxDy > 0 ? Math.max(maxDy - d, 0) : Math.min(maxDy + d, 0);
+        if (!isCollision(tryDx, tryDy)) {
+          finalDx = tryDx;
+          finalDy = tryDy;
+          found = true;
+          break;
+        }
+      }
+      // If all moves collide, don't move
+      if (!found && isCollision(0, 0)) {
+        finalDx = 0;
+        finalDy = 0;
+      }
+
       const updatedElements = state.elements.map((e) => {
         if (e.type === 'cover' && e.groupId === el.groupId) {
-          const newX = e.position.x + dx;
-          const newY = e.position.y + dy;
-          if (newX < 0 || newY < 0 || newX + e.size > state.grid.width || newY + e.size > state.grid.height) {
-            console.warn(`Cannot move group ${el.groupId}: block at (${newX}, ${newY}) out of bounds`);
-            return e;
-          }
+          const newX = e.position.x + finalDx;
+          const newY = e.position.y + finalDy;
           return { ...e, position: { x: newX, y: newY } };
         }
         return e;
       });
       setState({ ...state, elements: updatedElements, highlightedElementId: null });
     } else {
+      // Clamp single element to bounds
+      let clampedX = Math.max(0, Math.min(x, state.grid.width - el.size));
+      let clampedY = Math.max(0, Math.min(y, state.grid.height - el.size));
       setState({
         ...state,
-        elements: state.elements.map((e) => e.id === id ? { ...e, position: { x, y } } : e),
+        elements: state.elements.map((e) => e.id === id ? { ...e, position: { x: clampedX, y: clampedY } } : e),
         highlightedElementId: null,
       });
     }

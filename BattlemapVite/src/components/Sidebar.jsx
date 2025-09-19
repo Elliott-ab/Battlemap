@@ -1,6 +1,6 @@
 import React from 'react';
 
-const Sidebar = ({ state, toggleMovementHighlight, highlightCoverGroup, showEditModal, battleMapRef }) => {
+const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup, showEditModal, battleMapRef }) => {
   console.log('Sidebar received battleMapRef:', battleMapRef);
 
   const coverGroups = {};
@@ -59,7 +59,14 @@ const Sidebar = ({ state, toggleMovementHighlight, highlightCoverGroup, showEdit
             key={groupId}
             className="element-item"
             data-id={firstId}
-            onClick={() => highlightCoverGroup(groupId)}
+            onClick={() => {
+              // Toggle cover group highlight and preserve movement
+              if (state.highlightedElementId === firstId) {
+                setState(prev => ({ ...prev, highlightedElementId: null }));
+              } else {
+                setState(prev => ({ ...prev, highlightedElementId: firstId }));
+              }
+            }}
             onDoubleClick={() => showEditModal(firstId)}
           >
             <div className="element-info">

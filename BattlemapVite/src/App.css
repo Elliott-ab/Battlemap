@@ -1,3 +1,18 @@
+/* Highlight for cover block boundary */
+.cover-block-highlight {
+    box-shadow: 0 0 8px 2px #FFEB3B80 !important;
+    border: 2px solid #FFEB3B !important;
+    background: rgba(255, 235, 59, 0.15) !important;
+    border-radius: 6px !important;
+    z-index: 100 !important;
+}
+/* Highlight for cover block boundary */
+.cover-block-highlight {
+    box-shadow: 0 0 0 3px #FFEB3B;
+    border: 2px solid #FFEB3B;
+    border-radius: 4px;
+    z-index: 10;
+}
 .element-position {
     font-size: 0.8rem;
     color: #aaa;

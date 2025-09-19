@@ -6,14 +6,25 @@ import EditModal from './components/Modals/EditModal.jsx';
 import GridModal from './components/Modals/GridModal.jsx';
 import SaveModal from './components/Modals/SaveModal.jsx';
 import OverwriteModal from './components/Modals/OverwriteModal.jsx';
-import { initialState } from './utils/state.js';
-import { useGrid } from './utils/grid.js';
-import { useElements } from './utils/elements.js';
-import { useModals } from './utils/modals.js';
-import { useStorage } from './utils/storage.js';
-import { useUndo } from './utils/undo.js';
+import { initialState } from './Utils/state.js';
+import { useGrid } from './Utils/grid.js';
+import { useElements } from './Utils/elements.js';
+import { useModals } from './Utils/modals.js';
+import { useStorage } from './Utils/storage.js';
+import { useUndo } from './Utils/undo.js';
 
 function App() {
+  const toggleDrawingMode = () => {
+    if (!isDrawingCover) {
+      setIsDrawingCover(true);
+      setCoverBlocks([]);
+    } else {
+      setIsDrawingCover(false);
+      createCoverFromBlocks(coverBlocks, 'half');
+      setCoverBlocks([]);
+      pushUndo();
+    }
+  };
   const [state, setState] = useState({ ...initialState, highlightedElementId: null });
   const [isDrawingCover, setIsDrawingCover] = useState(false);
   const [coverBlocks, setCoverBlocks] = useState([]);
@@ -38,17 +49,8 @@ function App() {
     renderElementsList();
   }, [state, updateGridInfo, renderElementsList]);
 
-  const toggleDrawingMode = () => {
-    if (!isDrawingCover) {
-      setIsDrawingCover(true);
-      setCoverBlocks([]);
-    } else {
-      setIsDrawingCover(false);
-      createCoverFromBlocks(coverBlocks, 'half');
-      setCoverBlocks([]);
-      pushUndo();
-    }
-  };
+  // Sync isDrawingCover and coverBlocks into state for grid rendering
+  const mergedState = { ...state, isDrawingCover, coverBlocks };
 
   return (
     <div className="app-container">
@@ -66,14 +68,15 @@ function App() {
       />
       <div className="main-content">
         <Sidebar
-          state={state}
+          state={mergedState}
+          setState={setState}
           toggleMovementHighlight={toggleMovementHighlight}
           highlightCoverGroup={highlightCoverGroup}
           showEditModal={showEditModal}
           battleMapRef={battleMapRef}
         />
         <BattleMap
-          state={state}
+          state={mergedState}
           setState={setState}
           isDrawingCover={isDrawingCover}
           coverBlocks={coverBlocks}
@@ -87,7 +90,7 @@ function App() {
       <EditModal
         isOpen={modalState.editModal.isOpen}
         elementId={modalState.editModal.elementId}
-        state={state}
+        state={mergedState}
         updateElement={updateElement}
         deleteElement={deleteElement}
         pushUndo={pushUndo}
@@ -95,7 +98,7 @@ function App() {
       />
       <GridModal
         isOpen={modalState.gridModal}
-        state={state}
+        state={mergedState}
         setState={setState}
         pushUndo={pushUndo}
         onClose={() => setModalState(prev => ({ ...prev, gridModal: false }))}
