@@ -1,6 +1,10 @@
 import React from 'react';
+import IconButton from '@mui/material/IconButton';
+import PersonAddOutlinedIcon from '@mui/icons-material/PersonAddOutlined';
+import GroupAddOutlinedIcon from '@mui/icons-material/GroupAddOutlined';
+import BrushOutlinedIcon from '@mui/icons-material/BrushOutlined';
 
-const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup, showEditModal, battleMapRef }) => {
+const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup, showEditModal, battleMapRef, addPlayer, addEnemy, isDrawingCover, toggleDrawingMode }) => {
   console.log('Sidebar received battleMapRef:', battleMapRef);
 
   const coverGroups = {};
@@ -22,7 +26,18 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
 
   return (
     <aside className="sidebar">
-      <h3>Elements</h3>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5em' }}>
+        <h3 style={{ margin: 0 }}>Elements</h3>
+        <IconButton onClick={addPlayer} disabled={isDrawingCover} title="Add Player" size="small">
+          <PersonAddOutlinedIcon sx={{ color: isDrawingCover ? 'grey' : 'white' }} />
+        </IconButton>
+        <IconButton onClick={addEnemy} disabled={isDrawingCover} title="Add Enemy" size="small">
+          <GroupAddOutlinedIcon sx={{ color: isDrawingCover ? 'grey' : 'white' }} />
+        </IconButton>
+        <IconButton onClick={toggleDrawingMode} title={isDrawingCover ? 'Finish Drawing' : 'Draw Cover'} size="small">
+          <BrushOutlinedIcon sx={{ color: isDrawingCover ? '#4CAF50' : 'white' }} />
+        </IconButton>
+      </div>
       <div className="element-list">
         {state.elements
           .filter((el) => el.type !== 'cover' || !el.groupId)

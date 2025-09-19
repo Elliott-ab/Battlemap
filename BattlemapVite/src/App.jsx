@@ -74,6 +74,10 @@ function App() {
           highlightCoverGroup={highlightCoverGroup}
           showEditModal={showEditModal}
           battleMapRef={battleMapRef}
+          addPlayer={() => { addElement('player'); pushUndo(); }}
+          addEnemy={() => { addElement('enemy'); pushUndo(); }}
+          isDrawingCover={isDrawingCover}
+          toggleDrawingMode={toggleDrawingMode}
         />
         <BattleMap
           state={mergedState}

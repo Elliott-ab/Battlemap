@@ -1,20 +1,31 @@
 import React from 'react';
+import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
+import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
+import UndoOutlinedIcon from '@mui/icons-material/UndoOutlined';
+import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
+import UploadOutlinedIcon from '@mui/icons-material/UploadOutlined';
+import IconButton from '@mui/material/IconButton';
 
 const Toolbar = ({ isDrawingCover, toggleDrawingMode, addPlayer, addEnemy, showGridModal, clearMap, undo, showSaveModal, showOverwriteModal, gridSize }) => {
   return (
     <header className="toolbar">
       <h1>D&D Battle Map</h1>
       <div className="controls">
-        <button className="btn btn-primary" onClick={addPlayer} disabled={isDrawingCover}>Add Player</button>
-        <button className="btn btn-secondary" onClick={addEnemy} disabled={isDrawingCover}>Add Enemy</button>
-        <button className={`btn ${isDrawingCover ? 'btn-primary' : 'btn-cover'}`} onClick={toggleDrawingMode} id="drawCoverBtn">
-          {isDrawingCover ? 'Finish Drawing' : 'Draw Cover'}
-        </button>
-        <button className="btn btn-tertiary" onClick={showGridModal} disabled={isDrawingCover}>Grid Settings</button>
-        <button className="btn btn-danger" onClick={clearMap} disabled={isDrawingCover}>Clear Map</button>
-        <button className="btn btn-tertiary" onClick={undo} disabled={isDrawingCover}>Undo</button>
-        <button className="btn btn-primary" onClick={showSaveModal} disabled={isDrawingCover}>Download Map</button>
-        <button className="btn btn-secondary" onClick={showOverwriteModal} disabled={isDrawingCover}>Upload Map</button>
+        <IconButton onClick={showGridModal} disabled={isDrawingCover} title="Grid Settings" size="large">
+          <SettingsOutlinedIcon sx={{ color: isDrawingCover ? 'grey' : 'white' }} />
+        </IconButton>
+        <IconButton onClick={clearMap} disabled={isDrawingCover} title="Clear Map" size="large">
+          <DeleteOutlinedIcon sx={{ color: isDrawingCover ? 'grey' : 'white' }} />
+        </IconButton>
+        <IconButton onClick={undo} disabled={isDrawingCover} title="Undo" size="large">
+          <UndoOutlinedIcon sx={{ color: isDrawingCover ? 'grey' : 'white' }} />
+        </IconButton>
+        <IconButton onClick={showSaveModal} disabled={isDrawingCover} title="Download Map" size="large">
+          <DownloadOutlinedIcon sx={{ color: isDrawingCover ? 'grey' : 'white' }} />
+        </IconButton>
+        <IconButton onClick={showOverwriteModal} disabled={isDrawingCover} title="Upload Map" size="large">
+          <UploadOutlinedIcon sx={{ color: isDrawingCover ? 'grey' : 'white' }} />
+        </IconButton>
         <span className="grid-info">Grid: {gridSize}ft per cell</span>
       </div>
     </header>
