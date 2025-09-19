@@ -2,6 +2,8 @@ import { initialState } from '../Utils/state.js';
 
 let nextId = 1;
 let nextGroupId = 1;
+let nextPlayerId = 1;
+let nextEnemyId = 1;
 
 export const useElements = (state, setState) => {
   if (!state.hasOwnProperty('highlightedElementId')) {
@@ -40,9 +42,20 @@ export const useElements = (state, setState) => {
       groupId: null,
     };
     const { position, size, coverType, groupId } = { ...defaults, ...options };
+    let name, id;
+    if (type === 'player') {
+      id = nextId++;
+      name = `Player ${nextPlayerId++}`;
+    } else if (type === 'enemy') {
+      id = nextId++;
+      name = `Enemy ${nextEnemyId++}`;
+    } else {
+      id = nextId++;
+      name = `${type.charAt(0).toUpperCase() + type.slice(1)} ${nextId}`;
+    }
     const newEl = {
-      id: nextId++,
-      name: `${type.charAt(0).toUpperCase() + type.slice(1)} ${nextId}`,
+      id,
+      name,
       type,
       position,
       size,
