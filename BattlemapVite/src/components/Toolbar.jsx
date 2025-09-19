@@ -9,7 +9,7 @@ import IconButton from '@mui/material/IconButton';
 const Toolbar = ({ isDrawingCover, toggleDrawingMode, addPlayer, addEnemy, showGridModal, clearMap, undo, showSaveModal, showOverwriteModal, gridSize }) => {
   return (
     <header className="toolbar">
-      <h1>D&D Battle Map</h1>
+      <h1>B A T T L E M A P</h1>
       <div className="controls">
         <IconButton onClick={showGridModal} disabled={isDrawingCover} title="Grid Settings" size="large">
           <SettingsOutlinedIcon sx={{ color: isDrawingCover ? 'grey' : 'white' }} />
