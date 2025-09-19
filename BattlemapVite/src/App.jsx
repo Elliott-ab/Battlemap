@@ -3,6 +3,7 @@ import Toolbar from './components/Toolbar.jsx';
 import Sidebar from './components/Sidebar.jsx';
 import BattleMap from './components/BattleMap.jsx';
 import EditModal from './components/Modals/EditModal.jsx';
+import AddCharacterModal from './components/Modals/AddCharacterModal.jsx';
 import GridModal from './components/Modals/GridModal.jsx';
 import SaveModal from './components/Modals/SaveModal.jsx';
 import OverwriteModal from './components/Modals/OverwriteModal.jsx';
@@ -33,6 +34,7 @@ function App() {
     gridModal: false,
     saveModal: false,
     overwriteModal: false,
+    addCharacter: false,
   });
   const [undoStack, setUndoStack] = useState([]);
   const uploadInputRef = useRef(null);
@@ -51,6 +53,64 @@ function App() {
 
   // Sync isDrawingCover and coverBlocks into state for grid rendering
   const mergedState = { ...state, isDrawingCover, coverBlocks };
+
+  // Handler for adding characters (batch logic from Sidebar)
+  const handleAddCharacters = (characterType, quantity) => {
+    let localNextId = Math.max(1, ...state.elements.map(e => e.id || 0)) + 1;
+    const getNextNumber = (type) => {
+      const nums = state.elements.filter(e => e.type === type).map(e => parseInt((e.name||'').split(' ')[1]) || 0);
+      if (nums.length === 0) return 1;
+      return Math.max(...nums) + 1;
+    };
+    let localNextPlayerId = getNextNumber('player');
+    let localNextEnemyId = getNextNumber('enemy');
+    let newElements = [...state.elements];
+    let batch = [];
+    const findEmptyPosition = (elements, size = 1, grid) => {
+      for (let y = 0; y < state.grid.height - size + 1; y++) {
+        for (let x = 0; x < state.grid.width - size + 1; x++) {
+          let isOccupied = false;
+          for (const el of elements) {
+            if (
+              x < el.position.x + el.size &&
+              x + size > el.position.x &&
+              y < el.position.y + el.size &&
+              y + size > el.position.y
+            ) {
+              isOccupied = true;
+              break;
+            }
+          }
+          if (!isOccupied) {
+            return { x, y };
+          }
+        }
+      }
+      return { x: 0, y: 0 };
+    };
+    for (let i = 0; i < quantity; i++) {
+      const pos = findEmptyPosition(newElements, 1, state.grid);
+      let type = characterType;
+      let name = type === 'player' ? `Player ${localNextPlayerId++}` : `Enemy ${localNextEnemyId++}`;
+      let color = type === 'player' ? '#4CAF50' : '#f44336';
+      let newEl = {
+        id: localNextId++,
+        name,
+        type,
+        position: pos,
+        size: 1,
+        color,
+        maxHp: 10,
+        currentHp: 10,
+        movement: 30,
+        damage: type === 'enemy' ? 0 : undefined
+      };
+      newElements.push(newEl);
+      batch.push(newEl);
+    }
+    setState(prev => ({ ...prev, elements: [...prev.elements, ...batch], highlightedElementId: null }));
+    setModalState(prev => ({ ...prev, addCharacter: false }));
+  };
 
   return (
     <div className="app-container">
@@ -74,10 +134,9 @@ function App() {
           highlightCoverGroup={highlightCoverGroup}
           showEditModal={showEditModal}
           battleMapRef={battleMapRef}
-          addPlayer={() => { addElement('player'); pushUndo(); }}
-          addEnemy={() => { addElement('enemy'); pushUndo(); }}
           isDrawingCover={isDrawingCover}
           toggleDrawingMode={toggleDrawingMode}
+          openAddCharacterModal={() => setModalState(prev => ({ ...prev, addCharacter: true }))}
         />
         <BattleMap
           state={mergedState}
@@ -91,6 +150,11 @@ function App() {
           battleMapRef={battleMapRef}
         />
       </div>
+      <AddCharacterModal
+        isOpen={modalState.addCharacter}
+        onClose={() => setModalState(prev => ({ ...prev, addCharacter: false }))}
+        onAdd={handleAddCharacters}
+      />
       <EditModal
         isOpen={modalState.editModal.isOpen}
         elementId={modalState.editModal.elementId}

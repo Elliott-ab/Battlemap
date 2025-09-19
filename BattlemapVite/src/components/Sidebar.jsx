@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import IconButton from '@mui/material/IconButton';
 import PersonAddOutlinedIcon from '@mui/icons-material/PersonAddOutlined';
-import BrushOutlinedIcon from '@mui/icons-material/BrushOutlined';
+import AddBoxOutlinedIcon from '@mui/icons-material/AddBoxOutlined';
 
-const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup, showEditModal, battleMapRef, addPlayer, addEnemy, isDrawingCover, toggleDrawingMode }) => {
+const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup, showEditModal, battleMapRef, isDrawingCover, toggleDrawingMode, openAddCharacterModal }) => {
   console.log('Sidebar received battleMapRef:', battleMapRef);
 
   const coverGroups = {};
@@ -23,9 +23,6 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
     return 'healthy';
   };
 
-  const [popoverOpen, setPopoverOpen] = useState(false);
-  const [characterType, setCharacterType] = useState('player');
-  const [quantity, setQuantity] = useState(1);
 
   // Find next empty position given current elements and any new positions
   const findEmptyPosition = (elements, size = 1, grid) => {
@@ -93,31 +90,13 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
     <aside className="sidebar">
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5em', position: 'relative' }}>
         <h3 style={{ margin: 0 }}>Elements</h3>
-        <IconButton onClick={() => setPopoverOpen(true)} disabled={isDrawingCover} title="Add Character" size="small">
+        <IconButton onClick={openAddCharacterModal} disabled={isDrawingCover} title="Add character elements" size="small">
           <PersonAddOutlinedIcon sx={{ color: isDrawingCover ? 'grey' : 'white' }} />
         </IconButton>
-        <IconButton onClick={toggleDrawingMode} title={isDrawingCover ? 'Finish Drawing' : 'Draw Cover'} size="small">
-          <BrushOutlinedIcon sx={{ color: isDrawingCover ? '#4CAF50' : 'white' }} />
+        <IconButton onClick={toggleDrawingMode} title="Draw cover elements on grid" size="small">
+          <AddBoxOutlinedIcon sx={{ color: isDrawingCover ? '#4CAF50' : 'white' }} />
         </IconButton>
-        {popoverOpen && (
-          <div style={{ position: 'absolute', top: '2.5em', left: '2em', background: '#222', color: 'white', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.2)', padding: '1em', zIndex: 100 }}>
-            <div style={{ marginBottom: '0.5em' }}>
-              <label style={{ marginRight: '0.5em' }}>Type:</label>
-              <select value={characterType} onChange={e => setCharacterType(e.target.value)} style={{ background: '#333', color: 'white', border: 'none', borderRadius: '4px', padding: '0.2em 0.5em' }}>
-                <option value="player">Player</option>
-                <option value="enemy">Enemy</option>
-              </select>
-            </div>
-            <div style={{ marginBottom: '0.5em' }}>
-              <label style={{ marginRight: '0.5em' }}>Quantity:</label>
-              <input type="number" min={1} max={20} value={quantity} onChange={e => setQuantity(Math.max(1, Math.min(20, Number(e.target.value))))} style={{ width: '3em', background: '#333', color: 'white', border: 'none', borderRadius: '4px', padding: '0.2em 0.5em' }} />
-            </div>
-            <div style={{ display: 'flex', gap: '0.5em', justifyContent: 'flex-end' }}>
-              <button onClick={handleAddCharacters} style={{ background: '#4CAF50', color: 'white', border: 'none', borderRadius: '4px', padding: '0.3em 0.8em', cursor: 'pointer' }}>Add</button>
-              <button onClick={() => setPopoverOpen(false)} style={{ background: '#888', color: 'white', border: 'none', borderRadius: '4px', padding: '0.3em 0.8em', cursor: 'pointer' }}>Cancel</button>
-            </div>
-          </div>
-        )}
+        {/* Popover moved to App.jsx as AddCharacterModal */}
       </div>
       <div className="element-list">
         {state.elements
@@ -147,7 +126,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
               ) : (
                 <span className="element-type">{el.coverType.replace('-', ' ')} cover</span>
               )}
-              <span className="element-position">Position: ({el.position.x}, {el.position.y})</span>
+              {/* Removed position display */}
             </div>
           ))}
         {Object.entries(coverGroups).map(([groupId, { coverType, positions, firstId }]) => (
