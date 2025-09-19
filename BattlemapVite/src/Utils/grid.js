@@ -57,7 +57,22 @@ export const useGrid = (state) => {
       } else {
         elDiv.style.backgroundColor = el.color;
       }
-      elDiv.innerText = el.name[0].toUpperCase();
+      if (el.type === 'enemy') {
+        // For enemies, show first letter and up to 2 digits (e.g., E12)
+        const match = el.name.match(/^([A-Za-z])[a-zA-Z]*\s*(\d+)?/);
+        if (match) {
+          let digits = match[2] ? match[2].slice(0, 2) : '';
+          elDiv.innerText = match[1].toUpperCase() + digits;
+        } else {
+          elDiv.innerText = el.name[0].toUpperCase();
+        }
+      } else if (el.type === 'player') {
+        // For players, always show 'P'
+        elDiv.innerText = 'P';
+      } else {
+        // Default: first letter
+        elDiv.innerText = el.name[0].toUpperCase();
+      }
       elDiv.dataset.id = el.id;
       elDiv.style.gridRow = `${el.position.y + 1} / span ${el.size}`;
       elDiv.style.gridColumn = `${el.position.x + 1} / span ${el.size}`;
