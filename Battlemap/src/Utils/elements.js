@@ -4,6 +4,20 @@ let nextId = 1;
 let nextGroupId = 1;
 let nextPlayerId = 1;
 let nextEnemyId = 1;
+// Player color palette (exclude red, which is reserved for enemies)
+const PLAYER_COLORS = [
+  '#4CAF50', // Green
+  '#2196F3', // Blue
+  '#FFEB3B', // Yellow
+  '#FF9800', // Orange
+  '#9C27B0', // Purple
+  '#00BCD4', // Cyan
+  '#E91E63', // Pink
+  '#3F51B5', // Indigo
+  '#009688', // Teal
+  '#8BC34A', // Light Green
+];
+let nextPlayerColorIdx = 0;
 
 export const useElements = (state, setState) => {
   if (!state.hasOwnProperty('highlightedElementId')) {
@@ -53,13 +67,20 @@ export const useElements = (state, setState) => {
       id = nextId++;
       name = `${type.charAt(0).toUpperCase() + type.slice(1)} ${nextId}`;
     }
+    // Choose colors by type (players cycle palette, enemies fixed red, cover brown)
+    const color = type === 'player'
+      ? PLAYER_COLORS[(nextPlayerColorIdx++) % PLAYER_COLORS.length]
+      : type === 'enemy'
+        ? '#f44336'
+        : '#795548';
+
     const newEl = {
       id,
       name,
       type,
       position,
       size,
-      color: type === 'player' ? '#4CAF50' : type === 'enemy' ? '#f44336' : '#795548',
+      color,
       maxHp: type !== 'cover' ? 10 : undefined,
       currentHp: type !== 'cover' ? 10 : undefined,
       movement: type !== 'cover' ? 30 : undefined,

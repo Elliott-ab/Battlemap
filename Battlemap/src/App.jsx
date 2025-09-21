@@ -87,6 +87,21 @@ function App() {
     let localNextEnemyId = getNextNumber('enemy');
     let newElements = [...state.elements];
     let batch = [];
+    // Player color palette (exclude enemy red)
+    const PLAYER_COLORS = [
+      '#4CAF50', // Green
+      '#2196F3', // Blue
+      '#FFEB3B', // Yellow
+      '#FF9800', // Orange
+      '#9C27B0', // Purple
+      '#00BCD4', // Cyan
+      '#E91E63', // Pink
+      '#3F51B5', // Indigo
+      '#009688', // Teal
+      '#8BC34A', // Light Green
+    ];
+    // Seed color index based on current players so colors keep cycling across sessions
+    let nextPlayerColorIdx = state.elements.filter(e => e.type === 'player').length % PLAYER_COLORS.length;
     const findEmptyPosition = (elements, size = 1, grid) => {
       for (let y = 0; y < state.grid.height - size + 1; y++) {
         for (let x = 0; x < state.grid.width - size + 1; x++) {
@@ -113,7 +128,9 @@ function App() {
       const pos = findEmptyPosition(newElements, 1, state.grid);
       let type = characterType;
       let name = type === 'player' ? `Player ${localNextPlayerId++}` : `Enemy ${localNextEnemyId++}`;
-      let color = type === 'player' ? '#4CAF50' : '#f44336';
+      let color = type === 'player'
+        ? PLAYER_COLORS[(nextPlayerColorIdx++) % PLAYER_COLORS.length]
+        : '#f44336';
       let newEl = {
         id: localNextId++,
         name,
