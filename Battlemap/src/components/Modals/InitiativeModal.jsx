@@ -56,7 +56,7 @@ const InitiativeModal = ({ isOpen, state, setState, onClose }) => {
         <span className="close" onClick={onClose}>&times;</span>
         <h3>Set Initiative</h3>
         {combatants.length === 0 ? (
-          <div style={{ color: '#aaa' }}>No players or enemies available.</div>
+          <div style={{ color: '#aaa' }}>Add characters to set initiative</div>
         ) : (
           <div className="initiative-form">
             {[...combatants]
@@ -93,10 +93,12 @@ const InitiativeModal = ({ isOpen, state, setState, onClose }) => {
             ))}
           </div>
         )}
-        <div className="form-actions" style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
-          <button className="btn btn-secondary" onClick={handleReset}>Reset</button>
-          <button className="btn btn-primary" onClick={handleSave}>Save</button>
-        </div>
+        {combatants.length > 0 && (
+          <div className="form-actions" style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+            <button className="btn btn-secondary" onClick={handleReset}>Reset</button>
+            <button className="btn btn-primary" onClick={handleSave}>Save</button>
+          </div>
+        )}
       </div>
     </div>
   );
