@@ -50,6 +50,7 @@ const AddCharacterModal = ({ isOpen, onClose, onAdd, initialType = 'player', ini
             max={20}
             value={quantity}
             onChange={e => setQuantity(Math.max(1, Math.min(20, Number(e.target.value))))}
+            className="no-spinner"
             style={{ width: '100%', background: '#333', color: 'white', border: 'none', borderRadius: '6px', padding: '0.5em', fontSize: '1em' }}
           />
         </div>

@@ -6,10 +6,13 @@ import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import UploadOutlinedIcon from '@mui/icons-material/UploadOutlined';
 import IconButton from '@mui/material/IconButton';
 
-const Toolbar = ({ isDrawingCover, toggleDrawingMode, addPlayer, addEnemy, showGridModal, clearMap, undo, showSaveModal, showOverwriteModal, gridSize }) => {
+const Toolbar = ({ isDrawingCover, showGridModal, clearMap, undo, showSaveModal, showOverwriteModal, gridSize }) => {
   return (
     <header className="toolbar">
-      <h1>B A T T L E M A P</h1>
+      <div className="toolbar-logo">
+        <h1>B A T T L E M A P</h1>
+      </div>
+      <div className="toolbar-spacer" />
       <div className="controls">
         <IconButton onClick={showGridModal} disabled={isDrawingCover} title="Grid Settings" size="large">
           <SettingsOutlinedIcon sx={{ color: isDrawingCover ? 'grey' : 'white' }} />

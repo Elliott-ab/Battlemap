@@ -126,7 +126,7 @@ body {
     padding: 1rem;
     border-bottom: 1px solid #444;
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     flex-shrink: 0;
@@ -142,6 +142,45 @@ body {
     align-items: center;
     gap: 0.5rem;
     flex-wrap: wrap;
+}
+
+.toolbar-logo {
+    width: 280px; /* match sidebar width so edges align */
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.toolbar-logo h1 {
+    margin: 0;
+}
+
+.toolbar-turn {
+    margin-left: 1rem;
+}
+
+.toolbar-spacer {
+    flex: 1;
+}
+
+.turn-box {
+    border: 1px solid #666;
+    color: #fff;
+    padding: 0.25rem 0.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    background: rgba(255,255,255,0.06);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Utility: single-line ellipsis for long text */
+.text-ellipsis {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
 }
 
 .grid-info {
@@ -291,6 +330,11 @@ body {
 .element-name {
     font-weight: 600;
     color: #fff;
+    max-width: 100%;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .element-type {
@@ -396,6 +440,28 @@ body {
     border-color: #ffeb3b;
     box-shadow: 0 0 10px #ffeb3b;
     animation: pulse 1s infinite;
+}
+
+/* Initiative modal number inputs: hide spinner arrows */
+.initiative-form input[type="number"]::-webkit-outer-spin-button,
+.initiative-form input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.initiative-form input[type="number"] {
+    -moz-appearance: textfield; /* Firefox */
+    appearance: textfield; /* Modern browsers */
+}
+
+/* Utility: hide number input spinners wherever applied */
+.no-spinner::-webkit-outer-spin-button,
+.no-spinner::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.no-spinner {
+    -moz-appearance: textfield; /* Firefox */
+    appearance: textfield; /* Modern browsers */
 }
 
 .element.player {

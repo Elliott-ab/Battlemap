@@ -2,9 +2,15 @@ import React from 'react';
 import IconButton from '@mui/material/IconButton';
 import PersonAddOutlinedIcon from '@mui/icons-material/PersonAddOutlined';
 import AddBoxOutlinedIcon from '@mui/icons-material/AddBoxOutlined';
+//
 
-const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup, showEditModal, battleMapRef, isDrawingCover, toggleDrawingMode, openAddCharacterModal }) => {
+import ArrowCircleLeftOutlinedIcon from '@mui/icons-material/ArrowCircleLeftOutlined';
+import ArrowCircleRightOutlinedIcon from '@mui/icons-material/ArrowCircleRightOutlined';
+
+const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup, showEditModal, battleMapRef, isDrawingCover, toggleDrawingMode, openAddCharacterModal, openInitiativeModal }) => {
   console.log('Sidebar received battleMapRef:', battleMapRef);
+
+  // Initiative UI moved to modal-driven approach in Sidebar header (no drag & drop)
 
   const coverGroups = {};
   state.elements.forEach((el) => {
@@ -88,6 +94,40 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
 
   return (
     <aside className="sidebar">
+      {/* Turn controls (initiative) */}
+  <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: '0.75rem', width: '100%' }}>
+        <IconButton size="small" title="Previous Turn" onClick={() => {
+          setState(prev => {
+            const len = (prev.initiativeOrder || []).length;
+            if (!len) return prev;
+            const prevIdx = ((prev.currentTurnIndex || 0) - 1 + len) % len;
+            return { ...prev, currentTurnIndex: prevIdx };
+          });
+        }}>
+          <ArrowCircleLeftOutlinedIcon sx={{ color: 'white' }} />
+        </IconButton>
+        <div className="turn-box" style={{ cursor: 'pointer', flex: 1, minWidth: 0 }} onClick={openInitiativeModal}>
+          {(() => {
+            const order = state.initiativeOrder || [];
+            if (!order.length) return 'Set Initiative';
+            const idx = state.currentTurnIndex || 0;
+            const currentId = order[idx % order.length];
+            const el = (state.elements || []).find(e => e.id === currentId);
+            return el ? `Turn: ${el.name}` : 'Set Initiative';
+          })()}
+        </div>
+        <IconButton size="small" title="Next Turn" onClick={() => {
+          setState(prev => {
+            const len = (prev.initiativeOrder || []).length;
+            if (!len) return prev;
+            const nextIdx = ((prev.currentTurnIndex || 0) + 1) % len;
+            return { ...prev, currentTurnIndex: nextIdx };
+          });
+        }}>
+          <ArrowCircleRightOutlinedIcon sx={{ color: 'white' }} />
+        </IconButton>
+      </div>
+      {/* Elements Section */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5em', position: 'relative' }}>
         <h3 style={{ margin: 0 }}>Elements</h3>
         <IconButton onClick={openAddCharacterModal} disabled={isDrawingCover} title="Add character elements" size="small">
@@ -114,7 +154,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
             >
               <div className="element-info">
                 <div className="element-color" style={{ backgroundColor: el.color }}></div>
-                <span className="element-name">{el.name}</span>
+                <span className="element-name text-ellipsis">{el.name}</span>
                 <span className="element-type">({el.type})</span>
               </div>
               {el.type !== 'cover' ? (

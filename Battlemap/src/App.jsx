@@ -7,6 +7,7 @@ import AddCharacterModal from './components/Modals/AddCharacterModal.jsx';
 import GridModal from './components/Modals/GridModal.jsx';
 import SaveModal from './components/Modals/SaveModal.jsx';
 import OverwriteModal from './components/Modals/OverwriteModal.jsx';
+import InitiativeModal from './components/Modals/InitiativeModal.jsx';
 import { initialState } from './Utils/state.js';
 import { useGrid } from './Utils/grid.js';
 import { useElements } from './Utils/elements.js';
@@ -35,6 +36,7 @@ function App() {
     saveModal: false,
     overwriteModal: false,
     addCharacter: false,
+    initiative: false,
   });
   const [undoStack, setUndoStack] = useState([]);
   const uploadInputRef = useRef(null);
@@ -53,6 +55,25 @@ function App() {
 
   // Sync isDrawingCover and coverBlocks into state for grid rendering
   const mergedState = { ...state, isDrawingCover, coverBlocks };
+
+  // Advance to next turn based on initiativeOrder
+  const handleNextTurn = () => {
+    setState(prev => {
+      const len = (prev.initiativeOrder || []).length;
+      if (!len) return prev;
+      const nextIdx = ((prev.currentTurnIndex || 0) + 1) % len;
+      return { ...prev, currentTurnIndex: nextIdx };
+    });
+  };
+
+  const handlePrevTurn = () => {
+    setState(prev => {
+      const len = (prev.initiativeOrder || []).length;
+      if (!len) return prev;
+      const prevIdx = ((prev.currentTurnIndex || 0) - 1 + len) % len;
+      return { ...prev, currentTurnIndex: prevIdx };
+    });
+  };
 
   // Handler for adding characters (batch logic from Sidebar)
   const handleAddCharacters = (characterType, quantity) => {
@@ -116,9 +137,6 @@ function App() {
     <div className="app-container">
       <Toolbar
         isDrawingCover={isDrawingCover}
-        toggleDrawingMode={toggleDrawingMode}
-        addPlayer={() => { addElement('player'); pushUndo(); }}
-        addEnemy={() => { addElement('enemy'); pushUndo(); }}
         showGridModal={showGridModal}
         clearMap={() => { setState({ ...state, elements: [], highlightedElementId: null }); pushUndo(); }}
         undo={undo}
@@ -137,6 +155,7 @@ function App() {
           isDrawingCover={isDrawingCover}
           toggleDrawingMode={toggleDrawingMode}
           openAddCharacterModal={() => setModalState(prev => ({ ...prev, addCharacter: true }))}
+          openInitiativeModal={() => setModalState(prev => ({ ...prev, initiative: true }))}
         />
         <BattleMap
           state={mergedState}
@@ -170,6 +189,12 @@ function App() {
         setState={setState}
         pushUndo={pushUndo}
         onClose={() => setModalState(prev => ({ ...prev, gridModal: false }))}
+      />
+      <InitiativeModal
+        isOpen={modalState.initiative}
+        state={mergedState}
+        setState={setState}
+        onClose={() => setModalState(prev => ({ ...prev, initiative: false }))}
       />
       <SaveModal
         isOpen={modalState.saveModal}
