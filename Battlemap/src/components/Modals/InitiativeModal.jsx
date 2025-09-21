@@ -26,6 +26,15 @@ const InitiativeModal = ({ isOpen, state, setState, onClose }) => {
     setScores(reset);
   };
 
+  const handleRoll = () => {
+    const rolled = {};
+    for (const c of combatants) {
+      const roll = Math.floor(Math.random() * 20) + 1; // 1-20
+      rolled[c.id] = roll;
+    }
+    setScores(rolled);
+  };
+
   const handleSave = () => {
     // Determine if all scores are zero; if so, clear order to show "Set Initiative"
     const allZero = combatants.every(c => (scores[c.id] ?? 0) === 0);
@@ -58,7 +67,11 @@ const InitiativeModal = ({ isOpen, state, setState, onClose }) => {
         {combatants.length === 0 ? (
           <div style={{ color: '#aaa' }}>Add characters to set initiative</div>
         ) : (
-          <div className="initiative-form">
+          <>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem' }}>
+              <button className="btn btn-outline btn-sm" onClick={handleRoll}>Roll</button>
+            </div>
+            <div className="initiative-form">
             {[...combatants]
               .sort((a, b) => {
                 const sa = scores[a.id] ?? 0;
@@ -73,15 +86,15 @@ const InitiativeModal = ({ isOpen, state, setState, onClose }) => {
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '0.5rem',
-                  marginBottom: '0.5rem',
+                  gap: '0.4rem',
+                  marginBottom: '0.4rem',
                   border: '1px solid #555',
                   borderRadius: '6px',
-                  padding: '0.5rem 0.75rem',
+                  padding: '0.35rem 0.6rem',
                   backgroundColor: '#383838'
                 }}
               >
-                <label style={{ minWidth: 140, flex: 1 }}>{c.name}</label>
+                <label style={{ minWidth: 120, flex: 1 }}>{c.name}</label>
                 <input
                   type="number"
                   min="0"
@@ -91,7 +104,8 @@ const InitiativeModal = ({ isOpen, state, setState, onClose }) => {
                 />
               </div>
             ))}
-          </div>
+            </div>
+          </>
         )}
         {combatants.length > 0 && (
           <div className="form-actions" style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>

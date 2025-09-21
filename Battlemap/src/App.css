@@ -260,6 +260,27 @@ body {
     background-color: #d32f2f;
 }
 
+/* Outline button: transparent background with white border */
+.btn-outline {
+    background-color: transparent;
+    border: 2px solid #ffffff;
+    color: #ffffff;
+}
+
+.btn-outline:hover,
+.btn-outline:focus {
+    background-color: transparent; /* keep transparent on hover */
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.4);
+}
+
+/* Small button variant for tighter UI */
+.btn-sm {
+    padding: 0.35rem 0.6rem;
+    min-height: 32px;
+    font-size: 0.85rem;
+    border-radius: 6px;
+}
+
 .main-content {
     display: flex;
     flex: 1;
@@ -610,6 +631,22 @@ body {
     font-size: 1rem;
     min-height: 44px;
     touch-action: manipulation;
+}
+
+/* Compact initiative rows */
+.initiative-form .form-group {
+    margin-bottom: 0.4rem;
+}
+.initiative-form .form-group input[type="number"] {
+    padding: 0.35rem 0.5rem;
+    min-height: 32px;
+    font-size: 0.95rem;
+}
+.initiative-form .form-group label {
+    display: flex;
+    align-items: center;
+    margin: 0; /* override global margin-bottom to center vertically */
+    min-height: 32px; /* match input height for vertical centering */
 }
 
 .form-group input:focus,
