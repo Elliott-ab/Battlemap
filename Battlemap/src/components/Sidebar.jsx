@@ -127,6 +127,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
           <ArrowCircleRightOutlinedIcon sx={{ color: 'white' }} />
         </IconButton>
       </div>
+      <hr className="sidebar-divider" />
       {/* Elements Section */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5em', position: 'relative' }}>
         <h3 style={{ margin: 0 }}>Elements</h3>
