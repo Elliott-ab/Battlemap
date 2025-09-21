@@ -535,6 +535,10 @@ body {
     ) !important;
 }
 
+/* Ensure cover is always beneath tokens during drag and after re-render */
+.element.cover { z-index: 1; }
+.element.player, .element.enemy { z-index: 15; }
+
 .grid-wrapper {
     display: flex;
     flex-direction: column;

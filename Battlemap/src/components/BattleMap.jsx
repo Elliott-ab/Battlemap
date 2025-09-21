@@ -133,7 +133,8 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
     if (currentDragElement.current) {
       console.log('Finished dragging element:', currentDragElement.current.dataset.id);
       currentDragElement.current.classList.remove('selected');
-      currentDragElement.current.style.zIndex = '10';
+      // Remove inline z-index so CSS controls stacking (players/enemies above cover)
+      currentDragElement.current.style.removeProperty('z-index');
       currentDragElement.current = null;
       document.querySelectorAll('.cover-highlight').forEach(highlight => highlight.remove());
       pushUndo();
