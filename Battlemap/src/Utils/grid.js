@@ -67,8 +67,8 @@ export const useGrid = (state) => {
           elDiv.innerText = el.name[0].toUpperCase();
         }
       } else if (el.type === 'player') {
-        // For players, always show 'P'
-        elDiv.innerText = 'P';
+        // For players, show the first letter of their name
+        elDiv.innerText = (el.name && el.name.length > 0) ? el.name[0].toUpperCase() : 'P';
       } else {
         // Default: first letter
         elDiv.innerText = el.name[0].toUpperCase();
