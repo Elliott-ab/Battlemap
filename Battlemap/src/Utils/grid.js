@@ -87,6 +87,32 @@ export const useGrid = (state) => {
         const start = { x: element.position.x, y: element.position.y };
         const width = state.grid.width;
         const height = state.grid.height;
+        // Helper to convert a hex/rgb(a) string to rgb components
+        const hexToRgb = (hex) => {
+          try {
+            let h = (hex || '').toString().trim();
+            if (!h) return null;
+            if (h.startsWith('rgb')) {
+              const nums = h.replace(/rgba?\(|\)|\s/g, '').split(',').map(Number);
+              if (nums.length >= 3) return { r: nums[0], g: nums[1], b: nums[2] };
+              return null;
+            }
+            if (h[0] === '#') h = h.slice(1);
+            if (h.length === 3) {
+              h = h.split('').map((c) => c + c).join('');
+            }
+            if (h.length !== 6) return null;
+            const r = parseInt(h.slice(0, 2), 16);
+            const g = parseInt(h.slice(2, 4), 16);
+            const b = parseInt(h.slice(4, 6), 16);
+            if ([r, g, b].some((v) => Number.isNaN(v))) return null;
+            return { r, g, b };
+          } catch {
+            return null;
+          }
+        };
+        const rgb = hexToRgb(element.color) || { r: 33, g: 150, b: 243 }; // fallback to blue
+        const alpha = 0.45;
         // Build a set of blocked cells (cover)
         const blocked = new Set();
         state.elements.forEach(el => {
@@ -111,9 +137,10 @@ export const useGrid = (state) => {
           if (cell) {
             const highlight = document.createElement('div');
             highlight.classList.add('movement-highlight');
-            if (element.type === 'enemy') {
-              highlight.classList.add('enemy');
-            }
+            // Style the highlight to match the element's selected color
+            highlight.style.backgroundColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+            highlight.style.boxShadow = `0 0 10px 5px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+            highlight.style.border = `1px solid rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1)`;
             cell.insertBefore(highlight, cell.firstChild);
           }
           // Explore neighbors

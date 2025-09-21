@@ -229,7 +229,7 @@ export const useElements = (state, setState) => {
         return true;
       }
 
-      const range = Math.floor((element.movement || 30) / state.grid.cellSize);
+  const range = Math.floor((element.movement || 30) / state.grid.cellSize);
       console.log('Calculated range:', range, 'cellSize:', state.grid.cellSize);
       if (range <= 0) {
         console.warn('Range is zero or negative, no highlights will be shown');
@@ -256,6 +256,33 @@ export const useElements = (state, setState) => {
       }
 
       console.log('Cells to highlight:', cells);
+
+      // Helper to convert a hex color string to rgb components
+      const hexToRgb = (hex) => {
+        try {
+          let h = (hex || '').toString().trim();
+          if (!h) return null;
+          if (h.startsWith('rgb')) {
+            // rgb or rgba already
+            const nums = h.replace(/rgba?\(|\)|\s/g, '').split(',').map(Number);
+            if (nums.length >= 3) return { r: nums[0], g: nums[1], b: nums[2] };
+            return null;
+          }
+          if (h[0] === '#') h = h.slice(1);
+          if (h.length === 3) {
+            h = h.split('').map((c) => c + c).join('');
+          }
+          if (h.length !== 6) return null;
+          const r = parseInt(h.slice(0, 2), 16);
+          const g = parseInt(h.slice(2, 4), 16);
+          const b = parseInt(h.slice(4, 6), 16);
+          if ([r, g, b].some((v) => Number.isNaN(v))) return null;
+          return { r, g, b };
+        } catch {
+          return null;
+        }
+      };
+      const rgb = hexToRgb(element.color) || { r: 33, g: 150, b: 243 }; // fallback to blue
       let highlightCount = 0;
       cells.forEach(({ x, y }) => {
         const cell = battleMap.querySelector(`.grid-cell[data-x="${x}"][data-y="${y}"]`);
@@ -263,9 +290,11 @@ export const useElements = (state, setState) => {
           console.log(`Found cell at x=${x}, y=${y}:`, cell);
           const highlight = document.createElement('div');
           highlight.classList.add('movement-highlight');
-          if (element.type === 'enemy') {
-            highlight.classList.add('enemy');
-          }
+          // Style the highlight to match the element's selected color
+          const alpha = 0.45;
+          highlight.style.backgroundColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+          highlight.style.boxShadow = `0 0 10px 5px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+          highlight.style.border = `1px solid rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1)`;
           cell.appendChild(highlight);
           console.log(`Appended highlight to cell at x=${x}, y=${y}`);
           highlightCount++;
