@@ -31,6 +31,10 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
     return 'healthy';
   };
 
+  // Determine current turn element id if initiative is set
+  const order = state.initiativeOrder || [];
+  const currentTurnId = order.length ? order[(state.currentTurnIndex || 0) % order.length] : null;
+
 
   // Find next empty position given current elements and any new positions
   const findEmptyPosition = (elements, size = 1, grid) => {
@@ -162,6 +166,11 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
                 toggleMovementHighlight(el.id, battleMapRef);
               }}
               onDoubleClick={() => showEditModal(el.id)}
+              style={{
+                position: 'relative',
+                borderColor: (currentTurnId === el.id && (el.type === 'player' || el.type === 'enemy')) ? '#ffffff' : undefined,
+                boxShadow: (currentTurnId === el.id && (el.type === 'player' || el.type === 'enemy')) ? '4px 0 10px rgba(255,255,255,0.45)' : undefined
+              }}
             >
               <div className="element-info">
                 <div className="element-color" style={{ backgroundColor: el.color }}></div>
