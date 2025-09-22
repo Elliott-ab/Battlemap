@@ -3,6 +3,7 @@ import IconButton from '@mui/material/IconButton';
 import PersonAddOutlinedIcon from '@mui/icons-material/PersonAddOutlined';
 import AddBoxOutlinedIcon from '@mui/icons-material/AddBoxOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
+import { computeGreyFractionForCell } from '../Utils/visibility.js';
 //
 
 import ArrowCircleLeftOutlinedIcon from '@mui/icons-material/ArrowCircleLeftOutlined';
@@ -25,72 +26,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
     }
   });
 
-  // Determine active enemy for visibility cone check (works even without initiative):
-  // 1) If a highlighted element is an enemy, use it;
-  // 2) Else if initiative is set and the current turn is an enemy, use it;
-  // 3) Else fallback to the first enemy, if any.
-  const FOV_DEG = 120; // mid width between previous 60 and 100
-  const elementsArr = state.elements || [];
-  const highlightedEnemy = elementsArr.find(e => e.id === state.highlightedElementId && e.type === 'enemy');
-  const orderForVis = state.initiativeOrder || [];
-  const currentIdForVis = orderForVis.length ? orderForVis[(state.currentTurnIndex || 0) % orderForVis.length] : null;
-  const initiativeEnemy = elementsArr.find(e => e.id === currentIdForVis && e.type === 'enemy');
-  const fallbackEnemy = elementsArr.find(e => e.type === 'enemy');
-  const currentEnemy = highlightedEnemy || initiativeEnemy || fallbackEnemy || null;
-  const enemyFacing = typeof currentEnemy?.facing === 'number' ? currentEnemy.facing : 90; // default down
-
-  // Build a quick lookup for cover cells and severities
-  const COVER_SEVERITY = {
-    'quarter': 0.25,
-    'half': 0.5,
-    'three-quarters': 0.75,
-    'full': 1.0,
-  };
-  const coverMap = new Map(); // key: "x,y" -> severity (max)
-  (state.elements || []).forEach(el => {
-    if (el.type === 'cover') {
-      const sev = COVER_SEVERITY[el.coverType] || 0;
-      const key = `${el.position.x},${el.position.y}`;
-      const prev = coverMap.get(key) || 0;
-      if (sev > prev) coverMap.set(key, sev);
-    }
-  });
-
-  const computeVisibilityGreyFraction = (player) => {
-    // Returns 1 for fully grey (not visible), 0 for fully visible, or partial based on cover encountered
-    // If no enemies exist, treat as fully visible (no one is observing)
-    if (!currentEnemy) return 0;
-    const ex = currentEnemy.position.x + currentEnemy.size / 2;
-    const ey = currentEnemy.position.y + currentEnemy.size / 2;
-    const px = player.position.x + player.size / 2;
-    const py = player.position.y + player.size / 2;
-    const dx = px - ex;
-    const dy = py - ey;
-    if (dx === 0 && dy === 0) return 0; // same cell
-    // FOV check first
-    const bearing = Math.atan2(dy, dx) * 180 / Math.PI; // 0=right, 90=down
-    let delta = ((bearing - enemyFacing + 540) % 360) - 180;
-    const inFov = Math.abs(delta) <= (FOV_DEG / 2);
-    if (!inFov) return 1; // fully grey out of FOV
-    // Ray sample along the line from enemy to player, check cover cells intersected
-    const steps = Math.max(Math.abs(dx), Math.abs(dy)) * 3; // finer sampling
-    let maxSev = 0;
-    for (let i = 1; i < steps; i++) { // skip start (i=0) and end (i=steps)
-      const t = i / steps;
-      const rx = ex + dx * t;
-      const ry = ey + dy * t;
-      const cx = Math.floor(rx);
-      const cy = Math.floor(ry);
-      // skip the player's own cell to avoid self-cover
-      if (cx === Math.floor(px) && cy === Math.floor(py)) continue;
-      const key = `${cx},${cy}`;
-      const sev = coverMap.get(key) || 0;
-      if (sev > maxSev) maxSev = sev;
-      if (maxSev >= 1.0) break; // full cover blocks completely
-    }
-    // Grey fraction equals cover severity encountered
-    return Math.max(0, Math.min(1, maxSev));
-  };
+  // Visibility for player cards is computed via shared utility for consistency
 
   const getHpClass = (currentHp, maxHp) => {
     if (currentHp <= 0) return 'unconscious';
@@ -245,7 +181,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
                 <span className="element-name text-ellipsis">{el.name}</span>
                 <span className="element-type">({el.type})</span>
                 {el.type === 'player' && (() => {
-                  const greyFrac = computeVisibilityGreyFraction(el);
+                  const greyFrac = computeGreyFractionForCell(state, el.position.x, el.position.y);
                   const visibleFrac = 1 - greyFrac; // portion to show as white
                   const widthPct = Math.round(visibleFrac * 100);
                   return (

@@ -182,7 +182,7 @@ export const useGrid = (state) => {
             // Only show visibility for player movement, not enemy movement
             if (element.type === 'player') {
               if (isCellVisibleToAnyEnemy(state, x, y)) {
-                const eye = createVisibilityIconNode(14, '#ffffff', { outlined: true, opacity: 0.6, strokeWidth: 2 });
+                const eye = createVisibilityIconNode(14, '#ffffff', { outlined: true, opacity: 0.35, strokeWidth: 2 });
                 highlight.appendChild(eye);
               }
             }

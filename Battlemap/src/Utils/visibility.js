@@ -1,3 +1,6 @@
+// Shared FOV (degrees) for detection logic across UI and grid
+export const DETECTION_FOV_DEG = 120;
+
 // Select the current enemy consistent with Sidebar's logic
 export function selectCurrentEnemy(state) {
   const elementsArr = state.elements || [];
@@ -32,7 +35,6 @@ export function computeGreyFractionForCell(state, cellX, cellY) {
     }
   });
 
-  const FOV_DEG = 120; // match Sidebar
   const ex = enemy.position.x + enemy.size / 2;
   const ey = enemy.position.y + enemy.size / 2;
   const px = cellX + 0.5; // use cell center
@@ -44,7 +46,7 @@ export function computeGreyFractionForCell(state, cellX, cellY) {
   const enemyFacing = typeof enemy.facing === 'number' ? enemy.facing : 90; // default down
   const bearing = Math.atan2(dy, dx) * 180 / Math.PI; // 0=right, 90=down
   let delta = ((bearing - enemyFacing + 540) % 360) - 180;
-  const inFov = Math.abs(delta) <= (FOV_DEG / 2);
+  const inFov = Math.abs(delta) <= (DETECTION_FOV_DEG / 2);
   if (!inFov) return 1; // fully grey outside FOV
 
   // Ray sample along the line from enemy to cell, check cover
@@ -117,7 +119,6 @@ export function isCellVisibleToAnyEnemy(state, cellX, cellY) {
 
   const px = cellX + 0.5;
   const py = cellY + 0.5;
-  const FOV_DEG = 120; // keep in sync with Sidebar logic
 
   for (const enemy of enemies) {
     const ex = enemy.position.x + enemy.size / 2;
@@ -128,7 +129,7 @@ export function isCellVisibleToAnyEnemy(state, cellX, cellY) {
     const enemyFacing = typeof enemy.facing === 'number' ? enemy.facing : 90;
     const bearing = Math.atan2(dy, dx) * 180 / Math.PI;
     const delta = ((bearing - enemyFacing + 540) % 360) - 180;
-    const inFov = Math.abs(delta) <= (FOV_DEG / 2);
+    const inFov = Math.abs(delta) <= (DETECTION_FOV_DEG / 2);
     if (!inFov) continue;
     // Cover sampling
     const steps = Math.max(Math.abs(dx), Math.abs(dy)) * 3;

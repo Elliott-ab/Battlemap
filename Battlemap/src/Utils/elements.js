@@ -290,7 +290,13 @@ export const useElements = (state, setState) => {
         highlight.remove();
       });
 
+      // If toggling off the same element, clear state and dataset on the map
       if (state.highlightedElementId === id) {
+        try {
+          if (battleMap && battleMap.dataset) {
+            delete battleMap.dataset.highlightedId;
+          }
+        } catch {}
         setState({ ...state, highlightedElementId: null });
         console.log('Toggled off highlight for id:', id);
         return true;
@@ -351,6 +357,13 @@ export const useElements = (state, setState) => {
       };
       const rgb = hexToRgb(element.color) || { r: 33, g: 150, b: 243 }; // fallback to blue
       let highlightCount = 0;
+      // Record highlighted id on the DOM immediately so clicks can be handled without waiting for React state flush
+      try {
+        if (battleMap && battleMap.dataset) {
+          battleMap.dataset.highlightedId = String(id);
+        }
+      } catch {}
+
       cells.forEach(({ x, y }) => {
         const cell = battleMap.querySelector(`.grid-cell[data-x="${x}"][data-y="${y}"]`);
         if (cell) {
@@ -366,7 +379,7 @@ export const useElements = (state, setState) => {
           // Only show visibility eye for players, not enemies
           if (element.type === 'player') {
             if (isCellVisibleToAnyEnemy(state, x, y)) {
-              const eye = createVisibilityIconNode(14, '#ffffff', { outlined: true, opacity: 0.6, strokeWidth: 2 });
+              const eye = createVisibilityIconNode(14, '#ffffff', { outlined: true, opacity: 0.35, strokeWidth: 2 });
               highlight.appendChild(eye);
             }
           }

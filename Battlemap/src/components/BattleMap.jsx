@@ -116,8 +116,12 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
     }
 
     // Movement or cover highlight mode
-    if (state.highlightedElementId) {
-      const element = state.elements.find(e => e.id === state.highlightedElementId);
+    // Read highlighted id from DOM first to avoid React state timing requiring a second click
+    const container = localBattleMapRef.current;
+    const domHighlightedId = container?.dataset?.highlightedId ? parseInt(container.dataset.highlightedId) : null;
+    const effectiveHighlightedId = domHighlightedId || state.highlightedElementId;
+    if (effectiveHighlightedId) {
+      const element = state.elements.find(e => e.id === effectiveHighlightedId);
       if (!element) return;
       const x = parseInt(cell.dataset.x);
       const y = parseInt(cell.dataset.y);
@@ -128,8 +132,16 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
         if (Math.abs(x - ex) + Math.abs(y - ey) <= range) {
           updateElementPosition(element.id, x, y);
           pushUndo();
+          // Clear DOM dataset and state highlight after moving
+          try {
+            if (container && container.dataset) delete container.dataset.highlightedId;
+          } catch {}
+          setState(prev => ({ ...prev, highlightedElementId: null }));
         } else {
           // Remove highlight if clicked outside range
+          try {
+            if (container && container.dataset) delete container.dataset.highlightedId;
+          } catch {}
           setState({ ...state, highlightedElementId: null });
         }
       } else if (element.type === 'cover') {
