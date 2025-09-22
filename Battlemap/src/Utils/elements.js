@@ -87,6 +87,8 @@ export const useElements = (state, setState) => {
       damage: type === 'enemy' ? 0 : undefined,
       coverType: type === 'cover' ? coverType : undefined,
       groupId: type === 'cover' ? groupId : undefined,
+  // Facing direction in degrees (used for enemies' direction cone). 90° = down.
+  facing: type === 'enemy' ? 90 : undefined,
     };
     setState(prev => ({ ...prev, elements: [...prev.elements, newEl], highlightedElementId: null }));
   };
@@ -208,9 +210,17 @@ export const useElements = (state, setState) => {
       // Clamp single element to bounds
       let clampedX = Math.max(0, Math.min(x, state.grid.width - el.size));
       let clampedY = Math.max(0, Math.min(y, state.grid.height - el.size));
+      const dx = clampedX - el.position.x;
+      const dy = clampedY - el.position.y;
+      const shouldUpdateFacing = (dx !== 0 || dy !== 0) && (el.type === 'enemy');
+      const angleDeg = shouldUpdateFacing ? (Math.atan2(dy, dx) * 180 / Math.PI) : el.facing;
       setState({
         ...state,
-        elements: state.elements.map((e) => e.id === id ? { ...e, position: { x: clampedX, y: clampedY } } : e),
+        elements: state.elements.map((e) =>
+          e.id === id
+            ? { ...e, position: { x: clampedX, y: clampedY }, ...(shouldUpdateFacing ? { facing: angleDeg } : {}) }
+            : e
+        ),
         highlightedElementId: null,
       });
     }

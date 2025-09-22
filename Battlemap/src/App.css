@@ -475,6 +475,28 @@ body {
     animation: pulse 1s infinite;
 }
 
+/* Enemy facing cone (like Google Maps) */
+.direction-cone {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 70px; /* extend partially into next cell */
+    height: 70px;
+    pointer-events: none;
+    z-index: 1; /* inside the cell, below tokens (which are separate grid items with higher z-index) */
+    transform-origin: 50% 50%; /* rotate around token center */
+    /* Radial gradient that fades from the center (token) outward */
+    background: radial-gradient(
+        circle at 50% 50%,
+        rgba(var(--cone-rgb, 244, 67, 54), 0.6) 0%,
+        rgba(var(--cone-rgb, 244, 67, 54), 0.32) 50%,
+        rgba(var(--cone-rgb, 244, 67, 54), 0) 78%
+    );
+    /* Wedge shape with the tip at the center */
+    clip-path: polygon(50% 50%, 28% 95%, 72% 95%);
+    filter: drop-shadow(0 0 2px rgba(0,0,0,0.3));
+}
+
 /* Initiative modal number inputs: hide spinner arrows */
 .initiative-form input[type="number"]::-webkit-outer-spin-button,
 .initiative-form input[type="number"]::-webkit-inner-spin-button {
@@ -584,6 +606,7 @@ body {
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
     max-height: 80vh;
     overflow-y: auto;
+    color: #fff; /* ensure modal text is white (overrides MUI CssBaseline body color) */
 }
 
 .close {

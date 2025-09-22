@@ -76,6 +76,28 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
       return;
     }
 
+    // If it's currently an enemy's turn, allow clicking to set facing angle
+    const order = state.initiativeOrder || [];
+    if (order.length) {
+      const currentId = order[(state.currentTurnIndex || 0) % order.length];
+      const currentEl = state.elements.find(el => el.id === currentId);
+      if (currentEl && currentEl.type === 'enemy') {
+        const x = parseInt(cell.dataset.x);
+        const y = parseInt(cell.dataset.y);
+        const dx = x - currentEl.position.x;
+        const dy = y - currentEl.position.y;
+        if (dx !== 0 || dy !== 0) {
+          const angleDeg = Math.atan2(dy, dx) * 180 / Math.PI; // 0=right, 90=down
+          setState(prev => ({
+            ...prev,
+            elements: prev.elements.map(ei => ei.id === currentEl.id ? { ...ei, facing: angleDeg } : ei),
+          }));
+          pushUndo();
+          return; // Don't also trigger movement logic on this click
+        }
+      }
+    }
+
     // Movement or cover highlight mode
     if (state.highlightedElementId) {
       const element = state.elements.find(e => e.id === state.highlightedElementId);

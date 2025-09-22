@@ -76,6 +76,41 @@ export const useGrid = (state) => {
       elDiv.dataset.id = el.id;
       elDiv.style.gridRow = `${el.position.y + 1} / span ${el.size}`;
       elDiv.style.gridColumn = `${el.position.x + 1} / span ${el.size}`;
+      // Add facing cone for enemies, rendered under the token
+      if (el.type === 'enemy') {
+        const cone = document.createElement('div');
+        cone.classList.add('direction-cone');
+        // supply rgb for gradient color
+        const toRgb = (hex) => {
+          try {
+            let h = (hex || '').toString().trim();
+            if (h.startsWith('rgb')) {
+              const nums = h.replace(/rgba?\(|\)|\s/g, '').split(',').map(Number);
+              if (nums.length >= 3) return { r: nums[0], g: nums[1], b: nums[2] };
+            }
+            if (h[0] === '#') h = h.slice(1);
+            if (h.length === 3) h = h.split('').map(c => c + c).join('');
+            if (h.length !== 6) return { r: 244, g: 67, b: 54 };
+            return {
+              r: parseInt(h.slice(0,2), 16),
+              g: parseInt(h.slice(2,4), 16),
+              b: parseInt(h.slice(4,6), 16),
+            };
+          } catch {
+            return { r: 244, g: 67, b: 54 };
+          }
+        };
+        const rgb = toRgb(el.color || '#f44336');
+        cone.style.setProperty('--cone-rgb', `${rgb.r}, ${rgb.g}, ${rgb.b}`);
+  const facing = typeof el.facing === 'number' ? el.facing : 90; // 90° = down
+  // Rotate cone so 0°=right, 90°=down
+  cone.style.transform = `translate(-50%, -50%) rotate(${facing - 90}deg)`;
+        // Append cone to the grid cell so it renders beneath the token
+        const cell = battleMap.querySelector(`.grid-cell[data-x="${el.position.x}"][data-y="${el.position.y}"]`);
+        if (cell) {
+          cell.appendChild(cone);
+        }
+      }
       battleMap.appendChild(elDiv);
     });
 
