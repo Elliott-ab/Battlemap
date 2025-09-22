@@ -202,9 +202,42 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
             <div className="element-info">
               <div className="element-color" style={{ backgroundColor: el.color }}></div>
               <span className="element-name text-ellipsis">{el.name}</span>
-              <span className="element-type">({el.type})</span>
-              {/* Incapacitate/Revive toggle */}
-              <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center' }}>
+              {/* Right-side controls (eye + skull/wand) */}
+              <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                {el.type === 'player' && (() => {
+                  let greyFrac = computeGreyFractionForCell(state, el.position.x, el.position.y);
+                  // Snap to canonical cover steps to avoid tiny sampling errors
+                  const steps = [0, 0.25, 0.5, 0.75, 1];
+                  const eps = 0.02;
+                  for (const s of steps) {
+                    if (Math.abs(greyFrac - s) < eps) { greyFrac = s; break; }
+                  }
+                  // Bias: show slightly more white for partial cover levels
+                  let adjustedGrey = greyFrac;
+                  if (greyFrac > 0 && greyFrac < 1) {
+                    const BIAS = 0.05; // +5% visibility
+                    adjustedGrey = Math.max(0, Math.min(1, greyFrac - BIAS));
+                  }
+                  const widthPct = adjustedGrey <= 0 ? 100 : Math.round((1 - adjustedGrey) * 100);
+                  const isFull = widthPct >= 100;
+                  return (
+                    <span style={{ position: 'relative', width: 18, height: 18, display: 'inline-block' }} title={greyFrac >= 1 ? 'Out of vision or full cover' : greyFrac > 0 ? 'Partial cover' : 'Fully visible'}>
+                      {/* Base outlined grey eye */}
+                      <FontAwesomeIcon icon={faEyeRegular} style={{ color: '#777', position: 'absolute', left: 0, top: 0, fontSize: 18, display: 'block' }} />
+                      {isFull ? (
+                        // Fully visible: overlay the outlined white eye to perfectly cover grey outline
+                        <FontAwesomeIcon icon={faEyeRegular} style={{ color: '#ffffff', position: 'absolute', left: 0, top: 0, fontSize: 18, display: 'block' }} />
+                      ) : (
+                        // Partially visible: overlay the same outlined eye in white and clip horizontally
+                        <span style={{ position: 'absolute', left: 0, top: 0, width: `${widthPct}%`, height: '100%', overflow: 'hidden' }}>
+                          <FontAwesomeIcon icon={faEyeRegular} style={{ color: '#ffffff', fontSize: 18, display: 'block' }} />
+                        </span>
+                      )}
+                    </span>
+                  );
+                })()}
+
+                {/* Incapacitate/Revive toggle */}
                 {el.incapacitated ? (
                   <FontAwesomeIcon
                     icon={faWandSparkles}
@@ -236,38 +269,6 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
                   />
                 )}
               </span>
-              {el.type === 'player' && (() => {
-                let greyFrac = computeGreyFractionForCell(state, el.position.x, el.position.y);
-                // Snap to canonical cover steps to avoid tiny sampling errors
-                const steps = [0, 0.25, 0.5, 0.75, 1];
-                const eps = 0.02;
-                for (const s of steps) {
-                  if (Math.abs(greyFrac - s) < eps) { greyFrac = s; break; }
-                }
-                // Bias: show slightly more white for partial cover levels
-                let adjustedGrey = greyFrac;
-                if (greyFrac > 0 && greyFrac < 1) {
-                  const BIAS = 0.05; // +5% visibility
-                  adjustedGrey = Math.max(0, Math.min(1, greyFrac - BIAS));
-                }
-                const widthPct = adjustedGrey <= 0 ? 100 : Math.round((1 - adjustedGrey) * 100);
-                const isFull = widthPct >= 100;
-                return (
-                  <span style={{ position: 'relative', width: 18, height: 18, marginLeft: 'auto', display: 'inline-block' }} title={greyFrac >= 1 ? 'Out of vision or full cover' : greyFrac > 0 ? 'Partial cover' : 'Fully visible'}>
-                    {/* Base outlined grey eye */}
-                    <FontAwesomeIcon icon={faEyeRegular} style={{ color: '#777', position: 'absolute', left: 0, top: 0, fontSize: 18, display: 'block' }} />
-                    {isFull ? (
-                      // Fully visible: overlay the outlined white eye to perfectly cover grey outline
-                      <FontAwesomeIcon icon={faEyeRegular} style={{ color: '#ffffff', position: 'absolute', left: 0, top: 0, fontSize: 18, display: 'block' }} />
-                    ) : (
-                      // Partially visible: overlay the same outlined eye in white and clip horizontally
-                      <span style={{ position: 'absolute', left: 0, top: 0, width: `${widthPct}%`, height: '100%', overflow: 'hidden' }}>
-                        <FontAwesomeIcon icon={faEyeRegular} style={{ color: '#ffffff', fontSize: 18, display: 'block' }} />
-                      </span>
-                    )}
-                  </span>
-                );
-              })()}
             </div>
             {el.type === 'player' && (
               <div className="element-stats">
