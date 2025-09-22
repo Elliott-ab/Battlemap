@@ -132,10 +132,9 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
           // Remove highlight if clicked outside range
           setState({ ...state, highlightedElementId: null });
         }
-      } else if (element.type === 'cover' && element.groupId) {
-        // Move the whole cover group to the clicked cell (same as drag logic)
-        updateElementPosition(element.id, x, y);
-        pushUndo();
+      } else if (element.type === 'cover') {
+        // Ignore grid click-to-move for cover groups; covers move only via drag
+        return;
       }
     }
   };
@@ -147,12 +146,30 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
       // Prevent the default to avoid generating a click after drag
       if (typeof e.preventDefault === 'function') e.preventDefault();
       if (typeof e.stopPropagation === 'function') e.stopPropagation();
-      console.log('Started dragging element:', elDiv.dataset.id);
-      currentDragElement.current = elDiv;
-      elDiv.classList.add('selected');
-      elDiv.style.zIndex = '20';
+      let targetDiv = elDiv;
+      const clickedId = parseInt(elDiv.dataset.id);
+      const clickedEl = state.elements.find(x => x.id === clickedId);
+      // If the clicked element is a cover but there is a token in the same cell, prefer dragging the token
+      if (clickedEl && clickedEl.type === 'cover') {
+        const cell = getCellFromPoint(e.clientX, e.clientY);
+        if (cell) {
+          const cx = parseInt(cell.dataset.x);
+          const cy = parseInt(cell.dataset.y);
+          const token = state.elements.find(x => (x.type === 'player' || x.type === 'enemy') && x.position.x === cx && x.position.y === cy);
+          if (token) {
+            const tokenDiv = document.querySelector(`.element[data-id="${token.id}"]`);
+            if (tokenDiv) {
+              targetDiv = tokenDiv;
+            }
+          }
+        }
+      }
+      console.log('Started dragging element:', targetDiv.dataset.id);
+      currentDragElement.current = targetDiv;
+      targetDiv.classList.add('selected');
+      targetDiv.style.zIndex = '20';
       didDragRef.current = false; // reset drag tracker
-      const id = parseInt(elDiv.dataset.id);
+      const id = parseInt(targetDiv.dataset.id);
       const el = state.elements.find(e => e.id === id);
       // If a cover group was previously selected, clear it when dragging a non-cover token
       if (el && el.type !== 'cover' && state.highlightedElementId) {

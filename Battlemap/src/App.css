@@ -709,6 +709,15 @@ body {
     pointer-events: none; /* don't interfere with hit testing */
 }
 
+/* Small visibility eye position inside movement highlight */
+.visibility-eye {
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+    filter: drop-shadow(0 0 2px rgba(0,0,0,0.6));
+    pointer-events: none;
+}
+
 .element.cover.custom-cover {
     opacity: 0.6;
     border: 1px dashed #333;

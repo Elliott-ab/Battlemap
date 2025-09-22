@@ -1,3 +1,5 @@
+import { isCellVisibleToAnyEnemy, createVisibilityIconNode } from './visibility.js';
+
 export const useGrid = (state) => {
   const renderGrid = (battleMapRef) => {
     console.log('renderGrid called with battleMapRef:', battleMapRef, 'battleMapRef.current:', battleMapRef?.current);
@@ -176,6 +178,14 @@ export const useGrid = (state) => {
             highlight.style.backgroundColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
             highlight.style.boxShadow = `0 0 10px 5px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
             highlight.style.border = `1px solid rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1)`;
+            // Visibility indicator: follow the same logic as player cards (grey fraction)
+            // Only show visibility for player movement, not enemy movement
+            if (element.type === 'player') {
+              if (isCellVisibleToAnyEnemy(state, x, y)) {
+                const eye = createVisibilityIconNode(14, '#ffffff', { outlined: true, opacity: 0.6, strokeWidth: 2 });
+                highlight.appendChild(eye);
+              }
+            }
             cell.insertBefore(highlight, cell.firstChild);
           }
           // Explore neighbors

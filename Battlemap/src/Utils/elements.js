@@ -1,6 +1,6 @@
 import { initialState } from '../Utils/state.js';
 
-let nextId = 1;
+// Module counters are kept for names only; IDs are computed from state to avoid collisions
 let nextGroupId = 1;
 let nextPlayerId = 1;
 let nextEnemyId = 1;
@@ -18,6 +18,8 @@ const PLAYER_COLORS = [
   '#8BC34A', // Light Green
 ];
 let nextPlayerColorIdx = 0;
+
+import { isCellVisibleToAnyEnemy, createVisibilityIconNode } from './visibility.js';
 
 export const useElements = (state, setState) => {
   if (!state.hasOwnProperty('highlightedElementId')) {
@@ -56,16 +58,15 @@ export const useElements = (state, setState) => {
       groupId: null,
     };
     const { position, size, coverType, groupId } = { ...defaults, ...options };
-    let name, id;
+    // Compute a unique ID from current state to avoid collisions with other creation flows
+    const newId = Math.max(0, ...state.elements.map(e => e.id || 0)) + 1;
+    let name;
     if (type === 'player') {
-      id = nextId++;
       name = `Player ${nextPlayerId++}`;
     } else if (type === 'enemy') {
-      id = nextId++;
       name = `Enemy ${nextEnemyId++}`;
     } else {
-      id = nextId++;
-      name = `${type.charAt(0).toUpperCase() + type.slice(1)} ${nextId}`;
+      name = `${type.charAt(0).toUpperCase() + type.slice(1)} ${newId}`;
     }
     // Choose colors by type (players cycle palette, enemies fixed red, cover brown)
     const color = type === 'player'
@@ -75,7 +76,7 @@ export const useElements = (state, setState) => {
         : '#795548';
 
     const newEl = {
-      id,
+      id: newId,
       name,
       type,
       position,
@@ -99,15 +100,36 @@ export const useElements = (state, setState) => {
       return;
     }
 
+    // Build occupied map for existing non-cover elements to avoid overlap
+    const occupied = new Set();
+    (state.elements || []).forEach(el => {
+      if (el.type === 'cover') return; // only block by tokens/creatures
+      for (let dx = 0; dx < el.size; dx++) {
+        for (let dy = 0; dy < el.size; dy++) {
+          occupied.add(`${el.position.x + dx},${el.position.y + dy}`);
+        }
+      }
+    });
+
     const groupId = nextGroupId++;
+    let created = 0;
     coverBlocks.forEach(({ x, y }) => {
+      const key = `${x},${y}`;
+      if (occupied.has(key)) {
+        console.warn(`Skipping cover at (${x},${y}) because it overlaps an existing element`);
+        return; // skip overlapping block
+      }
       addElement('cover', {
         position: { x, y },
         size: 1,
         coverType,
         groupId,
       });
+      created++;
     });
+    if (created === 0) {
+      console.warn('All selected cover blocks overlapped existing elements; no cover created');
+    }
   };
 
   const getElementById = (id) => {
@@ -340,6 +362,14 @@ export const useElements = (state, setState) => {
           highlight.style.backgroundColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
           highlight.style.boxShadow = `0 0 10px 5px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
           highlight.style.border = `1px solid rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1)`;
+          // Append visibility eye using same logic as player cards (grey fraction)
+          // Only show visibility eye for players, not enemies
+          if (element.type === 'player') {
+            if (isCellVisibleToAnyEnemy(state, x, y)) {
+              const eye = createVisibilityIconNode(14, '#ffffff', { outlined: true, opacity: 0.6, strokeWidth: 2 });
+              highlight.appendChild(eye);
+            }
+          }
           cell.appendChild(highlight);
           console.log(`Appended highlight to cell at x=${x}, y=${y}`);
           highlightCount++;

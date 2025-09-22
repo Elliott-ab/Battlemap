@@ -29,7 +29,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
   // 1) If a highlighted element is an enemy, use it;
   // 2) Else if initiative is set and the current turn is an enemy, use it;
   // 3) Else fallback to the first enemy, if any.
-  const FOV_DEG = 80; // mid width between previous 60 and 100
+  const FOV_DEG = 120; // mid width between previous 60 and 100
   const elementsArr = state.elements || [];
   const highlightedEnemy = elementsArr.find(e => e.id === state.highlightedElementId && e.type === 'enemy');
   const orderForVis = state.initiativeOrder || [];
@@ -279,6 +279,8 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
             data-id={firstId}
             onClick={() => {
               // Toggle cover group highlight and preserve movement
+              // Clear any existing movement highlights to avoid confusion
+              document.querySelectorAll('.movement-highlight').forEach((h) => h.remove());
               if (state.highlightedElementId === firstId) {
                 setState(prev => ({ ...prev, highlightedElementId: null }));
               } else {
