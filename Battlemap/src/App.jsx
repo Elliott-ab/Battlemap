@@ -141,7 +141,8 @@ function App() {
         maxHp: type === 'player' ? 10 : undefined,
         currentHp: type === 'player' ? 10 : undefined,
         movement: 30,
-        damage: type === 'enemy' ? 0 : undefined
+        damage: type === 'enemy' ? 0 : undefined,
+        incapacitated: type !== 'cover' ? false : undefined
       };
       newElements.push(newEl);
       batch.push(newEl);

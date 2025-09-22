@@ -1,15 +1,20 @@
 import React from 'react';
 import IconButton from '@mui/material/IconButton';
-import PersonAddOutlinedIcon from '@mui/icons-material/PersonAddOutlined';
-import AddBoxOutlinedIcon from '@mui/icons-material/AddBoxOutlined';
-import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
-import CropSquareOutlinedIcon from '@mui/icons-material/CropSquareOutlined';
-import ChangeHistoryOutlinedIcon from '@mui/icons-material/ChangeHistoryOutlined';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faSkull, faWandSparkles, faEye as faEyeSolid } from '@fortawesome/free-solid-svg-icons';
+import {
+  faSquare as faSquareRegular,
+  faEye as faEyeRegular,
+  faUser as faUserRegular,
+  faSquareCaretUp as faSquareCaretUpRegular,
+  faPenToSquare as faPenToSquareRegular,
+  faCircleLeft as faCircleLeftRegular,
+  faCircleRight as faCircleRightRegular,
+} from '@fortawesome/free-regular-svg-icons';
 import { computeGreyFractionForCell } from '../Utils/visibility.js';
 //
 
-import ArrowCircleLeftOutlinedIcon from '@mui/icons-material/ArrowCircleLeftOutlined';
-import ArrowCircleRightOutlinedIcon from '@mui/icons-material/ArrowCircleRightOutlined';
+// Replaced MUI icons above with Font Awesome equivalents
 
 const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup, showEditModal, battleMapRef, isDrawingCover, toggleDrawingMode, openAddCharacterModal, openInitiativeModal }) => {
   console.log('Sidebar received battleMapRef:', battleMapRef);
@@ -132,7 +137,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
               return { ...prev, currentTurnIndex: prevIdx };
             });
           }}>
-            <ArrowCircleLeftOutlinedIcon sx={{ color: 'white' }} />
+            <FontAwesomeIcon icon={faCircleLeftRegular} style={{ color: 'white' }} />
           </IconButton>
         )}
         <div
@@ -158,7 +163,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
               return { ...prev, currentTurnIndex: nextIdx };
             });
           }}>
-            <ArrowCircleRightOutlinedIcon sx={{ color: 'white' }} />
+            <FontAwesomeIcon icon={faCircleRightRegular} style={{ color: 'white' }} />
           </IconButton>
         )}
       </div>
@@ -167,10 +172,10 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5em', position: 'relative' }}>
         <h3 style={{ margin: 0 }}>Elements</h3>
         <IconButton onClick={openAddCharacterModal} disabled={isDrawingCover} title="Add character elements" size="small">
-          <PersonAddOutlinedIcon sx={{ color: isDrawingCover ? 'grey' : 'white' }} />
+          <FontAwesomeIcon icon={faUserRegular} style={{ color: isDrawingCover ? 'grey' : 'white' }} />
         </IconButton>
         <IconButton onClick={toggleDrawingMode} title="Draw cover elements on grid" size="small">
-          <AddBoxOutlinedIcon sx={{ color: isDrawingCover ? '#4CAF50' : 'white' }} />
+          <FontAwesomeIcon icon={faPenToSquareRegular} style={{ color: isDrawingCover ? '#4CAF50' : 'white' }} />
         </IconButton>
         {/* Popover moved to App.jsx as AddCharacterModal */}
       </div>
@@ -181,6 +186,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
             className="element-item"
             data-id={el.id}
             onClick={() => {
+              if (el.incapacitated) return; // disabled for movement when incapacitated
               console.log('Sidebar: Clicking element ID:', el.id, 'Type:', el.type);
               toggleMovementHighlight(el.id, battleMapRef);
             }}
@@ -188,25 +194,77 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
             style={{
               position: 'relative',
               borderColor: (currentTurnId === el.id && (el.type === 'player' || el.type === 'enemy')) ? '#ffffff' : undefined,
-              boxShadow: (currentTurnId === el.id && (el.type === 'player' || el.type === 'enemy')) ? '4px 0 10px rgba(255,255,255,0.45)' : undefined
+              boxShadow: (currentTurnId === el.id && (el.type === 'player' || el.type === 'enemy')) ? '4px 0 10px rgba(255,255,255,0.45)' : undefined,
+              opacity: el.incapacitated ? 0.5 : 1,
+              pointerEvents: el.incapacitated ? 'auto' : 'auto'
             }}
           >
             <div className="element-info">
               <div className="element-color" style={{ backgroundColor: el.color }}></div>
               <span className="element-name text-ellipsis">{el.name}</span>
               <span className="element-type">({el.type})</span>
+              {/* Incapacitate/Revive toggle */}
+              <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center' }}>
+                {el.incapacitated ? (
+                  <FontAwesomeIcon
+                    icon={faWandSparkles}
+                    title="Revive"
+                    style={{ color: '#80DEEA', cursor: 'pointer' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setState(prev => ({
+                        ...prev,
+                        elements: prev.elements.map(x => x.id === el.id ? { ...x, incapacitated: false } : x)
+                      }));
+                    }}
+                  />
+                ) : (
+                  <FontAwesomeIcon
+                    icon={faSkull}
+                    title="Incapacitate"
+                    style={{ color: '#B0BEC5', cursor: 'pointer' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // Clear any movement highlights if incapacitating selected unit
+                      try { document.querySelectorAll('.movement-highlight').forEach(h => h.remove()); } catch {}
+                      setState(prev => ({
+                        ...prev,
+                        elements: prev.elements.map(x => x.id === el.id ? { ...x, incapacitated: true } : x),
+                        highlightedElementId: prev.highlightedElementId === el.id ? null : prev.highlightedElementId,
+                      }));
+                    }}
+                  />
+                )}
+              </span>
               {el.type === 'player' && (() => {
-                const greyFrac = computeGreyFractionForCell(state, el.position.x, el.position.y);
-                const visibleFrac = 1 - greyFrac; // portion to show as white
-                const widthPct = Math.round(visibleFrac * 100);
+                let greyFrac = computeGreyFractionForCell(state, el.position.x, el.position.y);
+                // Snap to canonical cover steps to avoid tiny sampling errors
+                const steps = [0, 0.25, 0.5, 0.75, 1];
+                const eps = 0.02;
+                for (const s of steps) {
+                  if (Math.abs(greyFrac - s) < eps) { greyFrac = s; break; }
+                }
+                // Bias: show slightly more white for partial cover levels
+                let adjustedGrey = greyFrac;
+                if (greyFrac > 0 && greyFrac < 1) {
+                  const BIAS = 0.05; // +5% visibility
+                  adjustedGrey = Math.max(0, Math.min(1, greyFrac - BIAS));
+                }
+                const widthPct = adjustedGrey <= 0 ? 100 : Math.round((1 - adjustedGrey) * 100);
+                const isFull = widthPct >= 100;
                 return (
                   <span style={{ position: 'relative', width: 18, height: 18, marginLeft: 'auto', display: 'inline-block' }} title={greyFrac >= 1 ? 'Out of vision or full cover' : greyFrac > 0 ? 'Partial cover' : 'Fully visible'}>
-                    {/* Base grey icon */}
-                    <VisibilityOutlinedIcon sx={{ color: '#777', fontSize: 18, position: 'absolute', left: 0, top: 0 }} />
-                    {/* White overlay for visible portion */}
-                    <span style={{ position: 'absolute', left: 0, top: 0, width: `${widthPct}%`, height: '100%', overflow: 'hidden' }}>
-                      <VisibilityOutlinedIcon sx={{ color: '#ffffff', fontSize: 18 }} />
-                    </span>
+                    {/* Base outlined grey eye */}
+                    <FontAwesomeIcon icon={faEyeRegular} style={{ color: '#777', position: 'absolute', left: 0, top: 0, fontSize: 18, display: 'block' }} />
+                    {isFull ? (
+                      // Fully visible: overlay the outlined white eye to perfectly cover grey outline
+                      <FontAwesomeIcon icon={faEyeRegular} style={{ color: '#ffffff', position: 'absolute', left: 0, top: 0, fontSize: 18, display: 'block' }} />
+                    ) : (
+                      // Partially visible: overlay the same outlined eye in white and clip horizontally
+                      <span style={{ position: 'absolute', left: 0, top: 0, width: `${widthPct}%`, height: '100%', overflow: 'hidden' }}>
+                        <FontAwesomeIcon icon={faEyeRegular} style={{ color: '#ffffff', fontSize: 18, display: 'block' }} />
+                      </span>
+                    )}
                   </span>
                 );
               })()}
@@ -254,9 +312,9 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
           >
             <div className="element-info" style={{ gap: '0.5rem', marginBottom: 0 }}>
               {coverType === 'difficult' ? (
-                <ChangeHistoryOutlinedIcon sx={{ color: color || '#795548' }} />
+                <FontAwesomeIcon icon={faSquareCaretUpRegular} style={{ color: color || '#795548' }} />
               ) : (
-                <CropSquareOutlinedIcon sx={{ color: color || '#795548' }} />
+                <FontAwesomeIcon icon={faSquareRegular} style={{ color: color || '#795548' }} />
               )}
               <span className="element-name">{coverTypeLabel(coverType)}</span>
             </div>
@@ -293,9 +351,9 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
           >
             <div className="element-info" style={{ gap: '0.5rem', marginBottom: 0 }}>
               {(el.coverType === 'difficult') ? (
-                <ChangeHistoryOutlinedIcon sx={{ color: el.color || '#795548' }} />
+                <FontAwesomeIcon icon={faSquareCaretUpRegular} style={{ color: el.color || '#795548' }} />
               ) : (
-                <CropSquareOutlinedIcon sx={{ color: el.color || '#795548' }} />
+                <FontAwesomeIcon icon={faSquareRegular} style={{ color: el.color || '#795548' }} />
               )}
               <span className="element-name">{coverTypeLabel(el.coverType)}</span>
             </div>

@@ -86,6 +86,7 @@ export const useElements = (state, setState) => {
       currentHp: type === 'player' ? 10 : undefined,
       movement: type !== 'cover' ? 30 : undefined,
       damage: type === 'enemy' ? 0 : undefined,
+      incapacitated: type !== 'cover' ? false : undefined,
       coverType: type === 'cover' ? coverType : undefined,
       groupId: type === 'cover' ? groupId : undefined,
   // Facing direction in degrees (used for enemies' direction cone). 90° = down.
@@ -266,7 +267,7 @@ export const useElements = (state, setState) => {
   const toggleMovementHighlight = (id, battleMapRef) => {
     console.log('Toggling movement highlight for id:', id, 'battleMapRef:', battleMapRef, 'battleMapRef.current:', battleMapRef?.current);
     const element = getElementById(id);
-    if (!element || element.type === 'cover' || !element.movement) {
+    if (!element || element.type === 'cover' || !element.movement || element.incapacitated) {
       console.warn(`Cannot toggle movement highlight for element ${id}:`, { element });
       return;
     }

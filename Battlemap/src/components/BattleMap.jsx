@@ -173,6 +173,9 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
       let targetDiv = elDiv;
       const clickedId = parseInt(elDiv.dataset.id);
       const clickedEl = state.elements.find(x => x.id === clickedId);
+      if (clickedEl && (clickedEl.type === 'player' || clickedEl.type === 'enemy') && clickedEl.incapacitated) {
+        return; // do not allow drag on incapacitated units
+      }
       // If the clicked element is a cover but there is a token in the same cell, prefer dragging the token
       // EXCEPT when a cover is currently selected via Sidebar (user intent: reposition cover)
       if (clickedEl && clickedEl.type === 'cover') {
@@ -200,6 +203,9 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
       didDragRef.current = false; // reset drag tracker
       const id = parseInt(targetDiv.dataset.id);
       const el = state.elements.find(e => e.id === id);
+      if (el && (el.type === 'player' || el.type === 'enemy') && el.incapacitated) {
+        return; // safety double-check
+      }
       // If a cover group was previously selected, clear it when dragging a non-cover token
       if (el && el.type !== 'cover' && state.highlightedElementId) {
         const highlighted = state.elements.find(h => h.id === state.highlightedElementId);

@@ -1,9 +1,6 @@
 import React from 'react';
-import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
-import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
-import UndoOutlinedIcon from '@mui/icons-material/UndoOutlined';
-import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
-import UploadOutlinedIcon from '@mui/icons-material/UploadOutlined';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faGear, faTrashCan, faRotateLeft, faDownload, faUpload } from '@fortawesome/free-solid-svg-icons';
 import IconButton from '@mui/material/IconButton';
 
 const Toolbar = ({ isDrawingCover, showGridModal, clearMap, undo, showSaveModal, showOverwriteModal, gridSize }) => {
@@ -41,19 +38,19 @@ const Toolbar = ({ isDrawingCover, showGridModal, clearMap, undo, showSaveModal,
       <div className="toolbar-spacer" />
       <div className="controls">
         <IconButton onClick={showGridModal} disabled={isDrawingCover} title="Grid Settings" size="large">
-          <SettingsOutlinedIcon sx={{ color: isDrawingCover ? 'grey' : 'white' }} />
+          <FontAwesomeIcon icon={faGear} style={{ color: isDrawingCover ? 'grey' : 'white', fontSize: 16 }} />
         </IconButton>
         <IconButton onClick={clearMap} disabled={isDrawingCover} title="Clear Map" size="large">
-          <DeleteOutlinedIcon sx={{ color: isDrawingCover ? 'grey' : 'white' }} />
+          <FontAwesomeIcon icon={faTrashCan} style={{ color: isDrawingCover ? 'grey' : 'white', fontSize: 16 }} />
         </IconButton>
         <IconButton onClick={undo} disabled={isDrawingCover} title="Undo" size="large">
-          <UndoOutlinedIcon sx={{ color: isDrawingCover ? 'grey' : 'white' }} />
+          <FontAwesomeIcon icon={faRotateLeft} style={{ color: isDrawingCover ? 'grey' : 'white', fontSize: 16 }} />
         </IconButton>
         <IconButton onClick={showSaveModal} disabled={isDrawingCover} title="Download Map" size="large">
-          <DownloadOutlinedIcon sx={{ color: isDrawingCover ? 'grey' : 'white' }} />
+          <FontAwesomeIcon icon={faDownload} style={{ color: isDrawingCover ? 'grey' : 'white', fontSize: 16 }} />
         </IconButton>
         <IconButton onClick={showOverwriteModal} disabled={isDrawingCover} title="Upload Map" size="large">
-          <UploadOutlinedIcon sx={{ color: isDrawingCover ? 'grey' : 'white' }} />
+          <FontAwesomeIcon icon={faUpload} style={{ color: isDrawingCover ? 'grey' : 'white', fontSize: 16 }} />
         </IconButton>
         <span className="grid-info">Grid: {gridSize}ft per cell</span>
       </div>
