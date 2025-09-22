@@ -145,7 +145,19 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
           setState({ ...state, highlightedElementId: null });
         }
       } else if (element.type === 'cover') {
-        // Ignore grid click-to-move for cover groups; covers move only via drag
+        // Click-to-move for cover: move then end selection/highlighting
+        updateElementPosition(element.id, x, y);
+        pushUndo();
+        // Clear any manual cover overlays and movement highlights
+        try {
+          document.querySelectorAll('.cover-highlight').forEach(h => h.remove());
+          document.querySelectorAll('.movement-highlight').forEach(h => h.remove());
+        } catch {}
+        // Clear DOM dataset and state highlighted id
+        try {
+          if (container && container.dataset) delete container.dataset.highlightedId;
+        } catch {}
+        setState(prev => ({ ...prev, highlightedElementId: null }));
         return;
       }
     }
@@ -162,13 +174,18 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
       const clickedId = parseInt(elDiv.dataset.id);
       const clickedEl = state.elements.find(x => x.id === clickedId);
       // If the clicked element is a cover but there is a token in the same cell, prefer dragging the token
+      // EXCEPT when a cover is currently selected via Sidebar (user intent: reposition cover)
       if (clickedEl && clickedEl.type === 'cover') {
+        const selectedIsCover = !!state.highlightedElementId && (() => {
+          const sel = state.elements.find(x => x.id === state.highlightedElementId);
+          return sel && sel.type === 'cover';
+        })();
         const cell = getCellFromPoint(e.clientX, e.clientY);
         if (cell) {
           const cx = parseInt(cell.dataset.x);
           const cy = parseInt(cell.dataset.y);
           const token = state.elements.find(x => (x.type === 'player' || x.type === 'enemy') && x.position.x === cx && x.position.y === cy);
-          if (token) {
+          if (token && !selectedIsCover) {
             const tokenDiv = document.querySelector(`.element[data-id="${token.id}"]`);
             if (tokenDiv) {
               targetDiv = tokenDiv;

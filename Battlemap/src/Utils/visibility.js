@@ -16,7 +16,7 @@ export function selectCurrentEnemy(state) {
 // Returns 1 for fully grey (not visible), 0 for fully visible, or partial based on cover encountered
 export function computeGreyFractionForCell(state, cellX, cellY) {
   const enemy = selectCurrentEnemy(state);
-  if (!enemy) return 0; // no enemy observing => fully visible
+  if (!enemy) return 1; // no enemy observing => default to greyed out on player cards
 
   // Build a quick lookup for cover cells and severities
   const COVER_SEVERITY = {

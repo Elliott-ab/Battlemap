@@ -227,7 +227,8 @@ export const useElements = (state, setState) => {
         }
         return e;
       });
-      setState({ ...state, elements: updatedElements, highlightedElementId: null });
+  // After moving a cover group, do not preserve selection; UI clears highlight after one move
+  setState({ ...state, elements: updatedElements, highlightedElementId: null });
     } else {
       // Clamp single element to bounds
       let clampedX = Math.max(0, Math.min(x, state.grid.width - el.size));

@@ -3,6 +3,8 @@ import IconButton from '@mui/material/IconButton';
 import PersonAddOutlinedIcon from '@mui/icons-material/PersonAddOutlined';
 import AddBoxOutlinedIcon from '@mui/icons-material/AddBoxOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
+import CropSquareOutlinedIcon from '@mui/icons-material/CropSquareOutlined';
+import ChangeHistoryOutlinedIcon from '@mui/icons-material/ChangeHistoryOutlined';
 import { computeGreyFractionForCell } from '../Utils/visibility.js';
 //
 
@@ -20,11 +22,26 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
   state.elements.forEach((el) => {
     if (el.type === 'cover' && el.groupId) {
       if (!coverGroups[el.groupId]) {
-        coverGroups[el.groupId] = { coverType: el.coverType, positions: [], firstId: el.id };
+        coverGroups[el.groupId] = { coverType: el.coverType, positions: [], firstId: el.id, color: el.color || '#795548' };
       }
       coverGroups[el.groupId].positions.push(el.position);
     }
   });
+  // Label generator for cover types
+  const coverTypeLabel = (t) => {
+    switch (t) {
+      case 'half': return 'Half Cover';
+      case 'three-quarters': return 'Three Quarter Cover';
+      case 'full': return 'Full Cover';
+      case 'difficult': return 'Difficult Terrain';
+      default: return 'Cover';
+    }
+  };
+  // Also compute grouped lists for ordering in the Sidebar
+  const elementsArr = state.elements || [];
+  const playersList = elementsArr.filter(e => e.type === 'player');
+  const enemiesList = elementsArr.filter(e => e.type === 'enemy');
+  const ungroupedCovers = elementsArr.filter(e => e.type === 'cover' && !e.groupId);
 
   // Visibility for player cards is computed via shared utility for consistency
 
@@ -158,90 +175,130 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
         {/* Popover moved to App.jsx as AddCharacterModal */}
       </div>
       <div className="element-list">
-        {state.elements
-          .filter((el) => el.type !== 'cover' || !el.groupId)
-          .map((el) => (
-            <div
-              key={el.id}
-              className="element-item"
-              data-id={el.id}
-              onClick={() => {
-                console.log('Sidebar: Clicking element ID:', el.id, 'Type:', el.type);
-                toggleMovementHighlight(el.id, battleMapRef);
-              }}
-              onDoubleClick={() => showEditModal(el.id)}
-              style={{
-                position: 'relative',
-                borderColor: (currentTurnId === el.id && (el.type === 'player' || el.type === 'enemy')) ? '#ffffff' : undefined,
-                boxShadow: (currentTurnId === el.id && (el.type === 'player' || el.type === 'enemy')) ? '4px 0 10px rgba(255,255,255,0.45)' : undefined
-              }}
-            >
-              <div className="element-info">
-                <div className="element-color" style={{ backgroundColor: el.color }}></div>
-                <span className="element-name text-ellipsis">{el.name}</span>
-                <span className="element-type">({el.type})</span>
-                {el.type === 'player' && (() => {
-                  const greyFrac = computeGreyFractionForCell(state, el.position.x, el.position.y);
-                  const visibleFrac = 1 - greyFrac; // portion to show as white
-                  const widthPct = Math.round(visibleFrac * 100);
-                  return (
-                    <span style={{ position: 'relative', width: 18, height: 18, marginLeft: 'auto', display: 'inline-block' }} title={greyFrac >= 1 ? 'Out of vision or full cover' : greyFrac > 0 ? 'Partial cover' : 'Fully visible'}>
-                      {/* Base grey icon */}
-                      <VisibilityOutlinedIcon sx={{ color: '#777', fontSize: 18, position: 'absolute', left: 0, top: 0 }} />
-                      {/* White overlay for visible portion */}
-                      <span style={{ position: 'absolute', left: 0, top: 0, width: `${widthPct}%`, height: '100%', overflow: 'hidden' }}>
-                        <VisibilityOutlinedIcon sx={{ color: '#ffffff', fontSize: 18 }} />
-                      </span>
+        {[...playersList, ...enemiesList].map((el) => (
+          <div
+            key={el.id}
+            className="element-item"
+            data-id={el.id}
+            onClick={() => {
+              console.log('Sidebar: Clicking element ID:', el.id, 'Type:', el.type);
+              toggleMovementHighlight(el.id, battleMapRef);
+            }}
+            onDoubleClick={() => showEditModal(el.id)}
+            style={{
+              position: 'relative',
+              borderColor: (currentTurnId === el.id && (el.type === 'player' || el.type === 'enemy')) ? '#ffffff' : undefined,
+              boxShadow: (currentTurnId === el.id && (el.type === 'player' || el.type === 'enemy')) ? '4px 0 10px rgba(255,255,255,0.45)' : undefined
+            }}
+          >
+            <div className="element-info">
+              <div className="element-color" style={{ backgroundColor: el.color }}></div>
+              <span className="element-name text-ellipsis">{el.name}</span>
+              <span className="element-type">({el.type})</span>
+              {el.type === 'player' && (() => {
+                const greyFrac = computeGreyFractionForCell(state, el.position.x, el.position.y);
+                const visibleFrac = 1 - greyFrac; // portion to show as white
+                const widthPct = Math.round(visibleFrac * 100);
+                return (
+                  <span style={{ position: 'relative', width: 18, height: 18, marginLeft: 'auto', display: 'inline-block' }} title={greyFrac >= 1 ? 'Out of vision or full cover' : greyFrac > 0 ? 'Partial cover' : 'Fully visible'}>
+                    {/* Base grey icon */}
+                    <VisibilityOutlinedIcon sx={{ color: '#777', fontSize: 18, position: 'absolute', left: 0, top: 0 }} />
+                    {/* White overlay for visible portion */}
+                    <span style={{ position: 'absolute', left: 0, top: 0, width: `${widthPct}%`, height: '100%', overflow: 'hidden' }}>
+                      <VisibilityOutlinedIcon sx={{ color: '#ffffff', fontSize: 18 }} />
                     </span>
-                  );
-                })()}
-              </div>
-              {el.type === 'player' && (
-                <div className="element-stats">
-                  <div className={`hp-display ${getHpClass(el.currentHp, el.maxHp)}`}>
-                    HP: {el.currentHp}/{el.maxHp}
-                  </div>
-                </div>
-              )}
-              {el.type === 'enemy' && (
-                <div className="element-stats">
-                  <div className="hp-display" style={{ color: '#f44336', backgroundColor: 'rgba(244,67,54,0.15)' }}>
-                    Damage: {el.damage ?? 0}
-                  </div>
-                </div>
-              )}
-              {el.type === 'cover' && (
-                <span className="element-type">{el.coverType.replace('-', ' ')} cover</span>
-              )}
-              {/* Removed position display */}
+                  </span>
+                );
+              })()}
             </div>
-          ))}
-        {Object.entries(coverGroups).map(([groupId, { coverType, positions, firstId }]) => (
+            {el.type === 'player' && (
+              <div className="element-stats">
+                <div className={`hp-display ${getHpClass(el.currentHp, el.maxHp)}`}>
+                  HP: {el.currentHp}/{el.maxHp}
+                </div>
+              </div>
+            )}
+            {el.type === 'enemy' && (
+              <div className="element-stats">
+                <div className="hp-display" style={{ color: '#f44336', backgroundColor: 'rgba(244,67,54,0.15)' }}>
+                  Damage: {el.damage ?? 0}
+                </div>
+              </div>
+            )}
+            {/* Removed position display */}
+          </div>
+        ))}
+        {Object.entries(coverGroups).map(([groupId, { coverType, positions, firstId, color }]) => (
           <div
             key={groupId}
-            className="element-item"
+            className="element-item cover-item"
             data-id={firstId}
             onClick={() => {
               // Toggle cover group highlight and preserve movement
               // Clear any existing movement highlights to avoid confusion
               document.querySelectorAll('.movement-highlight').forEach((h) => h.remove());
+              // Also clear movement dataset highlight so clicks won't attempt token movement
+              try {
+                const mapEl = battleMapRef?.current;
+                if (mapEl && mapEl.dataset) delete mapEl.dataset.highlightedId;
+              } catch {}
               if (state.highlightedElementId === firstId) {
                 setState(prev => ({ ...prev, highlightedElementId: null }));
               } else {
                 setState(prev => ({ ...prev, highlightedElementId: firstId }));
+                // Immediately show yellow highlight around cover blocks
+                try { highlightCoverGroup(groupId); } catch {}
               }
             }}
             onDoubleClick={() => showEditModal(firstId)}
           >
-            <div className="element-info">
-              <div className="element-color" style={{ backgroundColor: '#795548' }}></div>
-              <span className="element-name">Cover Group {groupId}</span>
-              <span className="element-type">(cover)</span>
+            <div className="element-info" style={{ gap: '0.5rem', marginBottom: 0 }}>
+              {coverType === 'difficult' ? (
+                <ChangeHistoryOutlinedIcon sx={{ color: color || '#795548' }} />
+              ) : (
+                <CropSquareOutlinedIcon sx={{ color: color || '#795548' }} />
+              )}
+              <span className="element-name">{coverTypeLabel(coverType)}</span>
             </div>
-            <span className="element-type">{coverType.replace('-', ' ')} cover</span>
-            <span className="element-position">
-              {positions.length > 1 ? `Multiple (${positions.length} blocks)` : `Position: (${positions[0].x}, ${positions[0].y})`}
-            </span>
+          </div>
+        ))}
+        {ungroupedCovers.map((el) => (
+          <div
+            key={el.id}
+            className="element-item cover-item"
+            data-id={el.id}
+            onClick={() => {
+              document.querySelectorAll('.movement-highlight').forEach((h) => h.remove());
+              try {
+                const mapEl = battleMapRef?.current;
+                if (mapEl && mapEl.dataset) delete mapEl.dataset.highlightedId;
+              } catch {}
+              if (state.highlightedElementId === el.id) {
+                setState(prev => ({ ...prev, highlightedElementId: null }));
+              } else {
+                setState(prev => ({ ...prev, highlightedElementId: el.id }));
+                // Immediately show yellow highlight around this single cover block
+                try {
+                  document.querySelectorAll('.cover-highlight').forEach((h) => h.remove());
+                  const cell = document.querySelector(`.grid-cell[data-x="${el.position.x}"][data-y="${el.position.y}"]`);
+                  if (cell) {
+                    const highlight = document.createElement('div');
+                    highlight.classList.add('cover-highlight');
+                    cell.appendChild(highlight);
+                  }
+                } catch {}
+              }
+            }}
+            onDoubleClick={() => showEditModal(el.id)}
+          >
+            <div className="element-info" style={{ gap: '0.5rem', marginBottom: 0 }}>
+              {(el.coverType === 'difficult') ? (
+                <ChangeHistoryOutlinedIcon sx={{ color: el.color || '#795548' }} />
+              ) : (
+                <CropSquareOutlinedIcon sx={{ color: el.color || '#795548' }} />
+              )}
+              <span className="element-name">{coverTypeLabel(el.coverType)}</span>
+            </div>
           </div>
         ))}
       </div>

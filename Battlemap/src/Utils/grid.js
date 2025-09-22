@@ -40,10 +40,15 @@ export const useGrid = (state) => {
     // Add elements
     // Find selected cover groupId if a cover is selected
     let selectedCoverGroupId = null;
+    let selectedSingleCoverId = null;
     if (state.highlightedElementId) {
       const selected = state.elements.find(e => e.id === state.highlightedElementId);
-      if (selected && selected.type === 'cover' && selected.groupId) {
-        selectedCoverGroupId = selected.groupId;
+      if (selected && selected.type === 'cover') {
+        if (selected.groupId) {
+          selectedCoverGroupId = selected.groupId;
+        } else {
+          selectedSingleCoverId = selected.id;
+        }
       }
     }
     state.elements.forEach((el) => {
@@ -52,7 +57,7 @@ export const useGrid = (state) => {
       if (el.type === 'cover') {
         elDiv.classList.add('custom-cover', el.coverType);
         // Highlight all blocks in the selected group
-        if (selectedCoverGroupId && el.groupId === selectedCoverGroupId) {
+        if ((selectedCoverGroupId && el.groupId === selectedCoverGroupId) || (selectedSingleCoverId && el.id === selectedSingleCoverId)) {
           elDiv.classList.add('cover-block-highlight');
           console.log('Highlighting cover block', el.id, el.position);
         }
