@@ -34,13 +34,14 @@ const EditModal = ({ isOpen, elementId, state, updateElement, deleteElement, pus
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const isEnemy = formData.type === 'enemy';
     updateElement(elementId, {
       name: formData.name,
       type: formData.type,
-      maxHp: parseInt(formData.maxHp) || undefined,
-      currentHp: parseInt(formData.currentHp) || undefined,
+      maxHp: isEnemy ? undefined : (parseInt(formData.maxHp) || undefined),
+      currentHp: isEnemy ? undefined : (parseInt(formData.currentHp) || undefined),
       movement: parseInt(formData.movement) || undefined,
-      damage: parseInt(formData.damage) || undefined,
+      damage: isEnemy ? (parseInt(formData.damage) || 0) : undefined,
       color: formData.color,
       coverType: formData.coverType,
       size: parseInt(formData.size) || 1,
@@ -74,7 +75,7 @@ const EditModal = ({ isOpen, elementId, state, updateElement, deleteElement, pus
               <option value="cover">Cover</option>
             </select>
           </div>
-          {formData.type !== 'cover' && (
+          {formData.type === 'player' && (
             <>
               <div className="form-group hp-group">
                 <label htmlFor="maxHp">Max HP:</label>
@@ -84,11 +85,13 @@ const EditModal = ({ isOpen, elementId, state, updateElement, deleteElement, pus
                 <label htmlFor="currentHp">Current HP:</label>
                 <input type="number" id="currentHp" name="currentHp" value={formData.currentHp} onChange={handleChange} />
               </div>
-              <div className="form-group movement-group">
-                <label htmlFor="movement">Movement (ft):</label>
-                <input type="number" id="movement" name="movement" value={formData.movement} onChange={handleChange} />
-              </div>
             </>
+          )}
+          {formData.type !== 'cover' && (
+            <div className="form-group movement-group">
+              <label htmlFor="movement">Movement (ft):</label>
+              <input type="number" id="movement" name="movement" value={formData.movement} onChange={handleChange} />
+            </div>
           )}
           {formData.type === 'enemy' && (
             <div className="form-group damage-group">

@@ -196,13 +196,21 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
                   );
                 })()}
               </div>
-              {el.type !== 'cover' ? (
+              {el.type === 'player' && (
                 <div className="element-stats">
                   <div className={`hp-display ${getHpClass(el.currentHp, el.maxHp)}`}>
                     HP: {el.currentHp}/{el.maxHp}
                   </div>
                 </div>
-              ) : (
+              )}
+              {el.type === 'enemy' && (
+                <div className="element-stats">
+                  <div className="hp-display" style={{ color: '#f44336', backgroundColor: 'rgba(244,67,54,0.15)' }}>
+                    Damage: {el.damage ?? 0}
+                  </div>
+                </div>
+              )}
+              {el.type === 'cover' && (
                 <span className="element-type">{el.coverType.replace('-', ' ')} cover</span>
               )}
               {/* Removed position display */}

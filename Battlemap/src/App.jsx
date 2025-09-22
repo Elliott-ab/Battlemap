@@ -138,8 +138,8 @@ function App() {
         position: pos,
         size: 1,
         color,
-        maxHp: 10,
-        currentHp: 10,
+        maxHp: type === 'player' ? 10 : undefined,
+        currentHp: type === 'player' ? 10 : undefined,
         movement: 30,
         damage: type === 'enemy' ? 0 : undefined
       };
