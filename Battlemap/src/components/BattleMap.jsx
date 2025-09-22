@@ -4,6 +4,9 @@ import { useGrid } from '../Utils/grid.js';
 const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlocks, updateElementPosition, pushUndo, highlightCoverGroup, battleMapRef }) => {
   const localBattleMapRef = useRef(null);
   const currentDragElement = useRef(null);
+  // Track whether a drag occurred to suppress the subsequent click
+  const didDragRef = useRef(false);
+  const suppressNextClickRef = useRef(false);
   const { renderGrid } = useGrid(state);
 
   // Log when battleMapRef.current changes
@@ -44,18 +47,32 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
     }
   }, [state, renderGrid, localBattleMapRef, battleMapRef]);
 
-  const getCellFromPoint = (clientX, clientY) => {
-    let el = document.elementFromPoint(clientX, clientY);
-    if (el && el.classList.contains('element')) {
-      el.style.pointerEvents = 'none';
-      const cell = document.elementFromPoint(clientX, clientY);
-      el.style.pointerEvents = 'auto';
-      return cell ? cell.closest('.grid-cell') : null;
+  // Ensure drawing mode starts with a clean click state (no suppressed first click)
+  useEffect(() => {
+    if (isDrawingCover) {
+      suppressNextClickRef.current = false;
+      didDragRef.current = false;
     }
-    return el ? el.closest('.grid-cell') : null;
+  }, [isDrawingCover]);
+
+  const getCellFromPoint = (clientX, clientY) => {
+    // Temporarily disable pointer events on draggable overlays to get the underlying grid cell
+    const toDisable = Array.from(document.elementsFromPoint(clientX, clientY))
+      .filter(n => n.classList && (n.classList.contains('element') || n.classList.contains('direction-cone')));
+    toDisable.forEach(n => n.style.pointerEvents = 'none');
+    const cell = document.elementFromPoint(clientX, clientY);
+    toDisable.forEach(n => n.style.pointerEvents = '');
+    return cell ? cell.closest('.grid-cell') : null;
   };
 
   const handleClick = (e) => {
+    // If we just finished or are in a drag, ignore the synthetic click that follows.
+    // This covers event ordering differences between native and React synthetic events.
+    if (didDragRef.current || suppressNextClickRef.current) {
+      didDragRef.current = false;
+      suppressNextClickRef.current = false;
+      return;
+    }
     const cell = e.target.closest('.grid-cell');
     if (!cell) return;
 
@@ -127,12 +144,23 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
     if (isDrawingCover) return;
     const elDiv = e.target.closest('.element');
     if (elDiv) {
+      // Prevent the default to avoid generating a click after drag
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+      if (typeof e.stopPropagation === 'function') e.stopPropagation();
       console.log('Started dragging element:', elDiv.dataset.id);
       currentDragElement.current = elDiv;
       elDiv.classList.add('selected');
       elDiv.style.zIndex = '20';
+      didDragRef.current = false; // reset drag tracker
       const id = parseInt(elDiv.dataset.id);
       const el = state.elements.find(e => e.id === id);
+      // If a cover group was previously selected, clear it when dragging a non-cover token
+      if (el && el.type !== 'cover' && state.highlightedElementId) {
+        const highlighted = state.elements.find(h => h.id === state.highlightedElementId);
+        if (highlighted && highlighted.type === 'cover') {
+          setState(prev => ({ ...prev, highlightedElementId: null }));
+        }
+      }
       if (el && el.type === 'cover' && el.groupId) {
         highlightCoverGroup(el.groupId);
       }
@@ -147,6 +175,7 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
       const y = parseInt(cell.dataset.y);
       const id = parseInt(currentDragElement.current.dataset.id);
       console.log('Dragging to cell:', { x, y, id });
+      didDragRef.current = true; // mark that a drag occurred
       updateElementPosition(id, x, y);
     }
   };
@@ -159,6 +188,11 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
       currentDragElement.current.style.removeProperty('z-index');
       currentDragElement.current = null;
       document.querySelectorAll('.cover-highlight').forEach(highlight => highlight.remove());
+      // If a drag actually happened, suppress the next click to avoid unintended moves
+      if (didDragRef.current) {
+        suppressNextClickRef.current = true;
+      }
+      didDragRef.current = false;
       pushUndo();
     }
   };
@@ -166,9 +200,11 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
   useEffect(() => {
     document.addEventListener('pointermove', handlePointerMove);
     document.addEventListener('pointerup', handlePointerUp);
+    document.addEventListener('pointercancel', handlePointerUp);
     return () => {
       document.removeEventListener('pointermove', handlePointerMove);
       document.removeEventListener('pointerup', handlePointerUp);
+      document.removeEventListener('pointercancel', handlePointerUp);
     };
   }, [handlePointerMove, handlePointerUp]);
 

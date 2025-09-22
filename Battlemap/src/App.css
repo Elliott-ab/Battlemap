@@ -1,17 +1,8 @@
-/* Highlight for cover block boundary */
-.cover-block-highlight {
-    box-shadow: 0 0 8px 2px #FFEB3B80 !important;
-    border: 2px solid #FFEB3B !important;
-    background: rgba(255, 235, 59, 0.15) !important;
-    border-radius: 6px !important;
-    z-index: 100 !important;
-}
-/* Highlight for cover block boundary */
+/* Highlight for cover block boundary (no z-index so tokens stay above) */
 .cover-block-highlight {
     box-shadow: 0 0 0 3px #FFEB3B;
     border: 2px solid #FFEB3B;
     border-radius: 4px;
-    z-index: 10;
 }
 .element-position {
     font-size: 0.8rem;
@@ -480,20 +471,21 @@ body {
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 70px; /* extend partially into next cell */
-    height: 70px;
+    width: 80px; /* mid between previous 70 and 90 */
+    height: 80px;
     pointer-events: none;
     z-index: 1; /* inside the cell, below tokens (which are separate grid items with higher z-index) */
     transform-origin: 50% 50%; /* rotate around token center */
     /* Radial gradient that fades from the center (token) outward */
     background: radial-gradient(
         circle at 50% 50%,
-        rgba(var(--cone-rgb, 244, 67, 54), 0.6) 0%,
-        rgba(var(--cone-rgb, 244, 67, 54), 0.32) 50%,
-        rgba(var(--cone-rgb, 244, 67, 54), 0) 78%
+        rgba(var(--cone-rgb, 244, 67, 54), 0.58) 0%,
+        rgba(var(--cone-rgb, 244, 67, 54), 0.28) 56%,
+        rgba(var(--cone-rgb, 244, 67, 54), 0) 85%
     );
     /* Wedge shape with the tip at the center */
-    clip-path: polygon(50% 50%, 28% 95%, 72% 95%);
+    /* Mid-width wedge between original and current */
+    clip-path: polygon(50% 50%, 24% 95%, 76% 95%);
     filter: drop-shadow(0 0 2px rgba(0,0,0,0.3));
 }
 
@@ -558,8 +550,8 @@ body {
 }
 
 /* Ensure cover is always beneath tokens during drag and after re-render */
-.element.cover { z-index: 1; }
-.element.player, .element.enemy { z-index: 15; }
+.element.cover { z-index: 1 !important; }
+.element.player, .element.enemy { z-index: 15 !important; }
 
 .grid-wrapper {
     display: flex;
@@ -711,8 +703,10 @@ body {
 
 .cover-highlight {
     outline: 2px solid #FFD700;
-    z-index: 10;
-    position: relative;
+    position: absolute;
+    inset: 0;
+    z-index: 2; /* below tokens (15) and movement highlights (5) */
+    pointer-events: none; /* don't interfere with hit testing */
 }
 
 .element.cover.custom-cover {

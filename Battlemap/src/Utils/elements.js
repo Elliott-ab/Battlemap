@@ -210,6 +210,20 @@ export const useElements = (state, setState) => {
       // Clamp single element to bounds
       let clampedX = Math.max(0, Math.min(x, state.grid.width - el.size));
       let clampedY = Math.max(0, Math.min(y, state.grid.height - el.size));
+      // Prevent moving onto cover cells (covers remain stationary unless explicitly dragged)
+      const wouldOverlapCover = state.elements.some(other => {
+        if (other.type !== 'cover') return false;
+        return (
+          clampedX < other.position.x + other.size &&
+          clampedX + el.size > other.position.x &&
+          clampedY < other.position.y + other.size &&
+          clampedY + el.size > other.position.y
+        );
+      });
+      if (wouldOverlapCover) {
+        // Do not move onto cover; leave state unchanged
+        return;
+      }
       const dx = clampedX - el.position.x;
       const dy = clampedY - el.position.y;
       const shouldUpdateFacing = (dx !== 0 || dy !== 0) && (el.type === 'enemy');
