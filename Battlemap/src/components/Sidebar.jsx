@@ -304,8 +304,8 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
           <FontAwesomeIcon icon={faPenToSquareRegular} style={{ color: isDrawingCover ? '#4CAF50' : 'white' }} />
         </IconButton>
       </div>
-  {envOpen && (
-  <div className="element-list">
+      <div className={`collapsible ${envOpen ? 'open' : ''}`}>
+      <div className="element-list">
         {isDrawingCover && (
           <div className="drawing-options" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 6, marginBottom: 8 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fff' }}>
@@ -424,7 +424,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
           </div>
         ))}
       </div>
-      )}
+      </div>
     </aside>
   );
 };
