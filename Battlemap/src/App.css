@@ -245,6 +245,14 @@ body {
     flex-wrap: wrap;
 }
 
+/* Faint vertical divider between Global Modifiers button and icon group */
+.toolbar-divider-vert {
+    width: 1px;
+    height: 28px;
+    background: rgba(255,255,255,0.2);
+    margin: 0 4px; /* 8px (gap) + 4px (margin) = 12px on both sides */
+}
+
 .toolbar-logo {
     width: 280px; /* match sidebar width so edges align */
     display: flex;
@@ -282,6 +290,12 @@ body {
     font-size: 0.9rem;
     border-radius: 6px;
     font-weight: 400; /* not bold */
+}
+
+/* Red variant for Global Modifiers button */
+.turn-box--danger {
+    border-color: #f44336 !important;
+    color: #f44336 !important;
 }
 
 /* Toggle switch used in Global Modifiers */

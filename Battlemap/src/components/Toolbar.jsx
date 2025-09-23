@@ -37,6 +37,15 @@ const Toolbar = ({ isDrawingCover, showGridModal, clearMap, undo, showSaveModal,
       </div>
       <div className="toolbar-spacer" />
       <div className="controls">
+        <div
+          className="turn-box turn-box--small turn-box--danger"
+          onClick={isDrawingCover ? undefined : openGlobalModifiers}
+          style={{ cursor: isDrawingCover ? 'not-allowed' : 'pointer', minWidth: 0 }}
+          title="Global Modifiers"
+        >
+          Global Modifiers
+        </div>
+        <div className="toolbar-divider-vert" aria-hidden="true" />
         <IconButton onClick={showGridModal} disabled={isDrawingCover} title="Grid Settings" size="large">
           <FontAwesomeIcon icon={faGear} style={{ color: isDrawingCover ? 'grey' : 'white', fontSize: 16 }} />
         </IconButton>
@@ -52,14 +61,6 @@ const Toolbar = ({ isDrawingCover, showGridModal, clearMap, undo, showSaveModal,
         <IconButton onClick={showOverwriteModal} disabled={isDrawingCover} title="Upload Map" size="large">
           <FontAwesomeIcon icon={faUpload} style={{ color: isDrawingCover ? 'grey' : 'white', fontSize: 16 }} />
         </IconButton>
-        <div
-          className="turn-box turn-box--small"
-          onClick={isDrawingCover ? undefined : openGlobalModifiers}
-          style={{ cursor: isDrawingCover ? 'not-allowed' : 'pointer', minWidth: 0 }}
-          title="Global Modifiers"
-        >
-          Global Modifiers
-        </div>
         <span className="grid-info">Grid: {gridSize}ft per cell</span>
       </div>
     </header>
