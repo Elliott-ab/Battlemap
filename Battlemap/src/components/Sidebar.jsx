@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import IconButton from '@mui/material/IconButton';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSkull, faWandSparkles, faEye as faEyeSolid } from '@fortawesome/free-solid-svg-icons';
+import { faSkull, faWandSparkles, faEye as faEyeSolid, faChevronRight } from '@fortawesome/free-solid-svg-icons';
 import {
   faSquare as faSquareRegular,
   faEye as faEyeRegular,
@@ -18,6 +18,10 @@ import { computeGreyFractionForCell } from '../Utils/visibility.js';
 
 const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup, showEditModal, battleMapRef, isDrawingCover, toggleDrawingMode, openAddCharacterModal, openInitiativeModal }) => {
   console.log('Sidebar received battleMapRef:', battleMapRef);
+
+  // Collapsible sections state
+  const [creaturesOpen, setCreaturesOpen] = useState(true);
+  const [envOpen, setEnvOpen] = useState(true);
 
   // Initiative UI moved to modal-driven approach in Sidebar header (no drag & drop)
   const hasCharacters = (state.elements || []).some(e => e.type === 'player' || e.type === 'enemy');
@@ -168,17 +172,18 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
         )}
       </div>
       <hr className="sidebar-divider" />
-      {/* Elements Section */}
+      {/* Creatures Section */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5em', position: 'relative' }}>
-        <h3 style={{ margin: 0 }}>Elements</h3>
-        <IconButton onClick={openAddCharacterModal} disabled={isDrawingCover} title="Add character elements" size="small">
-          <FontAwesomeIcon icon={faUserRegular} style={{ color: isDrawingCover ? 'grey' : 'white' }} />
+        <IconButton onClick={() => setCreaturesOpen(v => !v)} size="small" title={creaturesOpen ? 'Collapse' : 'Expand'}>
+          <FontAwesomeIcon icon={faChevronRight} style={{ color: 'white', transform: creaturesOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
         </IconButton>
-        <IconButton onClick={toggleDrawingMode} title="Draw cover elements on grid" size="small">
-          <FontAwesomeIcon icon={faPenToSquareRegular} style={{ color: isDrawingCover ? '#4CAF50' : 'white' }} />
+        <h3 style={{ margin: 0, cursor: 'pointer' }} onClick={() => setCreaturesOpen(v => !v)}>Creatures</h3>
+        <IconButton onClick={openAddCharacterModal} disabled={isDrawingCover} title="Add creature" size="small">
+          <FontAwesomeIcon icon={faUserRegular} style={{ color: isDrawingCover ? 'grey' : 'white' }} />
         </IconButton>
         {/* Popover moved to App.jsx as AddCharacterModal */}
       </div>
+      {creaturesOpen && (
       <div className="element-list">
         {[...playersList, ...enemiesList].map((el) => (
           <div
@@ -287,6 +292,22 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
             {/* Removed position display */}
           </div>
         ))}
+      </div>
+      )}
+
+      {/* Environments Section */}
+      <hr className="sidebar-divider" />
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5em', position: 'relative' }}>
+        <IconButton onClick={() => setEnvOpen(v => !v)} size="small" title={envOpen ? 'Collapse' : 'Expand'}>
+          <FontAwesomeIcon icon={faChevronRight} style={{ color: 'white', transform: envOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
+        </IconButton>
+        <h3 style={{ margin: 0, cursor: 'pointer' }} onClick={() => setEnvOpen(v => !v)}>Environments</h3>
+        <IconButton onClick={toggleDrawingMode} title="Draw environment (cover/terrain) on grid" size="small">
+          <FontAwesomeIcon icon={faPenToSquareRegular} style={{ color: isDrawingCover ? '#4CAF50' : 'white' }} />
+        </IconButton>
+      </div>
+      {envOpen && (
+      <div className="element-list">
         {Object.entries(coverGroups).map(([groupId, { coverType, positions, firstId, color }]) => (
           <div
             key={groupId}
@@ -361,6 +382,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
           </div>
         ))}
       </div>
+      )}
     </aside>
   );
 };
