@@ -61,6 +61,40 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
     return 'healthy';
   };
 
+  // Apply enabled Global Modifiers of category 'hp' to an element's current HP for display only
+  const applyHpModifiers = (baseHp, el) => {
+    try {
+      const mods = Array.isArray(state.globalModifiers) ? state.globalModifiers : [];
+      if (!mods.length) return baseHp;
+      const applicable = mods.filter(m => m && m.enabled && m.category === 'hp' && (
+        (el.type === 'player' && m.applyToPlayers) || (el.type === 'enemy' && m.applyToEnemies)
+      ));
+      if (!applicable.length) return baseHp;
+      let add = 0;
+      let mult = 1;
+      for (const m of applicable) {
+        const raw = (m.magnitude ?? '').toString();
+        const num = parseInt(raw.replace(/[^0-9]/g, ''), 10);
+        if (!Number.isFinite(num)) continue;
+        const mode = m.magnitudeMode || (raw.endsWith('%') ? 'percent' : (raw.trim().startsWith('-') ? 'minus' : 'plus'));
+        if (mode === 'percent') {
+          mult *= (num / 100); // e.g., 50% -> half HP
+        } else if (mode === 'minus') {
+          add -= num;
+        } else {
+          add += num;
+        }
+      }
+      let value = baseHp + add;
+      value = Math.floor(value * mult);
+      const maxHp = typeof el.maxHp === 'number' ? el.maxHp : undefined;
+      if (typeof maxHp === 'number') value = Math.min(value, maxHp);
+      return Math.max(0, value);
+    } catch {
+      return baseHp;
+    }
+  };
+
   // Determine current turn element id if initiative is set
   const order = state.initiativeOrder || [];
   const currentTurnId = order.length ? order[(state.currentTurnIndex || 0) % order.length] : null;
@@ -137,8 +171,9 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
 
   return (
     <aside className="sidebar">
-      {/* Turn controls (initiative) */}
-  <div className={isDrawingCover ? 'disabled-while-drawing' : ''} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: '0.75rem', width: '100%' }}>
+      <div className="sidebar-body">
+        {/* Turn controls (initiative) */}
+        <div className={isDrawingCover ? 'disabled-while-drawing' : ''} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: '0.75rem', width: '100%' }}>
         {initiativeSet && (
           <IconButton size="small" title="Previous Turn" onClick={() => {
             setState(prev => {
@@ -190,7 +225,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
         </IconButton>
         {/* Popover moved to App.jsx as AddCharacterModal */}
       </div>
-      <div className={`collapsible ${creaturesOpen ? 'open' : ''}`}>
+  <div className={`collapsible ${creaturesOpen ? 'open' : ''}`}>
         <div className={`element-list ${isDrawingCover ? 'disabled-while-drawing' : ''}`}>
           {[...playersList, ...enemiesList].map((el) => (
             <div
@@ -275,11 +310,16 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
                 </span>
               </div>
               {el.type === 'player' && (
-                <div className="element-stats">
-                  <div className={`hp-display ${getHpClass(el.currentHp, el.maxHp)}`}>
-                    HP: {el.currentHp}/{el.maxHp}
-                  </div>
-                </div>
+                (() => {
+                  const effectiveHp = applyHpModifiers(el.currentHp ?? 0, el);
+                  return (
+                    <div className="element-stats">
+                      <div className={`hp-display ${getHpClass(effectiveHp, el.maxHp)}`}>
+                        HP: {effectiveHp}/{el.maxHp}
+                      </div>
+                    </div>
+                  );
+                })()
               )}
               {el.type === 'enemy' && (
                 <div className="element-stats">
@@ -295,7 +335,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
 
       {/* Environments Section */}
       <hr className="sidebar-divider" />
-  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5em', position: 'relative' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5em', position: 'relative' }}>
         <IconButton onClick={() => setEnvOpen(v => !v)} size="small" title={envOpen ? 'Collapse' : 'Expand'}>
           <FontAwesomeIcon icon={faChevronRight} style={{ color: 'white', transform: envOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
         </IconButton>
@@ -304,9 +344,9 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
           <FontAwesomeIcon icon={faPenToSquareRegular} style={{ color: isDrawingCover ? '#4CAF50' : 'white' }} />
         </IconButton>
       </div>
-      <div className={`collapsible ${envOpen ? 'open' : ''}`}>
-      <div className="element-list">
-        {isDrawingCover && (
+  <div className={`collapsible ${envOpen ? 'open' : ''}`}>
+        <div className="element-list">
+          {isDrawingCover && (
           <div className="drawing-options" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 6, marginBottom: 8 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fff' }}>
               <input
@@ -349,41 +389,41 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
             </div>
             <hr className="sidebar-divider" />
           </div>
-        )}
-        {Object.entries(coverGroups).map(([groupId, { coverType, positions, firstId, color }]) => (
-          <div
-            key={groupId}
-            className="element-item cover-item"
-            data-id={firstId}
-            onClick={() => {
-              // Toggle cover group highlight and preserve movement
-              // Clear any existing movement highlights to avoid confusion
-              document.querySelectorAll('.movement-highlight').forEach((h) => h.remove());
-              // Also clear movement dataset highlight so clicks won't attempt token movement
-              try {
-                const mapEl = battleMapRef?.current;
-                if (mapEl && mapEl.dataset) delete mapEl.dataset.highlightedId;
-              } catch {}
-              if (state.highlightedElementId === firstId) {
-                setState(prev => ({ ...prev, highlightedElementId: null }));
-              } else {
-                setState(prev => ({ ...prev, highlightedElementId: firstId }));
-                // Immediately show yellow highlight around cover blocks
-                try { highlightCoverGroup(groupId); } catch {}
-              }
-            }}
-            onDoubleClick={() => showEditModal(firstId)}
-          >
-            <div className="element-info" style={{ gap: '0.5rem', marginBottom: 0 }}>
-              {coverType === 'difficult' ? (
-                <FontAwesomeIcon icon={faSquareCaretUpRegular} style={{ color: color || '#795548' }} />
-              ) : (
-                <FontAwesomeIcon icon={faSquareRegular} style={{ color: color || '#795548' }} />
-              )}
-              <span className="element-name">{coverTypeLabel(coverType)}</span>
+          )}
+          {Object.entries(coverGroups).map(([groupId, { coverType, positions, firstId, color }]) => (
+            <div
+              key={groupId}
+              className="element-item cover-item"
+              data-id={firstId}
+              onClick={() => {
+                // Toggle cover group highlight and preserve movement
+                // Clear any existing movement highlights to avoid confusion
+                document.querySelectorAll('.movement-highlight').forEach((h) => h.remove());
+                // Also clear movement dataset highlight so clicks won't attempt token movement
+                try {
+                  const mapEl = battleMapRef?.current;
+                  if (mapEl && mapEl.dataset) delete mapEl.dataset.highlightedId;
+                } catch {}
+                if (state.highlightedElementId === firstId) {
+                  setState(prev => ({ ...prev, highlightedElementId: null }));
+                } else {
+                  setState(prev => ({ ...prev, highlightedElementId: firstId }));
+                  // Immediately show yellow highlight around cover blocks
+                  try { highlightCoverGroup(groupId); } catch {}
+                }
+              }}
+              onDoubleClick={() => showEditModal(firstId)}
+            >
+              <div className="element-info" style={{ gap: '0.5rem', marginBottom: 0 }}>
+                {coverType === 'difficult' ? (
+                  <FontAwesomeIcon icon={faSquareCaretUpRegular} style={{ color: color || '#795548' }} />
+                ) : (
+                  <FontAwesomeIcon icon={faSquareRegular} style={{ color: color || '#795548' }} />
+                )}
+                <span className="element-name">{coverTypeLabel(coverType)}</span>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
         {ungroupedCovers.map((el) => (
           <div
             key={el.id}
@@ -423,8 +463,10 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
             </div>
           </div>
         ))}
+        </div>
       </div>
       </div>
+      {/* Sidebar footer removed as per request (Global Modifiers only in toolbar) */}
     </aside>
   );
 };

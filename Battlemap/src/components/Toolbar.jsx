@@ -3,7 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGear, faTrashCan, faRotateLeft, faDownload, faUpload } from '@fortawesome/free-solid-svg-icons';
 import IconButton from '@mui/material/IconButton';
 
-const Toolbar = ({ isDrawingCover, showGridModal, clearMap, undo, showSaveModal, showOverwriteModal, gridSize }) => {
+const Toolbar = ({ isDrawingCover, showGridModal, clearMap, undo, showSaveModal, showOverwriteModal, gridSize, openGlobalModifiers }) => {
   const base = ((import.meta.env.BASE_URL || '/').endsWith('/')
     ? import.meta.env.BASE_URL
     : `${import.meta.env.BASE_URL || '/'}\/`).replace(/\\/g, '/');
@@ -52,6 +52,14 @@ const Toolbar = ({ isDrawingCover, showGridModal, clearMap, undo, showSaveModal,
         <IconButton onClick={showOverwriteModal} disabled={isDrawingCover} title="Upload Map" size="large">
           <FontAwesomeIcon icon={faUpload} style={{ color: isDrawingCover ? 'grey' : 'white', fontSize: 16 }} />
         </IconButton>
+        <div
+          className="turn-box turn-box--small"
+          onClick={isDrawingCover ? undefined : openGlobalModifiers}
+          style={{ cursor: isDrawingCover ? 'not-allowed' : 'pointer', minWidth: 0 }}
+          title="Global Modifiers"
+        >
+          Global Modifiers
+        </div>
         <span className="grid-info">Grid: {gridSize}ft per cell</span>
       </div>
     </header>

@@ -8,6 +8,7 @@ import GridModal from './components/Modals/GridModal.jsx';
 import SaveModal from './components/Modals/SaveModal.jsx';
 import OverwriteModal from './components/Modals/OverwriteModal.jsx';
 import InitiativeModal from './components/Modals/InitiativeModal.jsx';
+import GlobalModifiersModal from './components/Modals/GlobalModifiersModal.jsx';
 import { initialState } from './Utils/state.js';
 import { useGrid } from './Utils/grid.js';
 import { useElements } from './Utils/elements.js';
@@ -50,6 +51,7 @@ function App() {
     overwriteModal: false,
     addCharacter: false,
     initiative: false,
+    globalModifiers: false,
   });
   const [undoStack, setUndoStack] = useState([]);
   const uploadInputRef = useRef(null);
@@ -174,6 +176,7 @@ function App() {
         showSaveModal={showSaveModal}
         showOverwriteModal={showOverwriteModal}
         gridSize={state.grid.cellSize}
+        openGlobalModifiers={() => setModalState(prev => ({ ...prev, globalModifiers: true }))}
       />
       <div className="main-content">
         <Sidebar
@@ -229,6 +232,12 @@ function App() {
         state={mergedState}
         setState={setState}
         onClose={() => setModalState(prev => ({ ...prev, initiative: false }))}
+      />
+      <GlobalModifiersModal
+        isOpen={modalState.globalModifiers}
+        state={mergedState}
+        setState={setState}
+        onClose={() => setModalState(prev => ({ ...prev, globalModifiers: false }))}
       />
       <SaveModal
         isOpen={modalState.saveModal}

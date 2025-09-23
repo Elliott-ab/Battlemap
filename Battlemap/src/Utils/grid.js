@@ -146,7 +146,38 @@ export const useGrid = (state) => {
     if (state.highlightedElementId) {
       const element = state.elements.find(e => e.id === state.highlightedElementId);
       if (element && (element.type === 'player' || element.type === 'enemy') && element.movement) {
-        const range = Math.floor((element.movement || 30) / state.grid.cellSize);
+        // Apply active global movement modifiers to compute effective movement in feet
+        const applyMovementModifiers = (baseFeet, el, mods) => {
+          let value = baseFeet;
+          if (!Array.isArray(mods) || !mods.length) return value;
+          const applicable = mods.filter(m => m && m.enabled && m.category === 'movement' && (
+            (el.type === 'player' && m.applyToPlayers) || (el.type === 'enemy' && m.applyToEnemies)
+          ));
+          if (!applicable.length) return value;
+          let add = 0;
+          let mult = 1;
+          for (const m of applicable) {
+            const raw = (m.magnitude ?? '').toString();
+            const num = parseInt(raw.replace(/[^0-9]/g, ''), 10);
+            if (!Number.isFinite(num)) continue;
+            const mode = m.magnitudeMode || (raw.endsWith('%') ? 'percent' : (raw.trim().startsWith('-') ? 'minus' : 'plus'));
+            if (mode === 'percent') {
+              // Interpret as setting movement to N% of current (e.g., 50% -> half movement)
+              mult *= (num / 100);
+            } else if (mode === 'minus') {
+              add -= num;
+            } else {
+              add += num; // 'plus' default
+            }
+          }
+          value = Math.max(0, value + add);
+          value = Math.max(0, Math.floor(value * mult));
+          return value;
+        };
+
+        const baseFeet = (element.movement || 30);
+        const effectiveFeet = applyMovementModifiers(baseFeet, element, state.globalModifiers);
+        const range = Math.floor(effectiveFeet / state.grid.cellSize);
         const start = { x: element.position.x, y: element.position.y };
         const width = state.grid.width;
         const height = state.grid.height;
