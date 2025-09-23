@@ -16,7 +16,7 @@ import { computeGreyFractionForCell } from '../Utils/visibility.js';
 
 // Replaced MUI icons above with Font Awesome equivalents
 
-const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup, showEditModal, battleMapRef, isDrawingCover, toggleDrawingMode, openAddCharacterModal, openInitiativeModal }) => {
+const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup, showEditModal, battleMapRef, isDrawingCover, toggleDrawingMode, openAddCharacterModal, openInitiativeModal, drawEnvType, setDrawEnvType }) => {
   console.log('Sidebar received battleMapRef:', battleMapRef);
 
   // Collapsible sections state
@@ -128,10 +128,17 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
     setCharacterType('player');
   };
 
+  // When drawing mode starts, auto-collapse Creatures and disable non-environment interactions
+  React.useEffect(() => {
+    if (isDrawingCover) {
+      setCreaturesOpen(false);
+    }
+  }, [isDrawingCover]);
+
   return (
     <aside className="sidebar">
       {/* Turn controls (initiative) */}
-  <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: '0.75rem', width: '100%' }}>
+  <div className={isDrawingCover ? 'disabled-while-drawing' : ''} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: '0.75rem', width: '100%' }}>
         {initiativeSet && (
           <IconButton size="small" title="Previous Turn" onClick={() => {
             setState(prev => {
@@ -173,7 +180,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
       </div>
       <hr className="sidebar-divider" />
       {/* Creatures Section */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5em', position: 'relative' }}>
+  <div className={isDrawingCover ? 'disabled-while-drawing' : ''} style={{ display: 'flex', alignItems: 'center', gap: '0.5em', position: 'relative' }}>
         <IconButton onClick={() => setCreaturesOpen(v => !v)} size="small" title={creaturesOpen ? 'Collapse' : 'Expand'}>
           <FontAwesomeIcon icon={faChevronRight} style={{ color: 'white', transform: creaturesOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
         </IconButton>
@@ -183,121 +190,112 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
         </IconButton>
         {/* Popover moved to App.jsx as AddCharacterModal */}
       </div>
-      {creaturesOpen && (
-      <div className="element-list">
-        {[...playersList, ...enemiesList].map((el) => (
-          <div
-            key={el.id}
-            className="element-item"
-            data-id={el.id}
-            onClick={() => {
-              if (el.incapacitated) return; // disabled for movement when incapacitated
-              console.log('Sidebar: Clicking element ID:', el.id, 'Type:', el.type);
-              toggleMovementHighlight(el.id, battleMapRef);
-            }}
-            onDoubleClick={() => showEditModal(el.id)}
-            style={{
-              position: 'relative',
-              borderColor: (currentTurnId === el.id && (el.type === 'player' || el.type === 'enemy')) ? '#ffffff' : undefined,
-              boxShadow: (currentTurnId === el.id && (el.type === 'player' || el.type === 'enemy')) ? '4px 0 10px rgba(255,255,255,0.45)' : undefined,
-              opacity: el.incapacitated ? 0.5 : 1,
-              pointerEvents: el.incapacitated ? 'auto' : 'auto'
-            }}
-          >
-            <div className="element-info">
-              <div className="element-color" style={{ backgroundColor: el.color }}></div>
-              <span className="element-name text-ellipsis">{el.name}</span>
-              {/* Right-side controls (eye + skull/wand) */}
-              <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                {el.type === 'player' && (() => {
-                  let greyFrac = computeGreyFractionForCell(state, el.position.x, el.position.y);
-                  // Snap to canonical cover steps to avoid tiny sampling errors
-                  const steps = [0, 0.25, 0.5, 0.75, 1];
-                  const eps = 0.02;
-                  for (const s of steps) {
-                    if (Math.abs(greyFrac - s) < eps) { greyFrac = s; break; }
-                  }
-                  // Bias: show slightly more white for partial cover levels
-                  let adjustedGrey = greyFrac;
-                  if (greyFrac > 0 && greyFrac < 1) {
-                    const BIAS = 0.05; // +5% visibility
-                    adjustedGrey = Math.max(0, Math.min(1, greyFrac - BIAS));
-                  }
-                  const widthPct = adjustedGrey <= 0 ? 100 : Math.round((1 - adjustedGrey) * 100);
-                  const isFull = widthPct >= 100;
-                  return (
-                    <span style={{ position: 'relative', width: 18, height: 18, display: 'inline-block' }} title={greyFrac >= 1 ? 'Out of vision or full cover' : greyFrac > 0 ? 'Partial cover' : 'Fully visible'}>
-                      {/* Base outlined grey eye */}
-                      <FontAwesomeIcon icon={faEyeRegular} style={{ color: '#777', position: 'absolute', left: 0, top: 0, fontSize: 18, display: 'block' }} />
-                      {isFull ? (
-                        // Fully visible: overlay the outlined white eye to perfectly cover grey outline
-                        <FontAwesomeIcon icon={faEyeRegular} style={{ color: '#ffffff', position: 'absolute', left: 0, top: 0, fontSize: 18, display: 'block' }} />
-                      ) : (
-                        // Partially visible: overlay the same outlined eye in white and clip horizontally
-                        <span style={{ position: 'absolute', left: 0, top: 0, width: `${widthPct}%`, height: '100%', overflow: 'hidden' }}>
-                          <FontAwesomeIcon icon={faEyeRegular} style={{ color: '#ffffff', fontSize: 18, display: 'block' }} />
-                        </span>
-                      )}
-                    </span>
-                  );
-                })()}
-
-                {/* Incapacitate/Revive toggle */}
-                {el.incapacitated ? (
-                  <FontAwesomeIcon
-                    icon={faWandSparkles}
-                    title="Revive"
-                    style={{ color: '#80DEEA', cursor: 'pointer' }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setState(prev => ({
-                        ...prev,
-                        elements: prev.elements.map(x => x.id === el.id ? { ...x, incapacitated: false } : x)
-                      }));
-                    }}
-                  />
-                ) : (
-                  <FontAwesomeIcon
-                    icon={faSkull}
-                    title="Incapacitate"
-                    style={{ color: '#B0BEC5', cursor: 'pointer' }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      // Clear any movement highlights if incapacitating selected unit
-                      try { document.querySelectorAll('.movement-highlight').forEach(h => h.remove()); } catch {}
-                      setState(prev => ({
-                        ...prev,
-                        elements: prev.elements.map(x => x.id === el.id ? { ...x, incapacitated: true } : x),
-                        highlightedElementId: prev.highlightedElementId === el.id ? null : prev.highlightedElementId,
-                      }));
-                    }}
-                  />
-                )}
-              </span>
+      <div className={`collapsible ${creaturesOpen ? 'open' : ''}`}>
+        <div className={`element-list ${isDrawingCover ? 'disabled-while-drawing' : ''}`}>
+          {[...playersList, ...enemiesList].map((el) => (
+            <div
+              key={el.id}
+              className="element-item"
+              data-id={el.id}
+              onClick={() => {
+                if (el.incapacitated) return; // disabled for movement when incapacitated
+                console.log('Sidebar: Clicking element ID:', el.id, 'Type:', el.type);
+                toggleMovementHighlight(el.id, battleMapRef);
+              }}
+              onDoubleClick={() => showEditModal(el.id)}
+              style={{
+                position: 'relative',
+                borderColor: (currentTurnId === el.id && (el.type === 'player' || el.type === 'enemy')) ? '#ffffff' : undefined,
+                boxShadow: (currentTurnId === el.id && (el.type === 'player' || el.type === 'enemy')) ? '4px 0 10px rgba(255,255,255,0.45)' : undefined,
+                opacity: el.incapacitated ? 0.5 : 1,
+                pointerEvents: el.incapacitated ? 'auto' : 'auto'
+              }}
+            >
+              <div className="element-info">
+                <div className="element-color" style={{ backgroundColor: el.color }}></div>
+                <span className="element-name text-ellipsis">{el.name}</span>
+                {/* Right-side controls (eye + skull/wand) */}
+                <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  {el.type === 'player' && (() => {
+                    let greyFrac = computeGreyFractionForCell(state, el.position.x, el.position.y);
+                    const steps = [0, 0.25, 0.5, 0.75, 1];
+                    const eps = 0.02;
+                    for (const s of steps) {
+                      if (Math.abs(greyFrac - s) < eps) { greyFrac = s; break; }
+                    }
+                    let adjustedGrey = greyFrac;
+                    if (greyFrac > 0 && greyFrac < 1) {
+                      const BIAS = 0.05; // +5% visibility
+                      adjustedGrey = Math.max(0, Math.min(1, greyFrac - BIAS));
+                    }
+                    const widthPct = adjustedGrey <= 0 ? 100 : Math.round((1 - adjustedGrey) * 100);
+                    const isFull = widthPct >= 100;
+                    return (
+                      <span style={{ position: 'relative', width: 18, height: 18, display: 'inline-block' }} title={greyFrac >= 1 ? 'Out of vision or full cover' : greyFrac > 0 ? 'Partial cover' : 'Fully visible'}>
+                        <FontAwesomeIcon icon={faEyeRegular} style={{ color: '#777', position: 'absolute', left: 0, top: 0, fontSize: 18, display: 'block' }} />
+                        {isFull ? (
+                          <FontAwesomeIcon icon={faEyeRegular} style={{ color: '#ffffff', position: 'absolute', left: 0, top: 0, fontSize: 18, display: 'block' }} />
+                        ) : (
+                          <span style={{ position: 'absolute', left: 0, top: 0, width: `${widthPct}%`, height: '100%', overflow: 'hidden' }}>
+                            <FontAwesomeIcon icon={faEyeRegular} style={{ color: '#ffffff', fontSize: 18, display: 'block' }} />
+                          </span>
+                        )}
+                      </span>
+                    );
+                  })()}
+                  {el.incapacitated ? (
+                    <FontAwesomeIcon
+                      icon={faWandSparkles}
+                      title="Revive"
+                      style={{ color: '#80DEEA', cursor: 'pointer' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setState(prev => ({
+                          ...prev,
+                          elements: prev.elements.map(x => x.id === el.id ? { ...x, incapacitated: false } : x)
+                        }));
+                      }}
+                    />
+                  ) : (
+                    <FontAwesomeIcon
+                      icon={faSkull}
+                      title="Incapacitate"
+                      style={{ color: '#B0BEC5', cursor: 'pointer' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        try { document.querySelectorAll('.movement-highlight').forEach(h => h.remove()); } catch {}
+                        setState(prev => ({
+                          ...prev,
+                          elements: prev.elements.map(x => x.id === el.id ? { ...x, incapacitated: true } : x),
+                          highlightedElementId: prev.highlightedElementId === el.id ? null : prev.highlightedElementId,
+                        }));
+                      }}
+                    />
+                  )}
+                </span>
+              </div>
+              {el.type === 'player' && (
+                <div className="element-stats">
+                  <div className={`hp-display ${getHpClass(el.currentHp, el.maxHp)}`}>
+                    HP: {el.currentHp}/{el.maxHp}
+                  </div>
+                </div>
+              )}
+              {el.type === 'enemy' && (
+                <div className="element-stats">
+                  <div className="hp-display" style={{ color: '#f44336', backgroundColor: 'rgba(244,67,54,0.15)' }}>
+                    Damage: {el.damage ?? 0}
+                  </div>
+                </div>
+              )}
             </div>
-            {el.type === 'player' && (
-              <div className="element-stats">
-                <div className={`hp-display ${getHpClass(el.currentHp, el.maxHp)}`}>
-                  HP: {el.currentHp}/{el.maxHp}
-                </div>
-              </div>
-            )}
-            {el.type === 'enemy' && (
-              <div className="element-stats">
-                <div className="hp-display" style={{ color: '#f44336', backgroundColor: 'rgba(244,67,54,0.15)' }}>
-                  Damage: {el.damage ?? 0}
-                </div>
-              </div>
-            )}
-            {/* Removed position display */}
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
-      )}
 
       {/* Environments Section */}
       <hr className="sidebar-divider" />
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5em', position: 'relative' }}>
+  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5em', position: 'relative' }}>
         <IconButton onClick={() => setEnvOpen(v => !v)} size="small" title={envOpen ? 'Collapse' : 'Expand'}>
           <FontAwesomeIcon icon={faChevronRight} style={{ color: 'white', transform: envOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
         </IconButton>
@@ -306,8 +304,52 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
           <FontAwesomeIcon icon={faPenToSquareRegular} style={{ color: isDrawingCover ? '#4CAF50' : 'white' }} />
         </IconButton>
       </div>
-      {envOpen && (
-      <div className="element-list">
+  {envOpen && (
+  <div className="element-list">
+        {isDrawingCover && (
+          <div className="drawing-options" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 6, marginBottom: 8 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fff' }}>
+              <input
+                type="radio"
+                name="draw-env-type"
+                checked={drawEnvType === 'half'}
+                onChange={() => setDrawEnvType('half')}
+              />
+              Half Cover
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fff' }}>
+              <input
+                type="radio"
+                name="draw-env-type"
+                checked={drawEnvType === 'three-quarters'}
+                onChange={() => setDrawEnvType('three-quarters')}
+              />
+              Three-Quarters Cover
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fff' }}>
+              <input
+                type="radio"
+                name="draw-env-type"
+                checked={drawEnvType === 'full'}
+                onChange={() => setDrawEnvType('full')}
+              />
+              Full Cover
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fff' }}>
+              <input
+                type="radio"
+                name="draw-env-type"
+                checked={drawEnvType === 'difficult'}
+                onChange={() => setDrawEnvType('difficult')}
+              />
+              Difficult Terrain
+            </label>
+            <div style={{ fontSize: 12, opacity: 0.8 }}>
+              Tip: Click cells to add/remove. Finish by clicking the pen icon again.
+            </div>
+            <hr className="sidebar-divider" />
+          </div>
+        )}
         {Object.entries(coverGroups).map(([groupId, { coverType, positions, firstId, color }]) => (
           <div
             key={groupId}

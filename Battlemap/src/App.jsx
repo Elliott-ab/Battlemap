@@ -16,15 +16,28 @@ import { useStorage } from './Utils/storage.js';
 import { useUndo } from './Utils/undo.js';
 
 function App() {
+  const [drawEnvType, setDrawEnvType] = useState('half');
   const toggleDrawingMode = () => {
     if (!isDrawingCover) {
       setIsDrawingCover(true);
       setCoverBlocks([]);
     } else {
+      // Finish drawing: group drawn cells by their selected coverType and create distinct groups
       setIsDrawingCover(false);
-      createCoverFromBlocks(coverBlocks, 'half');
-      setCoverBlocks([]);
-      pushUndo();
+      try {
+        const byType = (coverBlocks || []).reduce((acc, b) => {
+          const t = b.coverType || 'half';
+          if (!acc[t]) acc[t] = [];
+          acc[t].push({ x: b.x, y: b.y });
+          return acc;
+        }, {});
+        Object.entries(byType).forEach(([type, blocks]) => {
+          if (blocks.length) createCoverFromBlocks(blocks, type);
+        });
+      } finally {
+        setCoverBlocks([]);
+        pushUndo();
+      }
     }
   };
   const [state, setState] = useState({ ...initialState, highlightedElementId: null });
@@ -172,6 +185,8 @@ function App() {
           battleMapRef={battleMapRef}
           isDrawingCover={isDrawingCover}
           toggleDrawingMode={toggleDrawingMode}
+          drawEnvType={drawEnvType}
+          setDrawEnvType={setDrawEnvType}
           openAddCharacterModal={() => setModalState(prev => ({ ...prev, addCharacter: true }))}
           openInitiativeModal={() => setModalState(prev => ({ ...prev, initiative: true }))}
         />
@@ -181,6 +196,7 @@ function App() {
           isDrawingCover={isDrawingCover}
           coverBlocks={coverBlocks}
           setCoverBlocks={setCoverBlocks}
+          drawEnvType={drawEnvType}
           updateElementPosition={updateElementPosition}
           pushUndo={pushUndo}
           highlightCoverGroup={highlightCoverGroup}

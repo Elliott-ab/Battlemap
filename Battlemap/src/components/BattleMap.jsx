@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { useGrid } from '../Utils/grid.js';
 
-const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlocks, updateElementPosition, pushUndo, highlightCoverGroup, battleMapRef }) => {
+const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlocks, drawEnvType, updateElementPosition, pushUndo, highlightCoverGroup, battleMapRef }) => {
   const localBattleMapRef = useRef(null);
   const currentDragElement = useRef(null);
   // Track whether a drag occurred to suppress the subsequent click
@@ -78,17 +78,26 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
 
     // Cover drawing mode
     if (isDrawingCover) {
-  const x = parseInt(cell.dataset.x);
-  const y = parseInt(cell.dataset.y);
-  const existingHighlight = cell.querySelector('.drawing-cover-highlight');
-      if (existingHighlight) {
-        existingHighlight.remove();
-        setCoverBlocks(coverBlocks.filter(block => block.x !== x || block.y !== y));
+      const x = parseInt(cell.dataset.x);
+      const y = parseInt(cell.dataset.y);
+      const idx = coverBlocks.findIndex(b => b.x === x && b.y === y);
+      if (idx >= 0) {
+        // If same type is selected, remove; otherwise update type
+        const existing = coverBlocks[idx];
+        if ((existing.coverType || 'half') === drawEnvType) {
+          setCoverBlocks(coverBlocks.filter((_, i) => i !== idx));
+          const hl = cell.querySelector('.drawing-cover-highlight');
+          if (hl) hl.remove();
+        } else {
+          const next = [...coverBlocks];
+          next[idx] = { ...existing, coverType: drawEnvType };
+          setCoverBlocks(next);
+        }
       } else {
         const highlight = document.createElement('div');
         highlight.classList.add('drawing-cover-highlight');
         cell.appendChild(highlight);
-        setCoverBlocks([...coverBlocks, { x, y }]);
+        setCoverBlocks([...coverBlocks, { x, y, coverType: drawEnvType }]);
       }
       return;
     }

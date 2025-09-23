@@ -58,41 +58,41 @@ export const useElements = (state, setState) => {
       groupId: null,
     };
     const { position, size, coverType, groupId } = { ...defaults, ...options };
-    // Compute a unique ID from current state to avoid collisions with other creation flows
-    const newId = Math.max(0, ...state.elements.map(e => e.id || 0)) + 1;
-    let name;
-    if (type === 'player') {
-      name = `Player ${nextPlayerId++}`;
-    } else if (type === 'enemy') {
-      name = `Enemy ${nextEnemyId++}`;
-    } else {
-      name = `${type.charAt(0).toUpperCase() + type.slice(1)} ${newId}`;
-    }
-    // Choose colors by type (players cycle palette, enemies fixed red, cover brown)
-    const color = type === 'player'
-      ? PLAYER_COLORS[(nextPlayerColorIdx++) % PLAYER_COLORS.length]
-      : type === 'enemy'
-        ? '#f44336'
-        : '#795548';
-
-    const newEl = {
-      id: newId,
-      name,
-      type,
-      position,
-      size,
-      color,
-      maxHp: type === 'player' ? 10 : undefined,
-      currentHp: type === 'player' ? 10 : undefined,
-      movement: type !== 'cover' ? 30 : undefined,
-      damage: type === 'enemy' ? 0 : undefined,
-      incapacitated: type !== 'cover' ? false : undefined,
-      coverType: type === 'cover' ? coverType : undefined,
-      groupId: type === 'cover' ? groupId : undefined,
-  // Facing direction in degrees (used for enemies' direction cone). 90° = down.
-  facing: type === 'enemy' ? 90 : undefined,
-    };
-    setState(prev => ({ ...prev, elements: [...prev.elements, newEl], highlightedElementId: null }));
+    // Generate the element inside the setter so ID uses the latest state
+    setState(prev => {
+      const newId = Math.max(0, ...prev.elements.map(e => e.id || 0)) + 1;
+      let name;
+      if (type === 'player') {
+        name = `Player ${nextPlayerId++}`;
+      } else if (type === 'enemy') {
+        name = `Enemy ${nextEnemyId++}`;
+      } else {
+        name = `${type.charAt(0).toUpperCase() + type.slice(1)} ${newId}`;
+      }
+      const color = type === 'player'
+        ? PLAYER_COLORS[(nextPlayerColorIdx++) % PLAYER_COLORS.length]
+        : type === 'enemy'
+          ? '#f44336'
+          : '#795548';
+      const newEl = {
+        id: newId,
+        name,
+        type,
+        position,
+        size,
+        color,
+        maxHp: type === 'player' ? 10 : undefined,
+        currentHp: type === 'player' ? 10 : undefined,
+        movement: type !== 'cover' ? 30 : undefined,
+        damage: type === 'enemy' ? 0 : undefined,
+        incapacitated: type !== 'cover' ? false : undefined,
+        coverType: type === 'cover' ? coverType : undefined,
+        groupId: type === 'cover' ? groupId : undefined,
+        // Facing direction in degrees (used for enemies' direction cone). 90° = down.
+        facing: type === 'enemy' ? 90 : undefined,
+      };
+      return { ...prev, elements: [...prev.elements, newEl], highlightedElementId: null };
+    });
   };
 
   const createCoverFromBlocks = (coverBlocks, coverType) => {

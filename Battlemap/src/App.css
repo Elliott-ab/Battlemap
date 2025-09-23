@@ -381,6 +381,21 @@ body {
     margin-bottom: 0; /* no extra space under row */
 }
 
+/* Smooth collapse/expand for Creatures list */
+.collapsible {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 200ms ease;
+}
+.collapsible.open {
+    max-height: 600px; /* enough to show typical lists; expand if needed */
+}
+
+/* Better looking radios on dark background */
+.drawing-options input[type="radio"] {
+    accent-color: #4CAF50; /* green radio */
+}
+
 .element-size {
     font-size: 0.8rem;
     color: #FF9800;
@@ -568,6 +583,31 @@ body {
 .element.cover { z-index: 1 !important; }
 .element.player, .element.enemy { z-index: 15 !important; }
 
+/* Generic greying helper for disabled UI during drawing mode */
+.disabled-while-drawing {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* Re-enable specific sections while parent is disabled */
+.drawing-enabled {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+/* Specifically grey out players on the grid while drawing */
+.element.player.greyed-out {
+    opacity: 0.5;
+    filter: grayscale(0.85);
+    pointer-events: none;
+}
+
+.element.enemy.greyed-out {
+    opacity: 0.5;
+    filter: grayscale(0.85);
+    pointer-events: none;
+}
+
 .grid-wrapper {
     display: flex;
     flex-direction: column;
@@ -707,13 +747,17 @@ body {
 }
 
 .drawing-cover-highlight {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     box-sizing: border-box;
-    background-color: rgba(255, 0, 0, 0.5);
-    border: 1px dashed #fff;
+    background: transparent !important; /* no fill; rely on outline only */
+    border: 2px solid #FFEB3B; /* bright yellow outline */
+    border-radius: 4px;
+    box-shadow: 0 0 6px rgba(255, 235, 59, 0.45);
     pointer-events: none;
-    z-index: 5;
+    z-index: 6; /* above preview tile */
 }
 
 .cover-highlight {

@@ -27,10 +27,24 @@ export const useGrid = (state) => {
         cell.style.gridColumn = `${x + 1}`;
         // Show coverBlocks visually during drawing mode
         if (state.isDrawingCover && Array.isArray(state.coverBlocks)) {
-          if (state.coverBlocks.some(b => b.x === x && b.y === y)) {
-            const highlight = document.createElement('div');
-            highlight.classList.add('drawing-cover-highlight');
-            cell.appendChild(highlight);
+          const b = state.coverBlocks.find(b => b.x === x && b.y === y);
+          if (b) {
+            // Clean any existing drawing outline to avoid duplicates
+            const existing = cell.querySelector('.drawing-cover-highlight');
+            if (existing) existing.remove();
+            // Render a preview tile that matches final cover appearance
+            const preview = document.createElement('div');
+            preview.classList.add('element', 'cover', 'custom-cover');
+            if (b.coverType) preview.classList.add(b.coverType);
+            if (b.coverType === 'difficult') {
+              preview.innerText = 'DT';
+            }
+            preview.style.pointerEvents = 'none';
+            cell.appendChild(preview);
+            // Add a visible outline to indicate active drawing selection
+            const outline = document.createElement('div');
+            outline.classList.add('drawing-cover-highlight');
+            cell.appendChild(outline);
           }
         }
         battleMap.appendChild(cell);
@@ -54,6 +68,10 @@ export const useGrid = (state) => {
     state.elements.forEach((el) => {
       const elDiv = document.createElement('div');
       elDiv.classList.add('element', el.type);
+      // Grey out players and enemies during drawing mode
+      if (state.isDrawingCover && (el.type === 'player' || el.type === 'enemy')) {
+        elDiv.classList.add('greyed-out');
+      }
       if (el.type === 'cover') {
         elDiv.classList.add('custom-cover', el.coverType);
         // Highlight all blocks in the selected group
