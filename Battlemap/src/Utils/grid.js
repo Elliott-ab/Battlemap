@@ -76,9 +76,12 @@ export const useGrid = (state) => {
       } else if (el.type === 'player') {
         // For players, show the first letter of their name
         elDiv.innerText = (el.name && el.name.length > 0) ? el.name[0].toUpperCase() : 'P';
+      } else if (el.type === 'cover' && el.coverType === 'difficult') {
+        // Difficult terrain: explicit 'DT' label
+        elDiv.innerText = 'DT';
       } else {
-        // Default: first letter
-        elDiv.innerText = el.name[0].toUpperCase();
+        // Default: first letter (includes cover blocks)
+        elDiv.innerText = el.name && el.name.length ? el.name[0].toUpperCase() : '';
       }
       elDiv.dataset.id = el.id;
       elDiv.style.gridRow = `${el.position.y + 1} / span ${el.size}`;
@@ -155,36 +158,58 @@ export const useGrid = (state) => {
         };
         const rgb = hexToRgb(element.color) || { r: 33, g: 150, b: 243 }; // fallback to blue
         const alpha = 0.45;
-        // Build a set of blocked cells (cover)
-        const blocked = new Set();
+
+        // Build sets for impassable and difficult terrain
+        const impassable = new Set(); // normal cover (not difficult)
+        const difficult = new Set(); // difficult terrain cells
         state.elements.forEach(el => {
           if (el.type === 'cover') {
+            const isDifficult = el.coverType === 'difficult';
             for (let dx = 0; dx < el.size; dx++) {
               for (let dy = 0; dy < el.size; dy++) {
-                blocked.add(`${el.position.x + dx},${el.position.y + dy}`);
+                const key = `${el.position.x + dx},${el.position.y + dy}`;
+                if (isDifficult) {
+                  difficult.add(key);
+                } else {
+                  impassable.add(key);
+                }
               }
             }
           }
         });
 
-        // BFS for reachable cells
-        const visited = new Set();
-        const queue = [{ x: start.x, y: start.y, dist: 0 }];
-        visited.add(`${start.x},${start.y}`);
-        while (queue.length > 0) {
-          const { x, y, dist } = queue.shift();
-          if (dist > range) continue;
-          // Highlight cell
+        // Dijkstra for weighted reachable cells (cost: 1 normal, 2 difficult)
+        const dist = new Map();
+        const startKey = `${start.x},${start.y}`;
+        dist.set(startKey, 0);
+        const frontier = [{ x: start.x, y: start.y, cost: 0 }];
+
+        const inBounds = (x, y) => x >= 0 && x < width && y >= 0 && y < height;
+        const directions = [
+          { dx: 1, dy: 0 },
+          { dx: -1, dy: 0 },
+          { dx: 0, dy: 1 },
+          { dx: 0, dy: -1 }
+        ];
+
+        while (frontier.length > 0) {
+          // Extract node with smallest cost
+          let minIdx = 0;
+          for (let i = 1; i < frontier.length; i++) {
+            if (frontier[i].cost < frontier[minIdx].cost) minIdx = i;
+          }
+          const { x, y, cost } = frontier.splice(minIdx, 1)[0];
+          if (cost > range) continue;
+
+          // Highlight cell at (x, y)
           const cell = battleMap.querySelector(`.grid-cell[data-x="${x}"][data-y="${y}"]`);
           if (cell) {
             const highlight = document.createElement('div');
             highlight.classList.add('movement-highlight');
-            // Style the highlight to match the element's selected color
             highlight.style.backgroundColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
             highlight.style.boxShadow = `0 0 10px 5px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
             highlight.style.border = `1px solid rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1)`;
-            // Visibility indicator: follow the same logic as player cards (grey fraction)
-            // Only show visibility for player movement, not enemy movement
+            // Visibility indicator for players only
             if (element.type === 'player') {
               if (isCellVisibleToAnyEnemy(state, x, y)) {
                 const eye = createVisibilityIconNode(14, '#ffffff', { outlined: true, opacity: 0.35, strokeWidth: 2 });
@@ -193,25 +218,21 @@ export const useGrid = (state) => {
             }
             cell.insertBefore(highlight, cell.firstChild);
           }
+
           // Explore neighbors
-          const directions = [
-            { dx: 1, dy: 0 },
-            { dx: -1, dy: 0 },
-            { dx: 0, dy: 1 },
-            { dx: 0, dy: -1 }
-          ];
           for (const dir of directions) {
             const nx = x + dir.dx;
             const ny = y + dir.dy;
             const key = `${nx},${ny}`;
-            if (
-              nx >= 0 && nx < width &&
-              ny >= 0 && ny < height &&
-              !visited.has(key) &&
-              !blocked.has(key)
-            ) {
-              visited.add(key);
-              queue.push({ x: nx, y: ny, dist: dist + 1 });
+            if (!inBounds(nx, ny)) continue;
+            if (impassable.has(key)) continue; // cannot enter normal cover
+            const stepCost = difficult.has(key) ? 2 : 1;
+            const newCost = cost + stepCost;
+            if (newCost > range) continue;
+            const prev = dist.get(key);
+            if (prev === undefined || newCost < prev) {
+              dist.set(key, newCost);
+              frontier.push({ x: nx, y: ny, cost: newCost });
             }
           }
         }

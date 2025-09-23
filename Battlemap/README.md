@@ -1,12 +1,16 @@
-# React + Vite
+# Battlemap
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A lightweight battlemap built with React + Vite. Supports tokens, cover blocks, initiative, and movement highlighting on a square grid.
 
-Currently, two official plugins are available:
+## Movement and terrain
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Grid size: configurable in ft-per-cell from the Gear icon.
+- Normal movement cost: 1 cell costs gridSize feet (e.g., 5 ft).
+- Difficult terrain: add cover with type "Difficult Terrain" in the editor. These cells are passable but cost double movement (2 cells of cost) when entered.
+	- Example: with a 5 ft grid, entering a difficult cell costs 10 ft.
+	- Normal cover types (Half/Three-Quarters/Full) are impassable to movement.
+- Movement range: highlights use weighted reachability (Dijkstra). Difficult cells count as 2, normal as 1. Click any highlighted cell to move.
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Notes:
+- Diagonal movement is not currently supported; moves are orthogonal (up/down/left/right).
+- Enemy facing can be set by clicking a destination cell during their turn; difficult terrain rules do not affect facing.

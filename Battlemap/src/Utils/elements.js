@@ -234,9 +234,11 @@ export const useElements = (state, setState) => {
       // Clamp single element to bounds
       let clampedX = Math.max(0, Math.min(x, state.grid.width - el.size));
       let clampedY = Math.max(0, Math.min(y, state.grid.height - el.size));
-      // Prevent moving onto cover cells (covers remain stationary unless explicitly dragged)
+      // Prevent moving onto normal cover cells; allow difficult terrain (special coverType)
       const wouldOverlapCover = state.elements.some(other => {
         if (other.type !== 'cover') return false;
+        const isDifficult = other.coverType === 'difficult';
+        if (isDifficult) return false; // difficult terrain is passable
         return (
           clampedX < other.position.x + other.size &&
           clampedX + el.size > other.position.x &&
@@ -265,147 +267,23 @@ export const useElements = (state, setState) => {
   };
 
   const toggleMovementHighlight = (id, battleMapRef) => {
-    console.log('Toggling movement highlight for id:', id, 'battleMapRef:', battleMapRef, 'battleMapRef.current:', battleMapRef?.current);
     const element = getElementById(id);
     if (!element || element.type === 'cover' || !element.movement || element.incapacitated) {
       console.warn(`Cannot toggle movement highlight for element ${id}:`, { element });
       return;
     }
-    console.log('Element details:', { id, type: element.type, movement: element.movement, position: element.position });
-
-    const attemptHighlight = () => {
-      if (!battleMapRef || !battleMapRef.current) {
-        console.error('Battle map ref is null or undefined', { battleMapRef });
-        return false;
-      }
-
-      const battleMap = battleMapRef.current;
-      if (!(battleMap instanceof HTMLElement)) {
-        console.error('battleMap is not an HTMLElement', { battleMap, type: typeof battleMap });
-        return false;
-      }
-
-      console.log('Battle map element:', battleMap);
-
-      document.querySelectorAll('.movement-highlight').forEach((highlight) => {
-        console.log('Removing existing highlight:', highlight);
-        highlight.remove();
-      });
-
-      // If toggling off the same element, clear state and dataset on the map
-      if (state.highlightedElementId === id) {
-        try {
-          if (battleMap && battleMap.dataset) {
-            delete battleMap.dataset.highlightedId;
-          }
-        } catch {}
-        setState({ ...state, highlightedElementId: null });
-        console.log('Toggled off highlight for id:', id);
-        return true;
-      }
-
-  const range = Math.floor((element.movement || 30) / state.grid.cellSize);
-      console.log('Calculated range:', range, 'cellSize:', state.grid.cellSize);
-      if (range <= 0) {
-        console.warn('Range is zero or negative, no highlights will be shown');
-        return true;
-      }
-
-      const { x, y } = element.position;
-      const cells = [];
-      for (let dy = -range; dy <= range; dy++) {
-        for (let dx = -range; dx <= range; dx++) {
-          if (Math.abs(dx) + Math.abs(dy) <= range) {
-            const cellX = x + dx;
-            const cellY = y + dy;
-            if (
-              cellX >= 0 &&
-              cellX < state.grid.width &&
-              cellY >= 0 &&
-              cellY < state.grid.height
-            ) {
-              cells.push({ x: cellX, y: cellY });
-            }
-          }
-        }
-      }
-
-      console.log('Cells to highlight:', cells);
-
-      // Helper to convert a hex color string to rgb components
-      const hexToRgb = (hex) => {
-        try {
-          let h = (hex || '').toString().trim();
-          if (!h) return null;
-          if (h.startsWith('rgb')) {
-            // rgb or rgba already
-            const nums = h.replace(/rgba?\(|\)|\s/g, '').split(',').map(Number);
-            if (nums.length >= 3) return { r: nums[0], g: nums[1], b: nums[2] };
-            return null;
-          }
-          if (h[0] === '#') h = h.slice(1);
-          if (h.length === 3) {
-            h = h.split('').map((c) => c + c).join('');
-          }
-          if (h.length !== 6) return null;
-          const r = parseInt(h.slice(0, 2), 16);
-          const g = parseInt(h.slice(2, 4), 16);
-          const b = parseInt(h.slice(4, 6), 16);
-          if ([r, g, b].some((v) => Number.isNaN(v))) return null;
-          return { r, g, b };
-        } catch {
-          return null;
-        }
-      };
-      const rgb = hexToRgb(element.color) || { r: 33, g: 150, b: 243 }; // fallback to blue
-      let highlightCount = 0;
-      // Record highlighted id on the DOM immediately so clicks can be handled without waiting for React state flush
-      try {
-        if (battleMap && battleMap.dataset) {
-          battleMap.dataset.highlightedId = String(id);
-        }
-      } catch {}
-
-      cells.forEach(({ x, y }) => {
-        const cell = battleMap.querySelector(`.grid-cell[data-x="${x}"][data-y="${y}"]`);
-        if (cell) {
-          console.log(`Found cell at x=${x}, y=${y}:`, cell);
-          const highlight = document.createElement('div');
-          highlight.classList.add('movement-highlight');
-          // Style the highlight to match the element's selected color
-          const alpha = 0.45;
-          highlight.style.backgroundColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
-          highlight.style.boxShadow = `0 0 10px 5px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
-          highlight.style.border = `1px solid rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1)`;
-          // Append visibility eye using same logic as player cards (grey fraction)
-          // Only show visibility eye for players, not enemies
-          if (element.type === 'player') {
-            if (isCellVisibleToAnyEnemy(state, x, y)) {
-              const eye = createVisibilityIconNode(14, '#ffffff', { outlined: true, opacity: 0.35, strokeWidth: 2 });
-              highlight.appendChild(eye);
-            }
-          }
-          cell.appendChild(highlight);
-          console.log(`Appended highlight to cell at x=${x}, y=${y}`);
-          highlightCount++;
-        } else {
-          console.warn(`Cell not found at x=${x}, y=${y}`);
-        }
-      });
-      console.log(`Total highlights added: ${highlightCount}`);
-
-      setState({ ...state, highlightedElementId: id });
-      return true;
-    };
-
-    if (!attemptHighlight()) {
-      console.warn('battleMapRef not ready, scheduling retry for highlight');
-      setTimeout(() => {
-        if (!attemptHighlight()) {
-          console.error('battleMapRef still not ready after retry');
-        }
-      }, 500);
+    const battleMap = battleMapRef?.current;
+    // Remove any existing movement highlights
+    try { document.querySelectorAll('.movement-highlight').forEach((h) => h.remove()); } catch {}
+    // Toggle off if same element is highlighted
+    if (state.highlightedElementId === id) {
+      try { if (battleMap && battleMap.dataset) delete battleMap.dataset.highlightedId; } catch {}
+      setState({ ...state, highlightedElementId: null });
+      return;
     }
+    // Record highlighted id on DOM for quick read; renderGrid will draw weighted highlights
+    try { if (battleMap && battleMap.dataset) battleMap.dataset.highlightedId = String(id); } catch {}
+    setState({ ...state, highlightedElementId: id });
   };
 
   const highlightCoverGroup = (groupId) => {

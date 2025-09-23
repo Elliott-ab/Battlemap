@@ -73,14 +73,14 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
       suppressNextClickRef.current = false;
       return;
     }
-    const cell = e.target.closest('.grid-cell');
-    if (!cell) return;
+  const cell = getCellFromPoint(e.clientX, e.clientY);
+  if (!cell) return;
 
     // Cover drawing mode
     if (isDrawingCover) {
-      const x = parseInt(cell.dataset.x);
-      const y = parseInt(cell.dataset.y);
-      const existingHighlight = cell.querySelector('.drawing-cover-highlight');
+  const x = parseInt(cell.dataset.x);
+  const y = parseInt(cell.dataset.y);
+  const existingHighlight = cell.querySelector('.drawing-cover-highlight');
       if (existingHighlight) {
         existingHighlight.remove();
         setCoverBlocks(coverBlocks.filter(block => block.x !== x || block.y !== y));
@@ -126,10 +126,9 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
       const x = parseInt(cell.dataset.x);
       const y = parseInt(cell.dataset.y);
       if (element.type === 'player' || element.type === 'enemy') {
-        const range = Math.floor((element.movement || 30) / state.grid.cellSize);
-        const { x: ex, y: ey } = element.position;
-        // Check if cell is in movement range
-        if (Math.abs(x - ex) + Math.abs(y - ey) <= range) {
+          // Determine reachability by presence of a movement highlight in the target cell
+          const hasHighlight = !!cell.querySelector('.movement-highlight');
+          if (hasHighlight) {
           updateElementPosition(element.id, x, y);
           pushUndo();
           // Clear DOM dataset and state highlight after moving
@@ -165,6 +164,16 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
 
   const handlePointerDown = (e) => {
     if (isDrawingCover) return;
+    // If movement highlight is active for a token, let the subsequent click handle movement
+    const container = localBattleMapRef.current;
+    const domHighlightedId = container?.dataset?.highlightedId ? parseInt(container.dataset.highlightedId) : null;
+    const effectiveHighlightedId = domHighlightedId || state.highlightedElementId;
+    if (effectiveHighlightedId) {
+      const el = state.elements.find(x => x.id === effectiveHighlightedId);
+      if (el && (el.type === 'player' || el.type === 'enemy') && el.movement) {
+        return; // don't start a drag or highlight cover; allow click-to-move
+      }
+    }
     const elDiv = e.target.closest('.element');
     if (elDiv) {
       // Prevent the default to avoid generating a click after drag
