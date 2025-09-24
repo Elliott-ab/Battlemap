@@ -12,8 +12,9 @@ export const useGrid = (state) => {
     console.log('Rendering grid:', state.grid.width, state.grid.height);
     battleMap.style.setProperty('--grid-width', state.grid.width);
     battleMap.style.setProperty('--grid-height', state.grid.height);
-    battleMap.style.gridTemplateColumns = `repeat(${state.grid.width}, 40px)`;
-    battleMap.style.gridTemplateRows = `repeat(${state.grid.height}, 40px)`;
+  // Use CSS variable for responsive cell sizing so tracks match elements on mobile/tablet
+  battleMap.style.gridTemplateColumns = `repeat(${state.grid.width}, var(--cell-px))`;
+  battleMap.style.gridTemplateRows = `repeat(${state.grid.height}, var(--cell-px))`;
     battleMap.innerHTML = '';
 
     // Create grid cells

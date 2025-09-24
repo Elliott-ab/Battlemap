@@ -1,13 +1,91 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
+import IconButton from '@mui/material/IconButton';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faMinus, faPlus, faCrosshairs } from '@fortawesome/free-solid-svg-icons';
 import { useGrid } from '../Utils/grid.js';
 
 const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlocks, drawEnvType, updateElementPosition, pushUndo, highlightCoverGroup, battleMapRef }) => {
   const localBattleMapRef = useRef(null);
+  const containerRef = useRef(null);
   const currentDragElement = useRef(null);
   // Track whether a drag occurred to suppress the subsequent click
   const didDragRef = useRef(false);
   const suppressNextClickRef = useRef(false);
   const { renderGrid } = useGrid(state);
+
+  // Zoom/pan state
+  const MIN_SCALE = 0.5;
+  const MAX_SCALE = 3.0;
+  const transformRef = useRef({ scale: 1, tx: 0, ty: 0 });
+  const userZoomedRef = useRef(false);
+  const panZoomActiveRef = useRef(false);
+  const activePointersRef = useRef(new Map()); // id -> {x,y}
+  const pinchStartRef = useRef(null); // {distance, mid:{x,y}, scale, tx, ty}
+  const [zoom, setZoom] = useState(1);
+  // Desktop mouse panning (middle or right button)
+  const mousePanningRef = useRef({ active: false, pointerId: null, startX: 0, startY: 0, startTx: 0, startTy: 0 });
+  const lastCenteredIdRef = useRef(null);
+  const hasPannedRef = useRef(false);
+
+  const setTransform = (next) => {
+    transformRef.current = next;
+    const el = localBattleMapRef.current;
+    if (el) {
+      const { scale, tx, ty } = next;
+      el.style.transformOrigin = '0 0';
+      el.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+    }
+    setZoom(next.scale);
+  };
+
+  const fitToScreen = () => {
+    const container = containerRef.current;
+    const map = localBattleMapRef.current;
+    if (!container || !map) return;
+    // Use scrollWidth/Height to get untransformed size
+    const contentW = map.scrollWidth;
+    const contentH = map.scrollHeight;
+    const styles = window.getComputedStyle(container);
+    const padX = parseFloat(styles.paddingLeft || '0') + parseFloat(styles.paddingRight || '0');
+    const padY = parseFloat(styles.paddingTop || '0') + parseFloat(styles.paddingBottom || '0');
+    const availW = Math.max(0, container.clientWidth - padX);
+    const availH = Math.max(0, container.clientHeight - padY);
+    if (contentW <= 0 || contentH <= 0 || availW <= 0 || availH <= 0) return;
+    const s = Math.min(availW / contentW, availH / contentH);
+    // Translate within the container content box (no need to add padding offsets)
+    const tx = (availW - s * contentW) / 2;
+    const ty = (availH - s * contentH) / 2;
+    setTransform({ scale: s, tx, ty });
+  };
+
+  const scheduleFitToScreen = () => {
+    // Ensure layout is up to date before measuring
+    requestAnimationFrame(() => {
+      fitToScreen();
+    });
+  };
+
+  // Center view on a specific element ID without changing scale
+  const centerOnElementId = (id) => {
+    try {
+      const container = containerRef.current;
+      const map = localBattleMapRef.current;
+      if (!container || !map) return;
+      const elDiv = map.querySelector(`.element[data-id="${id}"]`);
+      if (!elDiv) return;
+      const rect = { w: elDiv.offsetWidth, h: elDiv.offsetHeight, x: elDiv.offsetLeft, y: elDiv.offsetTop };
+      const cx = rect.x + rect.w / 2;
+      const cy = rect.y + rect.h / 2;
+      const s = transformRef.current.scale;
+      const P = { x: container.clientWidth / 2, y: container.clientHeight / 2 };
+      const tx = P.x - s * cx;
+      const ty = P.y - s * cy;
+      setTransform({ scale: s, tx, ty });
+      userZoomedRef.current = true; // treat as user-driven to avoid auto-fit overriding
+    } catch {}
+  };
+
+  // Note: automatic recentering on selection/turn is disabled per requirements.
 
   // Log when battleMapRef.current changes
   useEffect(() => {
@@ -28,6 +106,10 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
       console.log('Rendering grid with localBattleMapRef:', localBattleMapRef.current);
       renderGrid(localBattleMapRef);
       console.log('Grid rendering complete, cells should be available');
+      // Fit to screen by default if user hasn't zoomed
+      if (!userZoomedRef.current) {
+        scheduleFitToScreen();
+      }
     } else {
       console.warn('localBattleMapRef not ready, scheduling retry');
       const timer = setTimeout(() => {
@@ -38,6 +120,9 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
           if (battleMapRef && battleMapRef.current !== localBattleMapRef.current) {
             battleMapRef.current = localBattleMapRef.current;
             console.log('Retry: Updated passed battleMapRef.current:', battleMapRef.current);
+          }
+          if (!userZoomedRef.current) {
+            scheduleFitToScreen();
           }
         } else {
           console.warn('localBattleMapRef still not ready after retry');
@@ -66,6 +151,11 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
   };
 
   const handleClick = (e) => {
+    // Only respond to primary (left) mouse button
+    if (e && typeof e === 'object') {
+      const btn = (e.nativeEvent && typeof e.nativeEvent.button === 'number') ? e.nativeEvent.button : (typeof e.button === 'number' ? e.button : 0);
+      if (btn !== 0) return;
+    }
     // If we just finished or are in a drag, ignore the synthetic click that follows.
     // This covers event ordering differences between native and React synthetic events.
     if (didDragRef.current || suppressNextClickRef.current) {
@@ -172,6 +262,10 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
   };
 
   const handlePointerDown = (e) => {
+    // Only left mouse button should initiate element drag/move
+    if (e.pointerType === 'mouse' && e.button !== 0) {
+      return;
+    }
     if (isDrawingCover) return;
     // If movement highlight is active for a token, let the subsequent click handle movement
     const container = localBattleMapRef.current;
@@ -278,9 +372,240 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
     };
   }, [handlePointerMove, handlePointerUp]);
 
+  // Handle pinch-to-zoom with two pointers; keep midpoint stationary
+  const onContainerPointerDown = (e) => {
+    // Desktop mouse panning: middle (1) or right (2) button
+    if (e.pointerType === 'mouse' && (e.button === 1 || e.button === 2)) {
+      // Ignore if clicking on overlay controls
+      if (e.target && typeof e.target.closest === 'function' && e.target.closest('.zoom-controls')) return;
+      const mp = mousePanningRef.current;
+      mp.active = true;
+      mp.pointerId = e.pointerId;
+      mp.startX = e.clientX;
+      mp.startY = e.clientY;
+      mp.startTx = transformRef.current.tx;
+      mp.startTy = transformRef.current.ty;
+      // visual feedback
+      try { containerRef.current?.classList?.add('panning'); } catch {}
+      // prevent token drag and context menu
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+      if (typeof e.stopPropagation === 'function') e.stopPropagation();
+      return;
+    }
+    // Track pointers for gestures
+    activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (activePointersRef.current.size === 2) {
+      // Initialize pinch (no mobile auto-centering)
+      const pts = Array.from(activePointersRef.current.values());
+      const dx = pts[1].x - pts[0].x;
+      const dy = pts[1].y - pts[0].y;
+      const dist = Math.hypot(dx, dy);
+      // Compute midpoint in container-local coordinates so anchoring is stable
+      const containerEl = containerRef.current;
+      const containerRect = containerEl?.getBoundingClientRect?.();
+      let mid;
+      if (containerRect) {
+        const styles = window.getComputedStyle(containerEl);
+        const padLeft = parseFloat(styles.paddingLeft || '0');
+        const padTop = parseFloat(styles.paddingTop || '0');
+        mid = {
+          x: ((pts[0].x + pts[1].x) / 2) - containerRect.left - padLeft,
+          y: ((pts[0].y + pts[1].y) / 2) - containerRect.top - padTop,
+        };
+      } else {
+        mid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+      }
+      const { scale, tx, ty } = transformRef.current;
+      pinchStartRef.current = { distance: dist, mid, scale, tx, ty };
+      panZoomActiveRef.current = true;
+      // prevent token drag click from following
+      suppressNextClickRef.current = true;
+      e.preventDefault();
+    }
+  };
+
+  const onContainerPointerMove = (e) => {
+    // Mouse panning
+    const mp = mousePanningRef.current;
+    if (mp.active && e.pointerId === mp.pointerId) {
+      const dx = e.clientX - mp.startX;
+      const dy = e.clientY - mp.startY;
+      setTransform({ scale: transformRef.current.scale, tx: mp.startTx + dx, ty: mp.startTy + dy });
+      userZoomedRef.current = true;
+      hasPannedRef.current = true;
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+      return;
+    }
+    if (!panZoomActiveRef.current || activePointersRef.current.size < 2) return;
+    if (activePointersRef.current.has(e.pointerId)) {
+      activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+    const pts = Array.from(activePointersRef.current.values());
+    if (pts.length < 2) return;
+    const dx = pts[1].x - pts[0].x;
+    const dy = pts[1].y - pts[0].y;
+    const dist = Math.hypot(dx, dy);
+    // Midpoint in container-local coordinates
+    const containerEl = containerRef.current;
+    const containerRect = containerEl?.getBoundingClientRect?.();
+    let mid;
+    if (containerRect) {
+      const styles = window.getComputedStyle(containerEl);
+      const padLeft = parseFloat(styles.paddingLeft || '0');
+      const padTop = parseFloat(styles.paddingTop || '0');
+      mid = {
+        x: ((pts[0].x + pts[1].x) / 2) - containerRect.left - padLeft,
+        y: ((pts[0].y + pts[1].y) / 2) - containerRect.top - padTop,
+      };
+    } else {
+      mid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+    }
+    const start = pinchStartRef.current;
+    if (!start || start.distance <= 0) return;
+    let nextScale = start.scale * (dist / start.distance);
+    nextScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, nextScale));
+    // Keep the midpoint fixed: P = T + s*C => T = P - s*C, where C = (P - T0)/s0
+    const Cx = (start.mid.x - start.tx) / start.scale;
+    const Cy = (start.mid.y - start.ty) / start.scale;
+    const nextTx = mid.x - nextScale * Cx;
+    const nextTy = mid.y - nextScale * Cy;
+    setTransform({ scale: nextScale, tx: nextTx, ty: nextTy });
+    userZoomedRef.current = true;
+    hasPannedRef.current = true; // two-finger gesture typically includes panning component
+    e.preventDefault();
+  };
+
+  const onContainerPointerUp = (e) => {
+    // End mouse panning
+    const mp = mousePanningRef.current;
+    if (mp.active && e.pointerId === mp.pointerId) {
+      mp.active = false;
+      mp.pointerId = null;
+      try { containerRef.current?.classList?.remove('panning'); } catch {}
+      return;
+    }
+    activePointersRef.current.delete(e.pointerId);
+    if (activePointersRef.current.size < 2) {
+      panZoomActiveRef.current = false;
+      pinchStartRef.current = null;
+    }
+  };
+
+  // Fit to screen on viewport resize if user hasn't zoomed manually
+  useEffect(() => {
+    const onResize = () => {
+      if (!userZoomedRef.current) fitToScreen();
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  // Desktop slider: center on selected/turn element ONLY when zooming in
+  const setScaleAroundViewportCenter = (desiredScale) => {
+    const container = containerRef.current;
+    const { scale, tx, ty } = transformRef.current;
+    if (!container) return;
+    const sNew = Math.max(MIN_SCALE, Math.min(MAX_SCALE, desiredScale));
+    // Default anchor is viewport center
+    let anchor = { x: container.clientWidth / 2, y: container.clientHeight / 2 };
+    // If zooming in and a target is selected or has turn, center on it for this zoom change
+    if (sNew > scale) {
+      try {
+        const order = state.initiativeOrder || [];
+        const currentTurnId = order.length ? order[(state.currentTurnIndex || 0) % order.length] : null;
+        const targetId = state.highlightedElementId || currentTurnId || null;
+        if (targetId && localBattleMapRef.current) {
+          const elDiv = localBattleMapRef.current.querySelector(`.element[data-id="${targetId}"]`);
+          if (elDiv) {
+            const cxContent = elDiv.offsetLeft + elDiv.offsetWidth / 2;
+            const cyContent = elDiv.offsetTop + elDiv.offsetHeight / 2;
+            anchor = {
+              x: transformRef.current.tx + transformRef.current.scale * cxContent,
+              y: transformRef.current.ty + transformRef.current.scale * cyContent,
+            };
+          }
+        }
+      } catch {}
+    }
+    const Cx = (anchor.x - tx) / scale;
+    const Cy = (anchor.y - ty) / scale;
+    const nextTx = anchor.x - sNew * Cx;
+    const nextTy = anchor.y - sNew * Cy;
+    setTransform({ scale: sNew, tx: nextTx, ty: nextTy });
+    userZoomedRef.current = true;
+  };
+
+  // Wheel zoom anywhere on the grid, anchored to the mouse pointer
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheel = (e) => {
+      // Ignore wheel events over overlay UI controls
+      if (e.target && typeof e.target.closest === 'function' && e.target.closest('.zoom-controls')) return;
+      // Only handle when the event originates within the map container
+      // Prevent the page from scrolling while zooming the map
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+      const { scale, tx, ty } = transformRef.current;
+      // Smooth zoom factor based on deltaY (trackpad-friendly). Positive deltaY => zoom out
+      const zoomIntensity = 0.0015; // tune for sensitivity
+      const factor = Math.exp(-e.deltaY * zoomIntensity);
+      let desired = scale * factor;
+      const sNew = Math.max(MIN_SCALE, Math.min(MAX_SCALE, desired));
+      // Anchor at the pointer position in container-local coordinates
+  const rect = el.getBoundingClientRect();
+  const styles = window.getComputedStyle(el);
+  const padLeft = parseFloat(styles.paddingLeft || '0');
+  const padTop = parseFloat(styles.paddingTop || '0');
+  const P = { x: e.clientX - rect.left - padLeft, y: e.clientY - rect.top - padTop };
+      const Cx = (P.x - tx) / scale;
+      const Cy = (P.y - ty) / scale;
+      const nextTx = P.x - sNew * Cx;
+      const nextTy = P.y - sNew * Cy;
+      setTransform({ scale: sNew, tx: nextTx, ty: nextTy });
+      userZoomedRef.current = true;
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
+
   return (
-    <section className="map-container">
-      <div ref={localBattleMapRef} className="battle-map" onClick={handleClick} onPointerDown={handlePointerDown}></div>
+    <section
+      ref={containerRef}
+      className="map-container"
+      onPointerDown={onContainerPointerDown}
+      onPointerMove={onContainerPointerMove}
+      onPointerUp={onContainerPointerUp}
+      onPointerCancel={onContainerPointerUp}
+      onContextMenu={(e) => { e.preventDefault(); }}
+    >
+      <div
+        ref={localBattleMapRef}
+        className="battle-map"
+        onClick={handleClick}
+        onAuxClick={(e) => { /* prevent middle/right click from acting like a click */ e.preventDefault?.(); e.stopPropagation?.(); }}
+        onPointerDown={handlePointerDown}
+      ></div>
+      {/* Desktop-only zoom controls (bottom-right) */}
+      <div className="zoom-controls">
+        <IconButton size="small" aria-label="Zoom out" onClick={() => setScaleAroundViewportCenter(zoom - 0.1)}>
+          <FontAwesomeIcon icon={faMinus} style={{ color: '#fff', fontSize: 14 }} />
+        </IconButton>
+        <input
+          type="range"
+          min={MIN_SCALE}
+          max={MAX_SCALE}
+          step={0.01}
+          value={zoom}
+          onChange={(e) => setScaleAroundViewportCenter(parseFloat(e.target.value))}
+          aria-label="Zoom"
+        />
+        <IconButton size="small" aria-label="Zoom in" onClick={() => setScaleAroundViewportCenter(zoom + 0.1)}>
+          <FontAwesomeIcon icon={faPlus} style={{ color: '#fff', fontSize: 14 }} />
+        </IconButton>
+        <IconButton size="small" aria-label="Recenter" title="Recenter" onClick={() => { userZoomedRef.current = false; /* allow auto-fit */ scheduleFitToScreen(); }}>
+          <FontAwesomeIcon icon={faCrosshairs} style={{ color: '#fff', fontSize: 14 }} />
+        </IconButton>
+      </div>
     </section>
   );
 };
