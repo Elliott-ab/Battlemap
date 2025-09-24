@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import IconButton from '@mui/material/IconButton';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSkull, faWandSparkles, faEye as faEyeSolid, faChevronRight } from '@fortawesome/free-solid-svg-icons';
+import { faSkull, faWandSparkles, faEye as faEyeSolid, faChevronRight, faAnglesLeft, faAnglesRight, faAnglesUp, faAnglesDown } from '@fortawesome/free-solid-svg-icons';
 import {
   faSquare as faSquareRegular,
   faEye as faEyeRegular,
@@ -22,6 +22,50 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
   // Collapsible sections state
   const [creaturesOpen, setCreaturesOpen] = useState(true);
   const [envOpen, setEnvOpen] = useState(true);
+  // Whole sidebar collapse state (affects height on mobile/portrait and width on desktop)
+  const [collapsed, setCollapsed] = useState(false);
+  const [isPortraitPhone, setIsPortraitPhone] = useState(false);
+
+  // Default to collapsed on narrow screens to save space
+  React.useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+        setCollapsed(true);
+      }
+    } catch {}
+  }, []);
+
+  // Reflect collapsed state on body so toolbar can adapt widths on desktop/landscape
+  React.useEffect(() => {
+    try {
+      const cls = 'app--sidebar-collapsed';
+      if (collapsed) {
+        document.body.classList.add(cls);
+      } else {
+        document.body.classList.remove(cls);
+      }
+      return () => document.body.classList.remove(cls);
+    } catch {}
+  }, [collapsed]);
+
+  // Track whether we're on a portrait phone (<=768px and portrait orientation)
+  React.useEffect(() => {
+    try {
+      if (typeof window === 'undefined') return;
+      const mqPortrait = window.matchMedia('(orientation: portrait)');
+      const compute = () => setIsPortraitPhone(window.innerWidth <= 768 && mqPortrait.matches);
+      compute();
+      const onResize = () => compute();
+      window.addEventListener('resize', onResize);
+      if (mqPortrait.addEventListener) mqPortrait.addEventListener('change', compute);
+      else if (mqPortrait.addListener) mqPortrait.addListener(compute);
+      return () => {
+        window.removeEventListener('resize', onResize);
+        if (mqPortrait.removeEventListener) mqPortrait.removeEventListener('change', compute);
+        else if (mqPortrait.removeListener) mqPortrait.removeListener(compute);
+      };
+    } catch {}
+  }, []);
 
   // Initiative UI moved to modal-driven approach in Sidebar header (no drag & drop)
   const hasCharacters = (state.elements || []).some(e => e.type === 'player' || e.type === 'enemy');
@@ -170,7 +214,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
   }, [isDrawingCover]);
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-body">
         {/* Turn controls (initiative) */}
         <div className={isDrawingCover ? 'disabled-while-drawing' : ''} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: '0.75rem', width: '100%' }}>
@@ -466,7 +510,20 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
         </div>
       </div>
       </div>
-      {/* Sidebar footer removed as per request (Global Modifiers only in toolbar) */}
+      {/* Sidebar footer: expand/collapse control (always visible) */}
+      <div className="sidebar-footer">
+        <IconButton
+          size="small"
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          onClick={() => setCollapsed(v => !v)}
+        >
+          <FontAwesomeIcon
+            icon={isPortraitPhone ? (collapsed ? faAnglesUp : faAnglesDown) : (collapsed ? faAnglesRight : faAnglesLeft)}
+            style={{ color: '#fff', fontSize: 14 }}
+          />
+        </IconButton>
+      </div>
     </aside>
   );
 };

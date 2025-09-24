@@ -194,6 +194,11 @@
     background-color: rgba(156, 39, 176, 0.1);
 }
 
+:root {
+    /* Base grid cell size (overridden by media queries) */
+    --cell-px: 40px;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -243,6 +248,16 @@ body {
     align-items: center;
     gap: 0.5rem;
     flex-wrap: wrap;
+}
+/* Group of icon buttons shown on desktop/tablet */
+.toolbar-icons {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+/* Hidden hamburger by default; shown on mobile */
+.toolbar-burger {
+    display: none !important;
 }
 
 /* Faint vertical divider between Global Modifiers button and icon group */
@@ -464,6 +479,8 @@ body {
     overflow: hidden; /* prevent double scroll; inner body will handle */
     flex-shrink: 0;
     font-size: 0.85rem; /* further reduced base font for sidebar */
+    position: relative;
+    transition: width 200ms ease, height 200ms ease;
 }
 
 /* Sidebar inner scrollable body and sticky footer */
@@ -471,8 +488,21 @@ body {
     padding: 1rem;
     overflow: auto; /* this becomes the primary scroll area */
     max-height: 100%;
+    flex: 1 1 auto; /* fill available space so footer stays at bottom */
 }
-/* (Removed) .sidebar-footer styles - Global Modifiers lives in toolbar only */
+.sidebar.collapsed .sidebar-body {
+    display: none;
+}
+/* Sticky footer for collapse/expand toggle */
+.sidebar-footer {
+    border-top: 1px solid #444;
+    padding: 6px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #2c2c2c;
+    margin-top: auto; /* push footer to bottom within flex column */
+}
 
 /* Smooth collapse/expand for lists (restoring original behavior) */
 .collapsible {
@@ -600,6 +630,7 @@ body {
     flex: 1;
     padding: 1rem;
     overflow: auto;
+    -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
     background-color: #1a1a1a;
     background-image: 
         radial-gradient(circle at 1px 1px, rgba(255,255,255,0.15) 1px, transparent 0);
@@ -622,8 +653,8 @@ body {
 }
 
 .grid-cell {
-    width: 40px;
-    height: 40px;
+    width: var(--cell-px);
+    height: var(--cell-px);
     background-color: #4a4a4a;
     border: 1px solid #666;
     position: relative;
@@ -661,7 +692,7 @@ body {
     align-items: center;
     justify-content: center;
     font-weight: bold;
-    font-size: 14px;
+    font-size: calc(var(--cell-px) * 0.35);
     color: white;
     text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.7);
     border: 2px solid #fff;
@@ -690,8 +721,8 @@ body {
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 80px; /* mid between previous 70 and 90 */
-    height: 80px;
+    width: calc(var(--cell-px) * 2);
+    height: calc(var(--cell-px) * 2);
     pointer-events: none;
     z-index: 1; /* inside the cell, below tokens (which are separate grid items with higher z-index) */
     transform-origin: 50% 50%; /* rotate around token center */
@@ -1071,15 +1102,12 @@ body {
 }
 
 @media (max-width: 1024px) and (orientation: landscape) {
+    :root { --cell-px: 35px; }
     .sidebar {
         width: 220px;
     }
-    .grid-cell {
-        width: 35px;
-        height: 35px;
-    }
     .element {
-        font-size: 12px;
+        font-size: calc(var(--cell-px) * 0.34);
     }
     .toolbar h1 {
         font-size: 1.3rem;
@@ -1091,6 +1119,7 @@ body {
 }
 
 @media (max-width: 1024px) and (orientation: portrait) {
+    :root { --cell-px: 35px; }
     .main-content {
         flex-direction: column;
     }
@@ -1100,19 +1129,20 @@ body {
         border-right: none;
         border-bottom: 1px solid #444;
     }
+    /* Collapsed state reduces height significantly on portrait */
+    .sidebar.collapsed {
+        height: 56px; /* just header/body top if present + footer toggle */
+    }
     .element-list {
         flex-direction: row;
         overflow-x: auto;
         gap: 0.5rem;
         padding-bottom: 0.5rem;
+        -webkit-overflow-scrolling: touch;
     }
     .element-item {
         min-width: 150px;
         flex-shrink: 0;
-    }
-    .grid-cell {
-        width: 35px;
-        height: 35px;
     }
     .toolbar {
         padding: 0.75rem;
@@ -1130,27 +1160,39 @@ body {
 }
 
 @media (max-width: 768px) {
+    :root { --cell-px: 30px; }
     .toolbar {
-        flex-direction: column;
-        gap: 0.75rem;
-        padding: 0.75rem;
+        /* keep a single row so logo stays left and burger stays right */
+        flex-direction: row;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0 0.75rem;
+        height: 72px;
+    }
+    .toolbar-logo {
+        width: auto;
+        max-width: 45vw; /* prevent logo from pushing controls */
+        flex: 0 1 auto;   /* allow shrink on small screens */
+        min-width: 0;
     }
     .controls {
-        justify-content: center;
-        flex-wrap: wrap;
-        gap: 0.5rem;
+        justify-content: flex-end;
+        flex-wrap: nowrap; /* avoid icons/burger dropping to next line */
+        gap: 0.4rem;
     }
-    .grid-cell {
-        width: 30px;
-        height: 30px;
-    }
+    /* Hide non-essential text to save space */
+    .grid-info { display: none; }
+    /* On mobile, hide the icon group and show a burger instead */
+    .toolbar-icons { display: none; }
+    .toolbar-burger { display: inline-flex !important; }
     .element {
-        font-size: 11px;
+        font-size: calc(var(--cell-px) * 0.34);
     }
     .sidebar {
         height: 180px;
-        padding: 0.75rem;
+        padding: 0.75rem 0.75rem 0.25rem 0.75rem; /* tighter bottom to fit footer */
     }
+    .sidebar.collapsed { height: 52px; }
     .modal-content {
         margin: 5% auto;
         width: 95%;
@@ -1165,6 +1207,7 @@ body {
 }
 
 @media (max-width: 480px) {
+    :root { --cell-px: 25px; }
     .toolbar h1 {
         font-size: 1.1rem;
     }
@@ -1173,17 +1216,11 @@ body {
         font-size: 0.75rem;
         min-height: 40px;
     }
-    .grid-cell {
-        width: 25px;
-        height: 25px;
-    }
-    .element {
-        font-size: 10px;
-    }
     .sidebar {
         height: 150px;
-        padding: 0.5rem;
+        padding: 0.5rem 0.5rem 0.2rem 0.5rem;
     }
+    .sidebar.collapsed { height: 48px; }
     .element-item {
         min-width: 120px;
         padding: 0.5rem;
@@ -1271,4 +1308,90 @@ body {
     -moz-user-select: none;
     -ms-user-select: none;
     user-select: none;
+}
+
+/* --- Mobile sidebar density adjustments --- */
+@media (max-width: 768px) {
+    /* Smaller base font and tighter spacing for sidebar */
+    .sidebar { font-size: 0.78rem; }
+    .sidebar h3 { font-size: 0.95rem; margin-bottom: 0.6rem; }
+    .sidebar-body { padding: 0.75rem; }
+    .element-list { gap: 0.5rem; }
+    .element-item { padding: 0.4rem 0.5rem; }
+    .element-info { gap: 0.4rem; margin-bottom: 0.3rem; }
+    .element-color { width: 16px; height: 16px; }
+    .element-name { font-size: 0.95rem; }
+    .element-type { font-size: 0.75rem; }
+    .hp-display { font-size: 0.75rem; padding: 0.2rem 0.4rem; }
+}
+
+@media (max-width: 480px) {
+    .sidebar { font-size: 0.74rem; }
+    .element-item { padding: 0.4rem; }
+    .element-info { gap: 0.35rem; }
+    .element-color { width: 14px; height: 14px; }
+    .hp-display { font-size: 0.7rem; }
+    .element-name { font-size: 0.92rem; }
+}
+
+/* --- Ensure sidebar fills viewport height in landscape on tablets/phones --- */
+@media (max-width: 1024px) and (orientation: landscape) {
+    .main-content { min-height: calc(100vh - 72px); align-items: stretch; }
+    .sidebar { height: calc(100vh - 72px); }
+}
+
+/* Burger dropdown menu and backdrop */
+.toolbar-menu-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.35);
+    z-index: 1000;
+}
+.toolbar-menu {
+    position: fixed;
+    top: 72px; /* below toolbar */
+    right: 8px;
+    background: #2b2b2b;
+    border: 1px solid #444;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    z-index: 1001;
+    min-width: 220px;
+}
+.toolbar-menu .menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: #fff;
+    padding: 10px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    min-height: 44px;
+    text-align: left;
+}
+.toolbar-menu .menu-item:hover {
+    background: #383838;
+    border-color: #555;
+}
+
+/* Collapsed: handled via height on mobile/portrait; keep width on desktop for alignment */
+
+/* Desktop and tablet landscape: collapse sideways to a rail */
+@media (min-width: 769px), (orientation: landscape) {
+    .sidebar.collapsed {
+        width: 56px; /* narrow rail */
+    }
+    .sidebar.collapsed .sidebar-body { display: none; }
+}
+
+/* When sidebar is collapsed sideways, allow toolbar logo to shrink for visual alignment */
+@media (min-width: 769px), (orientation: landscape) {
+    body.app--sidebar-collapsed .toolbar-logo { width: 56px; }
+    body.app--sidebar-collapsed .toolbar-logo h1 { display: none; }
 }
