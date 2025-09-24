@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const AddCharacterModal = ({ isOpen, onClose, onAdd, initialType = 'player', initialQuantity = 1 }) => {
   const [characterType, setCharacterType] = useState(initialType);
@@ -23,6 +23,13 @@ const AddCharacterModal = ({ isOpen, onClose, onAdd, initialType = 'player', ini
   const handleQuantityBlur = () => {
     setQuantity(prev => clampQuantity(prev));
   };
+
+  // Always reset quantity to 1 whenever the modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setQuantity('1');
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

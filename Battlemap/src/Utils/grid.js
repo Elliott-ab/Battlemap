@@ -205,8 +205,10 @@ export const useGrid = (state) => {
             return null;
           }
         };
-        const rgb = hexToRgb(element.color) || { r: 33, g: 150, b: 243 }; // fallback to blue
-        const alpha = 0.45;
+  const rgb = hexToRgb(element.color) || { r: 33, g: 150, b: 243 }; // fallback to blue
+  // Soften movement highlight intensity
+  const alphaBg = 0.28; // background fill opacity
+  const alphaGlow = 0.22; // outer glow opacity
 
         // Build sets for impassable and difficult terrain
         const impassable = new Set(); // normal cover (not difficult)
@@ -255,9 +257,12 @@ export const useGrid = (state) => {
           if (cell) {
             const highlight = document.createElement('div');
             highlight.classList.add('movement-highlight');
-            highlight.style.backgroundColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
-            highlight.style.boxShadow = `0 0 10px 5px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
-            highlight.style.border = `1px solid rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1)`;
+            // lighter background, smaller/softer glow, and a subtler border
+            highlight.style.backgroundColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alphaBg})`;
+            highlight.style.boxShadow = `0 0 6px 2px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alphaGlow})`;
+            highlight.style.border = `1px solid rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.6)`;
+            // Tag enemy for potential theming via CSS (kept lightweight)
+            if (element.type === 'enemy') highlight.classList.add('enemy');
             // Visibility indicator for players only
             if (element.type === 'player') {
               if (isCellVisibleToAnyEnemy(state, x, y)) {
