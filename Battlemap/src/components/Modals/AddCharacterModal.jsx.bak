@@ -14,6 +14,7 @@ const AddCharacterModal = ({ isOpen, onClose, onAdd, initialType = 'player', ini
 
   const handleQuantityChange = (e) => {
     const val = e.target.value;
+    // Allow empty string while editing, or digits only
     if (val === '' || /^\d*$/.test(val)) {
       setQuantity(val);
     }
@@ -23,6 +24,7 @@ const AddCharacterModal = ({ isOpen, onClose, onAdd, initialType = 'player', ini
     setQuantity(prev => clampQuantity(prev));
   };
 
+  // Always reset quantity to 1 whenever the modal opens
   useEffect(() => {
     if (isOpen) {
       setQuantity('1');

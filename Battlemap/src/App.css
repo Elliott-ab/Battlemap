@@ -911,6 +911,13 @@ body {
     max-width: 95%;
 }
 
+/* Smaller modal variant */
+.modal-content.small {
+    width: 340px;
+    max-width: 95%;
+    padding: 1.25rem 1rem;
+}
+
 .modifier-card {
     gap: 0.5rem;
 }
@@ -1223,11 +1230,8 @@ body {
         padding: 0.75rem 0.75rem 0.25rem 0.75rem; /* tighter bottom to fit footer */
     }
     .sidebar.collapsed { height: 52px; }
-    .modal-content {
-        margin: 5% auto;
-        width: 95%;
-        padding: 1.5rem;
-    }
+    .modal-content { margin: 5% auto; width: 94%; padding: 1.25rem; }
+    .modal-content.small { width: 90%; padding: 1rem; }
     .form-actions {
         flex-direction: column;
     }
@@ -1262,9 +1266,8 @@ body {
         width: 16px;
         height: 16px;
     }
-    .modal-content {
-        padding: 1rem;
-    }
+    .modal-content { padding: 0.9rem; width: 94%; }
+    .modal-content.small { width: 92%; padding: 0.85rem; }
     .form-group {
         margin-bottom: 1rem;
     }
