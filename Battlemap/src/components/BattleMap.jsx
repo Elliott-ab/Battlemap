@@ -26,6 +26,37 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
   const mousePanningRef = useRef({ active: false, pointerId: null, startX: 0, startY: 0, startTx: 0, startTy: 0 });
   const lastCenteredIdRef = useRef(null);
   const hasPannedRef = useRef(false);
+  // Drawing mode painting state
+  const paintingRef = useRef({ active: false, visited: new Set() });
+
+  const processCoverAtPoint = (clientX, clientY) => {
+    const cell = getCellFromPoint(clientX, clientY);
+    if (!cell) return;
+    const x = parseInt(cell.dataset.x);
+    const y = parseInt(cell.dataset.y);
+    const key = `${x},${y}`;
+    if (paintingRef.current.visited.has(key)) return;
+    paintingRef.current.visited.add(key);
+    // Mirror the click-to-draw logic
+    const idx = coverBlocks.findIndex(b => b.x === x && b.y === y);
+    if (idx >= 0) {
+      const existing = coverBlocks[idx];
+      if ((existing.coverType || 'half') === drawEnvType) {
+        setCoverBlocks(coverBlocks.filter((_, i) => i !== idx));
+        const hl = cell.querySelector('.drawing-cover-highlight');
+        if (hl) hl.remove();
+      } else {
+        const next = [...coverBlocks];
+        next[idx] = { ...existing, coverType: drawEnvType };
+        setCoverBlocks(next);
+      }
+    } else {
+      const highlight = document.createElement('div');
+      highlight.classList.add('drawing-cover-highlight');
+      cell.appendChild(highlight);
+      setCoverBlocks([...coverBlocks, { x, y, coverType: drawEnvType }]);
+    }
+  };
 
   const setTransform = (next) => {
     transformRef.current = next;
@@ -377,6 +408,18 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
 
   // Handle pinch-to-zoom with two pointers; keep midpoint stationary
   const onContainerPointerDown = (e) => {
+    // Drawing mode: start painting on left mouse or single-finger touch
+    if (isDrawingCover) {
+      if ((e.pointerType === 'mouse' && e.button === 0) || e.pointerType === 'touch') {
+        paintingRef.current.active = true;
+        paintingRef.current.visited = new Set();
+        processCoverAtPoint(e.clientX, e.clientY);
+        suppressNextClickRef.current = true;
+        if (typeof e.preventDefault === 'function') e.preventDefault();
+        if (typeof e.stopPropagation === 'function') e.stopPropagation();
+        // Do not start panning when painting
+      }
+    }
     // Desktop mouse panning: middle (1) or right (2) button
     if (e.pointerType === 'mouse' && (e.button === 1 || e.button === 2)) {
       // Ignore if clicking on overlay controls
@@ -434,10 +477,21 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
       // prevent token drag click from following
       suppressNextClickRef.current = true;
       e.preventDefault();
+    // If painting, stop painting and switch to gesture pan/zoom
+    if (paintingRef.current.active) {
+      paintingRef.current.active = false;
+      paintingRef.current.visited.clear();
+    }
     }
   };
 
   const onContainerPointerMove = (e) => {
+    // Drawing mode painting
+    if (isDrawingCover && paintingRef.current.active) {
+      processCoverAtPoint(e.clientX, e.clientY);
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+      return;
+    }
     // Mouse panning
     const mp = mousePanningRef.current;
     if (mp.active && e.pointerId === mp.pointerId) {
@@ -501,6 +555,11 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
   };
 
   const onContainerPointerUp = (e) => {
+    // Stop painting on release
+    if (paintingRef.current.active) {
+      paintingRef.current.active = false;
+      paintingRef.current.visited.clear();
+    }
     // End mouse panning
     const mp = mousePanningRef.current;
     if (mp.active && e.pointerId === mp.pointerId) {

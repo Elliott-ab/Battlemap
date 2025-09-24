@@ -226,9 +226,10 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
     setCharacterType('player');
   };
 
-  // When drawing mode starts, auto-collapse Creatures and disable non-environment interactions
+  // When drawing mode starts, expand Environments and collapse Creatures
   React.useEffect(() => {
     if (isDrawingCover) {
+      setEnvOpen(true);
       setCreaturesOpen(false);
     }
   }, [isDrawingCover]);
@@ -412,37 +413,45 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
         <div className="element-list">
           {isDrawingCover && (
           <div className="drawing-options" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 6, marginBottom: 8 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fff' }}>
+            <label htmlFor="draw-env-half" onClick={() => setDrawEnvType('half')} style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fff', cursor: 'pointer' }}>
               <input
+                id="draw-env-half"
                 type="radio"
                 name="draw-env-type"
+                value="half"
                 checked={drawEnvType === 'half'}
                 onChange={() => setDrawEnvType('half')}
               />
               Half Cover
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fff' }}>
+            <label htmlFor="draw-env-three-quarters" onClick={() => setDrawEnvType('three-quarters')} style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fff', cursor: 'pointer' }}>
               <input
+                id="draw-env-three-quarters"
                 type="radio"
                 name="draw-env-type"
+                value="three-quarters"
                 checked={drawEnvType === 'three-quarters'}
                 onChange={() => setDrawEnvType('three-quarters')}
               />
               Three-Quarters Cover
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fff' }}>
+            <label htmlFor="draw-env-full" onClick={() => setDrawEnvType('full')} style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fff', cursor: 'pointer' }}>
               <input
+                id="draw-env-full"
                 type="radio"
                 name="draw-env-type"
+                value="full"
                 checked={drawEnvType === 'full'}
                 onChange={() => setDrawEnvType('full')}
               />
               Full Cover
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fff' }}>
+            <label htmlFor="draw-env-difficult" onClick={() => setDrawEnvType('difficult')} style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fff', cursor: 'pointer' }}>
               <input
+                id="draw-env-difficult"
                 type="radio"
                 name="draw-env-type"
+                value="difficult"
                 checked={drawEnvType === 'difficult'}
                 onChange={() => setDrawEnvType('difficult')}
               />
