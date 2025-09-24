@@ -22,6 +22,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
   // Collapsible sections state
   const [creaturesOpen, setCreaturesOpen] = useState(true);
   const [envOpen, setEnvOpen] = useState(true);
+  const prevCreatureCountRef = React.useRef(null);
   // Whole sidebar collapse state (affects height on mobile/portrait and width on desktop)
   const [collapsed, setCollapsed] = useState(false);
   const [isPortraitPhone, setIsPortraitPhone] = useState(false);
@@ -66,6 +67,25 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
       };
     } catch {}
   }, []);
+
+  // Expand Creatures and collapse Environments when new players/enemies are added
+  React.useEffect(() => {
+    try {
+      const elements = Array.isArray(state.elements) ? state.elements : [];
+      const creatureCount = elements.reduce((acc, el) => acc + ((el.type === 'player' || el.type === 'enemy') ? 1 : 0), 0);
+      if (prevCreatureCountRef.current == null) {
+        // initialize on first run
+        prevCreatureCountRef.current = creatureCount;
+        return;
+      }
+      if (creatureCount > prevCreatureCountRef.current) {
+        // New creature(s) added
+        if (!creaturesOpen) setCreaturesOpen(true);
+        if (envOpen) setEnvOpen(false);
+      }
+      prevCreatureCountRef.current = creatureCount;
+    } catch {}
+  }, [state.elements, creaturesOpen, envOpen]);
 
   // Initiative UI moved to modal-driven approach in Sidebar header (no drag & drop)
   const hasCharacters = (state.elements || []).some(e => e.type === 'player' || e.type === 'enemy');

@@ -262,8 +262,11 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
   };
 
   const handlePointerDown = (e) => {
-    // Only left mouse button should initiate element drag/move
-    if (e.pointerType === 'mouse' && e.button !== 0) {
+    // Only left mouse button should initiate element drag/move; ignore touch to avoid accidental drags
+    if (e.pointerType === 'mouse') {
+      if (e.button !== 0) return;
+    } else if (e.pointerType === 'touch') {
+      // Let touch gestures be handled by the container (two-finger pan/zoom); don't start token drags
       return;
     }
     if (isDrawingCover) return;
@@ -395,6 +398,16 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
     // Track pointers for gestures
     activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (activePointersRef.current.size === 2) {
+      // If a token drag was started, cancel it in favor of gesture panning/zooming
+      if (currentDragElement.current) {
+        try {
+          currentDragElement.current.classList.remove('selected');
+          currentDragElement.current.style.removeProperty('z-index');
+        } catch {}
+        currentDragElement.current = null;
+        didDragRef.current = false;
+        suppressNextClickRef.current = true;
+      }
       // Initialize pinch (no mobile auto-centering)
       const pts = Array.from(activePointersRef.current.values());
       const dx = pts[1].x - pts[0].x;
@@ -442,9 +455,9 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
     }
     const pts = Array.from(activePointersRef.current.values());
     if (pts.length < 2) return;
-    const dx = pts[1].x - pts[0].x;
-    const dy = pts[1].y - pts[0].y;
-    const dist = Math.hypot(dx, dy);
+  const dx = pts[1].x - pts[0].x;
+  const dy = pts[1].y - pts[0].y;
+  const dist = Math.hypot(dx, dy);
     // Midpoint in container-local coordinates
     const containerEl = containerRef.current;
     const containerRect = containerEl?.getBoundingClientRect?.();
@@ -462,16 +475,28 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
     }
     const start = pinchStartRef.current;
     if (!start || start.distance <= 0) return;
-    let nextScale = start.scale * (dist / start.distance);
-    nextScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, nextScale));
-    // Keep the midpoint fixed: P = T + s*C => T = P - s*C, where C = (P - T0)/s0
-    const Cx = (start.mid.x - start.tx) / start.scale;
-    const Cy = (start.mid.y - start.ty) / start.scale;
-    const nextTx = mid.x - nextScale * Cx;
-    const nextTy = mid.y - nextScale * Cy;
-    setTransform({ scale: nextScale, tx: nextTx, ty: nextTy });
+    // Determine if this is a two-finger pan (no scale change) or pinch (scale change)
+    const scaleRatio = dist / start.distance;
+    // Threshold to consider as zoom vs. pure pan
+    const zoomEpsilon = 0.01; // ~1% change
+    if (Math.abs(scaleRatio - 1) < zoomEpsilon) {
+      // Two-finger pan: translate by the midpoint delta
+      const dxMid = mid.x - start.mid.x;
+      const dyMid = mid.y - start.mid.y;
+      setTransform({ scale: transformRef.current.scale, tx: start.tx + dxMid, ty: start.ty + dyMid });
+    } else {
+      // Pinch zoom with anchored midpoint
+      let nextScale = start.scale * scaleRatio;
+      nextScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, nextScale));
+      // Keep the midpoint fixed: P = T + s*C => T = P - s*C, where C = (P - T0)/s0
+      const Cx = (start.mid.x - start.tx) / start.scale;
+      const Cy = (start.mid.y - start.ty) / start.scale;
+      const nextTx = mid.x - nextScale * Cx;
+      const nextTy = mid.y - nextScale * Cy;
+      setTransform({ scale: nextScale, tx: nextTx, ty: nextTy });
+    }
     userZoomedRef.current = true;
-    hasPannedRef.current = true; // two-finger gesture typically includes panning component
+    hasPannedRef.current = true; // two-finger gesture includes panning
     e.preventDefault();
   };
 
