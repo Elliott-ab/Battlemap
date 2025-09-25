@@ -26,6 +26,13 @@ export const useGrid = (state) => {
         cell.dataset.y = y;
         cell.style.gridRow = `${y + 1}`;
         cell.style.gridColumn = `${x + 1}`;
+        // Tag every 5th column (right edge) and every 5th row (bottom edge)
+        if ((x + 1) % 5 === 0) {
+          cell.classList.add('bold-right');
+        }
+        if ((y + 1) % 5 === 0) {
+          cell.classList.add('bold-bottom');
+        }
         // Show coverBlocks visually during drawing mode
         if (state.isDrawingCover && Array.isArray(state.coverBlocks)) {
           const b = state.coverBlocks.find(b => b.x === x && b.y === y);

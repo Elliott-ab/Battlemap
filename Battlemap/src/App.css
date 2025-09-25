@@ -699,20 +699,29 @@ body {
     background-color: #555;
 }
 
-.grid-cell:nth-child(5n) {
-    border-right: 2px solid #888;
+/* Bold 5x grid lines using in-cell overlays to avoid changing external gaps */
+.grid-cell.bold-right::after,
+.grid-cell.bold-bottom::before {
+    content: "";
+    position: absolute;
+    background-color: #888;
+    pointer-events: none;
 }
 
-.grid-cell:nth-child(n):nth-child(-n+20) {
-    border-top: 2px solid #888;
+/* Right edge every 5th column */
+.grid-cell.bold-right::after {
+    top: 0;
+    right: 0; /* render inside the cell */
+    width: 2px;
+    height: 100%;
 }
 
-.grid-cell:nth-child(5n+1) {
-    border-left: 2px solid #888;
-}
-
-.grid-cell.bold-top {
-    border-top: 2px solid #888;
+/* Bottom edge every 5th row */
+.grid-cell.bold-bottom::before {
+    bottom: 0; /* render inside the cell */
+    left: 0;
+    height: 2px;
+    width: 100%;
 }
 
 .element {
