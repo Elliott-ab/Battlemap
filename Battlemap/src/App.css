@@ -661,6 +661,20 @@ body {
     -webkit-backdrop-filter: blur(2px);
     backdrop-filter: blur(2px);
 }
+.compass-overlay {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 64px;
+    height: 64px;
+    opacity: 0.35;
+    /* make the SVG appear white while keeping a subtle shadow */
+    filter: brightness(0) invert(1) drop-shadow(0 0 2px rgba(0,0,0,0.4));
+    z-index: 40; /* below zoom controls (50), above grid */
+    pointer-events: auto;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
 .zoom-controls input[type="range"] {
     width: 80px;
     accent-color: #4CAF50;
@@ -741,6 +755,11 @@ body {
     z-index: 10;
     position: relative;
     touch-action: none;
+}
+
+/* Token labels: simple inline element (no rotation) */
+.element .token-label {
+    display: inline-block;
 }
 
 .element:hover,

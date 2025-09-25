@@ -1,7 +1,7 @@
 import { isCellVisibleToAnyEnemy, createVisibilityIconNode } from './visibility.js';
 
 export const useGrid = (state) => {
-  const renderGrid = (battleMapRef) => {
+  const renderGrid = (battleMapRef, rotationIndex = 0) => {
     console.log('renderGrid called with battleMapRef:', battleMapRef, 'battleMapRef.current:', battleMapRef?.current);
     const battleMap = battleMapRef.current;
     if (!battleMap) {
@@ -9,30 +9,42 @@ export const useGrid = (state) => {
       return;
     }
 
-    console.log('Rendering grid:', state.grid.width, state.grid.height);
-    battleMap.style.setProperty('--grid-width', state.grid.width);
-    battleMap.style.setProperty('--grid-height', state.grid.height);
-  // Use CSS variable for responsive cell sizing so tracks match elements on mobile/tablet
-  battleMap.style.gridTemplateColumns = `repeat(${state.grid.width}, var(--cell-px))`;
-  battleMap.style.gridTemplateRows = `repeat(${state.grid.height}, var(--cell-px))`;
+    const w = state.grid.width;
+    const h = state.grid.height;
+    const rot = ((rotationIndex || 0) % 4 + 4) % 4; // normalize
+    console.log('Rendering grid (world):', w, h, 'rotationIndex:', rot);
+    battleMap.style.setProperty('--grid-width', w);
+    battleMap.style.setProperty('--grid-height', h);
+    // Display dimensions swap for 90/270
+    const dispW = (rot % 2 === 0) ? w : h;
+    const dispH = (rot % 2 === 0) ? h : w;
+    // Use CSS variable for responsive cell sizing so tracks match elements on mobile/tablet
+    battleMap.style.gridTemplateColumns = `repeat(${dispW}, var(--cell-px))`;
+    battleMap.style.gridTemplateRows = `repeat(${dispH}, var(--cell-px))`;
     battleMap.innerHTML = '';
 
+    const mapWorldToDisplay = (x, y) => {
+      switch (rot) {
+        case 1: return { x: h - 1 - y, y: x };
+        case 2: return { x: w - 1 - x, y: h - 1 - y };
+        case 3: return { x: y, y: w - 1 - x };
+        default: return { x, y };
+      }
+    };
+
     // Create grid cells
-    for (let y = 0; y < state.grid.height; y++) {
-      for (let x = 0; x < state.grid.width; x++) {
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
         const cell = document.createElement('div');
         cell.classList.add('grid-cell');
         cell.dataset.x = x;
         cell.dataset.y = y;
-        cell.style.gridRow = `${y + 1}`;
-        cell.style.gridColumn = `${x + 1}`;
-        // Tag every 5th column (right edge) and every 5th row (bottom edge)
-        if ((x + 1) % 5 === 0) {
-          cell.classList.add('bold-right');
-        }
-        if ((y + 1) % 5 === 0) {
-          cell.classList.add('bold-bottom');
-        }
+        const d = mapWorldToDisplay(x, y);
+        cell.style.gridRow = `${d.y + 1}`;
+        cell.style.gridColumn = `${d.x + 1}`;
+        // Tag every 5th column/row in display coordinates
+        if ((d.x + 1) % 5 === 0) cell.classList.add('bold-right');
+        if ((d.y + 1) % 5 === 0) cell.classList.add('bold-bottom');
         // Show coverBlocks visually during drawing mode
         if (state.isDrawingCover && Array.isArray(state.coverBlocks)) {
           const b = state.coverBlocks.find(b => b.x === x && b.y === y);
@@ -45,7 +57,10 @@ export const useGrid = (state) => {
             preview.classList.add('element', 'cover', 'custom-cover');
             if (b.coverType) preview.classList.add(b.coverType);
             if (b.coverType === 'difficult') {
-              preview.innerText = 'DT';
+              const span = document.createElement('span');
+              span.classList.add('token-label');
+              span.textContent = 'DT';
+              preview.appendChild(span);
             }
             preview.style.pointerEvents = 'none';
             cell.appendChild(preview);
@@ -101,17 +116,48 @@ export const useGrid = (state) => {
         }
       } else if (el.type === 'player') {
         // For players, show the first letter of their name
-        elDiv.innerText = (el.name && el.name.length > 0) ? el.name[0].toUpperCase() : 'P';
+        // Use a label span to keep text upright on map rotation
+        const span = document.createElement('span');
+        span.classList.add('token-label');
+        span.textContent = (el.name && el.name.length > 0) ? el.name[0].toUpperCase() : 'P';
+        elDiv.appendChild(span);
       } else if (el.type === 'cover' && el.coverType === 'difficult') {
         // Difficult terrain: explicit 'DT' label
-        elDiv.innerText = 'DT';
+        const span = document.createElement('span');
+        span.classList.add('token-label');
+        span.textContent = 'DT';
+        elDiv.appendChild(span);
       } else {
         // Default: first letter (includes cover blocks)
-        elDiv.innerText = el.name && el.name.length ? el.name[0].toUpperCase() : '';
+        const span = document.createElement('span');
+        span.classList.add('token-label');
+        span.textContent = el.name && el.name.length ? el.name[0].toUpperCase() : '';
+        elDiv.appendChild(span);
       }
       elDiv.dataset.id = el.id;
-      elDiv.style.gridRow = `${el.position.y + 1} / span ${el.size}`;
-      elDiv.style.gridColumn = `${el.position.x + 1} / span ${el.size}`;
+      // Map element anchor based on rotation and size (square span)
+      const size = Math.max(1, el.size || 1);
+      let ax = el.position.x;
+      let ay = el.position.y;
+      switch (rot) {
+        case 1:
+          ax = h - (el.position.y + size);
+          ay = el.position.x;
+          break;
+        case 2:
+          ax = w - (el.position.x + size);
+          ay = h - (el.position.y + size);
+          break;
+        case 3:
+          ax = el.position.y;
+          ay = w - (el.position.x + size);
+          break;
+        default:
+          ax = el.position.x;
+          ay = el.position.y;
+      }
+      elDiv.style.gridRow = `${ay + 1} / span ${size}`;
+      elDiv.style.gridColumn = `${ax + 1} / span ${size}`;
       // Add facing cone for enemies, rendered under the token
       if (el.type === 'enemy') {
         const cone = document.createElement('div');
@@ -138,9 +184,10 @@ export const useGrid = (state) => {
         };
         const rgb = toRgb(el.color || '#f44336');
         cone.style.setProperty('--cone-rgb', `${rgb.r}, ${rgb.g}, ${rgb.b}`);
-  const facing = typeof el.facing === 'number' ? el.facing : 90; // 90° = down
+  const facingBase = typeof el.facing === 'number' ? el.facing : 90; // 90° = down
+  const facingAdj = (facingBase + rot * 90) % 360;
   // Rotate cone so 0°=right, 90°=down
-  cone.style.transform = `translate(-50%, -50%) rotate(${facing - 90}deg)`;
+  cone.style.transform = `translate(-50%, -50%) rotate(${facingAdj - 90}deg)`;
         // Append cone to the grid cell so it renders beneath the token
         const cell = battleMap.querySelector(`.grid-cell[data-x="${el.position.x}"][data-y="${el.position.y}"]`);
         if (cell) {

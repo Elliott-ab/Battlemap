@@ -1,7 +1,8 @@
 import React, { useRef, useEffect, useState } from 'react';
 import IconButton from '@mui/material/IconButton';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faMinus, faPlus, faCrosshairs } from '@fortawesome/free-solid-svg-icons';
+import { faMinus, faPlus, faCrosshairs, faGroupArrowsRotate } from '@fortawesome/free-solid-svg-icons';
+import compassRose from '/compass-rose-n-svgrepo-com.svg';
 import { useGrid } from '../Utils/grid.js';
 
 const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlocks, drawEnvType, updateElementPosition, pushUndo, highlightCoverGroup, battleMapRef }) => {
@@ -22,6 +23,7 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
   const activePointersRef = useRef(new Map()); // id -> {x,y}
   const pinchStartRef = useRef(null); // {distance, mid:{x,y}, scale, tx, ty}
   const [zoom, setZoom] = useState(1);
+  const [rotationIndex, setRotationIndex] = useState(0); // 0,1,2,3 => 0°,90°,180°,270°
   // Desktop mouse panning (middle or right button)
   const mousePanningRef = useRef({ active: false, pointerId: null, startX: 0, startY: 0, startTx: 0, startTy: 0 });
   const lastCenteredIdRef = useRef(null);
@@ -63,7 +65,8 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
     const el = localBattleMapRef.current;
     if (el) {
       const { scale, tx, ty } = next;
-      el.style.transformOrigin = '0 0';
+  el.style.transformOrigin = '0 0';
+      // Apply only translate+scale; rotation handled by coordinate remap in renderGrid
       el.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
     }
     setZoom(next.scale);
@@ -135,7 +138,7 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
     console.log('BattleMap useEffect triggered, localBattleMapRef:', localBattleMapRef.current);
     if (localBattleMapRef.current) {
       console.log('Rendering grid with localBattleMapRef:', localBattleMapRef.current);
-      renderGrid(localBattleMapRef);
+  renderGrid(localBattleMapRef, rotationIndex);
       console.log('Grid rendering complete, cells should be available');
       // Fit to screen by default if user hasn't zoomed
       if (!userZoomedRef.current) {
@@ -146,7 +149,7 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
       const timer = setTimeout(() => {
         if (localBattleMapRef.current) {
           console.log('Retry: Rendering grid with localBattleMapRef:', localBattleMapRef.current);
-          renderGrid(localBattleMapRef);
+          renderGrid(localBattleMapRef, rotationIndex);
           console.log('Retry: Grid rendering complete, cells should be available');
           if (battleMapRef && battleMapRef.current !== localBattleMapRef.current) {
             battleMapRef.current = localBattleMapRef.current;
@@ -161,7 +164,7 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [state, renderGrid, localBattleMapRef, battleMapRef]);
+  }, [state, rotationIndex, renderGrid, localBattleMapRef, battleMapRef]);
 
   // Ensure drawing mode starts with a clean click state (no suppressed first click)
   useEffect(() => {
@@ -665,6 +668,7 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
       <div
         ref={localBattleMapRef}
         className="battle-map"
+        data-rotation={rotationIndex}
         onClick={handleClick}
         onAuxClick={(e) => { /* prevent middle/right click from acting like a click */ e.preventDefault?.(); e.stopPropagation?.(); }}
         onPointerDown={handlePointerDown}
@@ -689,7 +693,20 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
         <IconButton size="small" aria-label="Recenter" title="Recenter" onClick={() => { userZoomedRef.current = false; /* allow auto-fit */ scheduleFitToScreen(); }}>
           <FontAwesomeIcon icon={faCrosshairs} style={{ color: '#fff', fontSize: 14 }} />
         </IconButton>
+        <IconButton size="small" aria-label="Rotate" title="Rotate clockwise" onClick={() => setRotationIndex((r) => (r + 1) % 4)}>
+          <FontAwesomeIcon icon={faGroupArrowsRotate} style={{ color: '#fff', fontSize: 14 }} />
+        </IconButton>
       </div>
+      {/* Compass overlay (top-right), rotates with the grid */}
+      <img
+        src={compassRose}
+        alt="Compass"
+        className="compass-overlay"
+        style={{ transform: `rotate(${rotationIndex * 90}deg)` }}
+        onClick={(e) => { e.stopPropagation?.(); setRotationIndex((r) => (r + 1) % 4); }}
+        onPointerDown={(e) => { e.stopPropagation?.(); }}
+        onPointerUp={(e) => { e.stopPropagation?.(); }}
+      />
     </section>
   );
 };
