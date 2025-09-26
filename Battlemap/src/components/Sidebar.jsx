@@ -163,9 +163,9 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
   const order = state.initiativeOrder || [];
   const currentTurnId = order.length ? order[(state.currentTurnIndex || 0) % order.length] : null;
 
-  // Inline damage entry on player HP bar
-  const [damageEdit, setDamageEdit] = useState({ playerId: null, value: '' });
-  const openDamageEdit = (playerId) => {
+  // Inline damage entry for players (subtract HP) and enemies (accumulate Damage)
+  const [damageEdit, setDamageEdit] = useState({ targetId: null, targetType: null, value: '' });
+  const openDamageEdit = (targetId, targetType) => {
     // When entering damage input, clear any existing movement highlights/state
     try { document.querySelectorAll('.movement-highlight').forEach(h => h.remove()); } catch {}
     try {
@@ -173,19 +173,24 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
       if (mapEl && mapEl.dataset) delete mapEl.dataset.highlightedId;
     } catch {}
     setState(prev => ({ ...prev, highlightedElementId: null }));
-    setDamageEdit({ playerId, value: '' });
+    setDamageEdit({ targetId, targetType, value: '' });
   };
-  const cancelDamageEdit = () => setDamageEdit({ playerId: null, value: '' });
+  const cancelDamageEdit = () => setDamageEdit({ targetId: null, targetType: null, value: '' });
   const applyDamageEdit = () => {
     const dmg = parseInt((damageEdit.value || '').toString().trim(), 10);
     if (!Number.isFinite(dmg) || dmg <= 0) { cancelDamageEdit(); return; }
     setState(prev => ({
       ...prev,
-      elements: (prev.elements || []).map(el => (
-        el.id === damageEdit.playerId && el.type === 'player'
-          ? { ...el, currentHp: Math.max(0, (el.currentHp || 0) - dmg) }
-          : el
-      )),
+      elements: (prev.elements || []).map(el => {
+        if (el.id !== damageEdit.targetId) return el;
+        if (damageEdit.targetType === 'player' && el.type === 'player') {
+          return { ...el, currentHp: Math.max(0, (el.currentHp || 0) - dmg) };
+        }
+        if (damageEdit.targetType === 'enemy' && el.type === 'enemy') {
+          return { ...el, damage: (el.damage || 0) + dmg };
+        }
+        return el;
+      }),
     }));
     cancelDamageEdit();
   };
@@ -326,7 +331,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
               data-id={el.id}
               onClick={() => {
                 if (el.incapacitated) return; // disabled for movement when incapacitated
-                if (damageEdit.playerId != null) return; // prevent movement highlight while editing damage
+                if (damageEdit.targetId != null) return; // prevent movement highlight while editing damage
                 console.log('Sidebar: Clicking element ID:', el.id, 'Type:', el.type);
                 toggleMovementHighlight(el.id, battleMapRef);
               }}
@@ -409,21 +414,21 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
                     <div className="element-stats">
                       <div
                         className={`hp-display ${getHpClass(effectiveHp, el.maxHp)}`}
-                        onDoubleClick={(e) => { e.stopPropagation(); openDamageEdit(el.id); }}
+                        onDoubleClick={(e) => { e.stopPropagation(); openDamageEdit(el.id, 'player'); }}
                         title={
-                          damageEdit.playerId === el.id
+                          damageEdit.targetId === el.id && damageEdit.targetType === 'player'
                             ? 'Enter damage, then click OK or press Enter. Press Esc to cancel.'
                             : 'Double-click to enter damage'
                         }
                         style={{
                           userSelect: 'none',
-                          cursor: damageEdit.playerId === el.id ? 'text' : 'pointer',
-                          color: damageEdit.playerId === el.id ? '#f44336' : undefined,
-                          backgroundColor: damageEdit.playerId === el.id ? 'rgba(244,67,54,0.2)' : undefined,
-                          borderColor: damageEdit.playerId === el.id ? '#f44336' : undefined,
+                          cursor: damageEdit.targetId === el.id && damageEdit.targetType === 'player' ? 'text' : 'pointer',
+                          color: damageEdit.targetId === el.id && damageEdit.targetType === 'player' ? '#f44336' : undefined,
+                          backgroundColor: damageEdit.targetId === el.id && damageEdit.targetType === 'player' ? 'rgba(244,67,54,0.2)' : undefined,
+                          borderColor: damageEdit.targetId === el.id && damageEdit.targetType === 'player' ? '#f44336' : undefined,
                         }}
                       >
-                        {damageEdit.playerId === el.id ? (
+                        {damageEdit.targetId === el.id && damageEdit.targetType === 'player' ? (
                           <form onSubmit={(e) => { e.preventDefault(); applyDamageEdit(); }} style={{ display: 'flex', alignItems: 'center', gap: 6 }} onDoubleClick={(e) => e.stopPropagation()}>
                             <span style={{ fontSize: 12, opacity: 0.9 }}>Damage dealt:</span>
                             <input
@@ -457,8 +462,49 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
               )}
               {el.type === 'enemy' && (
                 <div className="element-stats">
-                  <div className="hp-display" style={{ color: '#f44336', backgroundColor: 'rgba(244,67,54,0.15)' }}>
-                    Damage: {el.damage ?? 0}
+                  <div
+                    className="hp-display"
+                    onDoubleClick={(e) => { e.stopPropagation(); openDamageEdit(el.id, 'enemy'); }}
+                    title={
+                      damageEdit.targetId === el.id && damageEdit.targetType === 'enemy'
+                        ? 'Enter damage, then click OK or press Enter. Press Esc to cancel.'
+                        : 'Double-click to add damage'
+                    }
+                    style={{
+                      color: '#f44336',
+                      backgroundColor: (damageEdit.targetId === el.id && damageEdit.targetType === 'enemy') ? 'rgba(244,67,54,0.2)' : 'rgba(244,67,54,0.15)',
+                      borderColor: (damageEdit.targetId === el.id && damageEdit.targetType === 'enemy') ? '#f44336' : undefined,
+                      userSelect: 'none',
+                      cursor: (damageEdit.targetId === el.id && damageEdit.targetType === 'enemy') ? 'text' : 'pointer',
+                    }}
+                  >
+                    {damageEdit.targetId === el.id && damageEdit.targetType === 'enemy' ? (
+                      <form onSubmit={(e) => { e.preventDefault(); applyDamageEdit(); }} style={{ display: 'flex', alignItems: 'center', gap: 6 }} onDoubleClick={(e) => e.stopPropagation()}>
+                        <span style={{ fontSize: 12, opacity: 0.9 }}>Damage dealt:</span>
+                        <input
+                          type="number"
+                          min={0}
+                          className="no-spinner"
+                          value={damageEdit.value}
+                          onChange={(e) => setDamageEdit(p => ({ ...p, value: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); cancelDamageEdit(); } }}
+                          autoFocus
+                          style={{ width: 80, background: 'rgba(0,0,0,0.4)', color: '#fff', border: '1px solid #555', borderRadius: 4, padding: '2px 6px' }}
+                          aria-label="Damage dealt"
+                        />
+                        <button
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()} /* prevent input blur before click */
+                          onClick={(e) => { e.stopPropagation(); applyDamageEdit(); }}
+                          style={{ background: '#4CAF50', color: '#fff', border: 'none', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', fontSize: 12 }}
+                          title="Apply damage"
+                        >
+                          OK
+                        </button>
+                      </form>
+                    ) : (
+                      <>Damage: {el.damage ?? 0}</>
+                    )}
                   </div>
                 </div>
               )}
