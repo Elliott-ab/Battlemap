@@ -68,7 +68,7 @@ export function computeGreyFractionForCell(state, cellX, cellY) {
   return Math.max(0, Math.min(1, maxSev));
 }
 
-// Create a small SVG node resembling MUI's Visibility icon
+// Create a small SVG eye icon node for visibility overlay
 export function createVisibilityIconNode(size = 16, color = '#ffffff', options = {}) {
   const { outlined = true, opacity = 0.6, strokeWidth = 2 } = options;
   const svgNS = 'http://www.w3.org/2000/svg';

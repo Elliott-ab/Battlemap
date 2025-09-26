@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import IconButton from '@mui/material/IconButton';
+import IconButton from './common/IconButton.jsx';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSkull, faWandSparkles, faChevronRight, faAnglesLeft, faAnglesRight, faAnglesUp, faAnglesDown } from '@fortawesome/free-solid-svg-icons';
 import {
@@ -16,7 +16,7 @@ import { clearMovementAndSelection } from '../Utils/highlights.js';
 import InlineNumberEditor from './common/InlineNumberEditor.jsx';
 //
 
-// Replaced MUI icons above with Font Awesome equivalents
+// Using Font Awesome icons for UI controls
 
 const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup, showEditModal, battleMapRef, isDrawingCover, toggleDrawingMode, openAddCharacterModal, openInitiativeModal, drawEnvType, setDrawEnvType }) => {
   console.log('Sidebar received battleMapRef:', battleMapRef);

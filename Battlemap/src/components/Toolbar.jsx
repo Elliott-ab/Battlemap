@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGear, faTrashCan, faRotateLeft, faDownload, faUpload, faBars } from '@fortawesome/free-solid-svg-icons';
-import IconButton from '@mui/material/IconButton';
+import IconButton from './common/IconButton.jsx';
 
 const Toolbar = ({ isDrawingCover, showGridModal, clearMap, undo, showSaveModal, showOverwriteModal, gridSize, openGlobalModifiers }) => {
   // Normalize Vite base URL to always end with a single '/'

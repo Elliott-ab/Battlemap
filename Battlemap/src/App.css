@@ -931,7 +931,7 @@ body {
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
     max-height: 80vh;
     overflow-y: auto;
-    color: #fff; /* ensure modal text is white (overrides MUI CssBaseline body color) */
+    color: #fff; /* ensure modal text is white */
 }
 
 .modal-content.wide {
@@ -1456,3 +1456,20 @@ body {
     body.app--sidebar-collapsed .toolbar-logo { width: 56px; }
     body.app--sidebar-collapsed .toolbar-logo h1 { display: none; }
 }
+
+/* Minimal icon button component */
+.icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: inherit;
+    padding: 4px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+.icon-button:hover { background: rgba(255,255,255,0.08); }
+.icon-button:disabled { opacity: 0.5; cursor: not-allowed; }
+.icon-button--small { padding: 2px; }
+.icon-button--large { padding: 8px; }

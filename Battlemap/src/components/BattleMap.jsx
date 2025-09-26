@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import IconButton from '@mui/material/IconButton';
+import IconButton from './common/IconButton.jsx';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faMinus, faPlus, faCrosshairs, faGroupArrowsRotate } from '@fortawesome/free-solid-svg-icons';
 import compassRose from '/compass-rose-n-svgrepo-com.svg';
