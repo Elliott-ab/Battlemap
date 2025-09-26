@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import IconButton from '@mui/material/IconButton';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSkull, faWandSparkles, faEye as faEyeSolid, faChevronRight, faAnglesLeft, faAnglesRight, faAnglesUp, faAnglesDown } from '@fortawesome/free-solid-svg-icons';
+import { faSkull, faWandSparkles, faChevronRight, faAnglesLeft, faAnglesRight, faAnglesUp, faAnglesDown } from '@fortawesome/free-solid-svg-icons';
 import {
   faSquare as faSquareRegular,
   faEye as faEyeRegular,
@@ -12,6 +12,8 @@ import {
   faCircleRight as faCircleRightRegular,
 } from '@fortawesome/free-regular-svg-icons';
 import { computeGreyFractionForCell } from '../Utils/visibility.js';
+import { clearMovementAndSelection } from '../Utils/highlights.js';
+import InlineNumberEditor from './common/InlineNumberEditor.jsx';
 //
 
 // Replaced MUI icons above with Font Awesome equivalents
@@ -166,13 +168,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
   // Inline damage entry for players (subtract HP) and enemies (accumulate Damage)
   const [damageEdit, setDamageEdit] = useState({ targetId: null, targetType: null, value: '' });
   const openDamageEdit = (targetId, targetType) => {
-    // When entering damage input, clear any existing movement highlights/state
-    try { document.querySelectorAll('.movement-highlight').forEach(h => h.remove()); } catch {}
-    try {
-      const mapEl = battleMapRef?.current;
-      if (mapEl && mapEl.dataset) delete mapEl.dataset.highlightedId;
-    } catch {}
-    setState(prev => ({ ...prev, highlightedElementId: null }));
+    clearMovementAndSelection(battleMapRef, setState);
     setDamageEdit({ targetId, targetType, value: '' });
   };
   const cancelDamageEdit = () => setDamageEdit({ targetId: null, targetType: null, value: '' });
@@ -196,67 +192,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
   };
 
 
-  // Find next empty position given current elements and any new positions
-  const findEmptyPosition = (elements, size = 1, grid) => {
-    for (let y = 0; y < grid.height - size + 1; y++) {
-      for (let x = 0; x < grid.width - size + 1; x++) {
-        let isOccupied = false;
-        for (const el of elements) {
-          if (
-            x < el.position.x + el.size &&
-            x + size > el.position.x &&
-            y < el.position.y + el.size &&
-            y + size > el.position.y
-          ) {
-            isOccupied = true;
-            break;
-          }
-        }
-        if (!isOccupied) {
-          return { x, y };
-        }
-      }
-    }
-    return { x: 0, y: 0 };
-  };
-
-  const handleAddCharacters = () => {
-    // Local counters for unique naming
-    let localNextId = Math.max(1, ...state.elements.map(e => e.id || 0)) + 1;
-    const getNextNumber = (type) => {
-      const nums = state.elements.filter(e => e.type === type).map(e => parseInt((e.name||'').split(' ')[1]) || 0);
-      if (nums.length === 0) return 1;
-      return Math.max(...nums) + 1;
-    };
-    let localNextPlayerId = getNextNumber('player');
-    let localNextEnemyId = getNextNumber('enemy');
-    let newElements = [...state.elements];
-    let batch = [];
-    for (let i = 0; i < quantity; i++) {
-      const pos = findEmptyPosition(newElements, 1, state.grid);
-      let type = characterType;
-      let name = type === 'player' ? `Player ${localNextPlayerId++}` : `Enemy ${localNextEnemyId++}`;
-      let color = type === 'player' ? '#4CAF50' : '#f44336';
-      let newEl = {
-        id: localNextId++,
-        name,
-        type,
-        position: pos,
-        size: 1,
-        color,
-        maxHp: 10,
-        currentHp: 10,
-        movement: 30,
-        damage: type === 'enemy' ? 0 : undefined
-      };
-      newElements.push(newEl);
-      batch.push(newEl);
-    }
-    setState(prev => ({ ...prev, elements: [...prev.elements, ...batch], highlightedElementId: null }));
-    setPopoverOpen(false);
-    setQuantity(1);
-    setCharacterType('player');
-  };
+  // De-duplicated: character adding is centralized in App via AddCharacterModal
 
   // When drawing mode starts, expand Environments and collapse Creatures
   React.useEffect(() => {
@@ -429,29 +365,14 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
                         }}
                       >
                         {damageEdit.targetId === el.id && damageEdit.targetType === 'player' ? (
-                          <form onSubmit={(e) => { e.preventDefault(); applyDamageEdit(); }} style={{ display: 'flex', alignItems: 'center', gap: 6 }} onDoubleClick={(e) => e.stopPropagation()}>
-                            <span style={{ fontSize: 12, opacity: 0.9 }}>Damage dealt:</span>
-                            <input
-                              type="number"
-                              min={0}
-                              className="no-spinner"
-                              value={damageEdit.value}
-                              onChange={(e) => setDamageEdit(p => ({ ...p, value: e.target.value }))}
-                              onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); cancelDamageEdit(); } }}
-                              autoFocus
-                              style={{ width: 80, background: 'rgba(0,0,0,0.4)', color: '#fff', border: '1px solid #555', borderRadius: 4, padding: '2px 6px' }}
-                              aria-label="Damage dealt"
-                            />
-                            <button
-                              type="button"
-                              onMouseDown={(e) => e.preventDefault()} /* prevent input blur before click */
-                              onClick={(e) => { e.stopPropagation(); applyDamageEdit(); }}
-                              style={{ background: '#4CAF50', color: '#fff', border: 'none', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', fontSize: 12 }}
-                              title="Apply damage"
-                            >
-                              OK
-                            </button>
-                          </form>
+                          <InlineNumberEditor
+                            value={damageEdit.value}
+                            onChange={(v) => setDamageEdit(p => ({ ...p, value: v }))}
+                            onConfirm={applyDamageEdit}
+                            onCancel={cancelDamageEdit}
+                            title="Damage dealt:"
+                            okLabel="OK"
+                          />
                         ) : (
                           <>HP: {effectiveHp}/{el.maxHp}</>
                         )}
@@ -479,29 +400,14 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
                     }}
                   >
                     {damageEdit.targetId === el.id && damageEdit.targetType === 'enemy' ? (
-                      <form onSubmit={(e) => { e.preventDefault(); applyDamageEdit(); }} style={{ display: 'flex', alignItems: 'center', gap: 6 }} onDoubleClick={(e) => e.stopPropagation()}>
-                        <span style={{ fontSize: 12, opacity: 0.9 }}>Damage dealt:</span>
-                        <input
-                          type="number"
-                          min={0}
-                          className="no-spinner"
-                          value={damageEdit.value}
-                          onChange={(e) => setDamageEdit(p => ({ ...p, value: e.target.value }))}
-                          onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); cancelDamageEdit(); } }}
-                          autoFocus
-                          style={{ width: 80, background: 'rgba(0,0,0,0.4)', color: '#fff', border: '1px solid #555', borderRadius: 4, padding: '2px 6px' }}
-                          aria-label="Damage dealt"
-                        />
-                        <button
-                          type="button"
-                          onMouseDown={(e) => e.preventDefault()} /* prevent input blur before click */
-                          onClick={(e) => { e.stopPropagation(); applyDamageEdit(); }}
-                          style={{ background: '#4CAF50', color: '#fff', border: 'none', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', fontSize: 12 }}
-                          title="Apply damage"
-                        >
-                          OK
-                        </button>
-                      </form>
+                      <InlineNumberEditor
+                        value={damageEdit.value}
+                        onChange={(v) => setDamageEdit(p => ({ ...p, value: v }))}
+                        onConfirm={applyDamageEdit}
+                        onCancel={cancelDamageEdit}
+                        title="Damage dealt:"
+                        okLabel="OK"
+                      />
                     ) : (
                       <>Damage: {el.damage ?? 0}</>
                     )}

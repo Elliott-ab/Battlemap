@@ -1,5 +1,3 @@
-import { initialState } from '../Utils/state.js';
-
 // Module counters are kept for names only; IDs are computed from state to avoid collisions
 let nextGroupId = 1;
 let nextPlayerId = 1;
@@ -18,8 +16,6 @@ const PLAYER_COLORS = [
   '#8BC34A', // Light Green
 ];
 let nextPlayerColorIdx = 0;
-
-import { isCellVisibleToAnyEnemy, createVisibilityIconNode } from './visibility.js';
 
 export const useElements = (state, setState) => {
   if (!state.hasOwnProperty('highlightedElementId')) {
@@ -92,6 +88,76 @@ export const useElements = (state, setState) => {
         facing: type === 'enemy' ? 90 : undefined,
       };
       return { ...prev, elements: [...prev.elements, newEl], highlightedElementId: null };
+    });
+  };
+
+  // Batch-adding players or enemies with consistent naming and color cycling
+  const addCharactersBatch = (characterType, quantity) => {
+    const safeQty = Math.max(1, Math.min(100, parseInt(quantity, 10) || 1));
+    setState(prev => {
+      // Determine next numeric suffix for names based on existing elements of this type
+      const getNextNumber = (type) => {
+        const nums = (prev.elements || [])
+          .filter(e => e.type === type)
+          .map(e => parseInt(((e.name || '').split(' ')[1]) || '0', 10))
+          .filter(n => Number.isFinite(n));
+        return nums.length ? Math.max(...nums) + 1 : 1;
+      };
+      let localNextPlayerNum = getNextNumber('player');
+      let localNextEnemyNum = getNextNumber('enemy');
+      let nextId = Math.max(0, ...prev.elements.map(e => e.id || 0)) + 1;
+      const elements = [...prev.elements];
+
+      // Seed color index so colors keep cycling across sessions
+      let playerCount = elements.filter(e => e.type === 'player').length;
+      let localColorIdx = playerCount % PLAYER_COLORS.length;
+
+      const pushWithFreePos = (el) => {
+        // Find free position considering already planned additions
+        for (let y = 0; y < prev.grid.height - el.size + 1; y++) {
+          for (let x = 0; x < prev.grid.width - el.size + 1; x++) {
+            let occupied = false;
+            for (const existing of elements) {
+              if (
+                x < existing.position.x + existing.size &&
+                x + el.size > existing.position.x &&
+                y < existing.position.y + existing.size &&
+                y + el.size > existing.position.y
+              ) { occupied = true; break; }
+            }
+            if (!occupied) {
+              elements.push({ ...el, position: { x, y } });
+              return;
+            }
+          }
+        }
+        // Fallback if no space (should be rare)
+        elements.push({ ...el, position: { x: 0, y: 0 } });
+      };
+
+      for (let i = 0; i < safeQty; i++) {
+        const type = characterType === 'enemy' ? 'enemy' : 'player';
+        const name = type === 'player' ? `Player ${localNextPlayerNum++}` : `Enemy ${localNextEnemyNum++}`;
+        const color = type === 'player'
+          ? PLAYER_COLORS[(localColorIdx++) % PLAYER_COLORS.length]
+          : '#f44336';
+        const base = {
+          id: nextId++,
+          name,
+          type,
+          position: { x: 0, y: 0 }, // will be replaced by pushWithFreePos
+          size: 1,
+          color,
+          maxHp: type === 'player' ? 10 : undefined,
+          currentHp: type === 'player' ? 10 : undefined,
+          movement: 30,
+          damage: type === 'enemy' ? 0 : undefined,
+          incapacitated: false,
+        };
+        pushWithFreePos(base);
+      }
+
+      return { ...prev, elements, highlightedElementId: null };
     });
   };
 
@@ -300,8 +366,6 @@ export const useElements = (state, setState) => {
     });
   };
 
-  const renderElementsList = () => {};
-
   const updateElement = (id, updates) => {
     const el = getElementById(id);
     if (el) {
@@ -331,12 +395,12 @@ export const useElements = (state, setState) => {
 
   return {
     addElement,
+    addCharactersBatch,
     createCoverFromBlocks,
     getElementById,
     updateElementPosition,
     toggleMovementHighlight,
     highlightCoverGroup,
-    renderElementsList,
     updateElement,
     deleteElement,
   };

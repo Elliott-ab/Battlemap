@@ -58,111 +58,21 @@ function App() {
   const battleMapRef = useRef(null);
 
   const { updateGridInfo } = useGrid(state);
-  const { addElement, createCoverFromBlocks, getElementById, updateElementPosition, toggleMovementHighlight, highlightCoverGroup, renderElementsList, updateElement, deleteElement } = useElements(state, setState);
+  const { addElement, addCharactersBatch, createCoverFromBlocks, getElementById, updateElementPosition, toggleMovementHighlight, highlightCoverGroup, updateElement, deleteElement } = useElements(state, setState);
   const { showEditModal, showGridModal, showSaveModal, showOverwriteModal } = useModals(setModalState);
   const { downloadMap, uploadMap } = useStorage(state, setState);
   const { pushUndo, undo } = useUndo(state, setState, setUndoStack);
 
   useEffect(() => {
     updateGridInfo();
-    renderElementsList();
-  }, [state, updateGridInfo, renderElementsList]);
+  }, [state, updateGridInfo]);
 
   // Sync isDrawingCover and coverBlocks into state for grid rendering
   const mergedState = { ...state, isDrawingCover, coverBlocks };
 
-  // Advance to next turn based on initiativeOrder
-  const handleNextTurn = () => {
-    setState(prev => {
-      const len = (prev.initiativeOrder || []).length;
-      if (!len) return prev;
-      const nextIdx = ((prev.currentTurnIndex || 0) + 1) % len;
-      return { ...prev, currentTurnIndex: nextIdx };
-    });
-  };
-
-  const handlePrevTurn = () => {
-    setState(prev => {
-      const len = (prev.initiativeOrder || []).length;
-      if (!len) return prev;
-      const prevIdx = ((prev.currentTurnIndex || 0) - 1 + len) % len;
-      return { ...prev, currentTurnIndex: prevIdx };
-    });
-  };
-
-  // Handler for adding characters (batch logic from Sidebar)
+  // Use centralized batch add API
   const handleAddCharacters = (characterType, quantity) => {
-    let localNextId = Math.max(1, ...state.elements.map(e => e.id || 0)) + 1;
-    const getNextNumber = (type) => {
-      const nums = state.elements.filter(e => e.type === type).map(e => parseInt((e.name||'').split(' ')[1]) || 0);
-      if (nums.length === 0) return 1;
-      return Math.max(...nums) + 1;
-    };
-    let localNextPlayerId = getNextNumber('player');
-    let localNextEnemyId = getNextNumber('enemy');
-    let newElements = [...state.elements];
-    let batch = [];
-    // Player color palette (exclude enemy red)
-    const PLAYER_COLORS = [
-      '#4CAF50', // Green
-      '#2196F3', // Blue
-      '#FFEB3B', // Yellow
-      '#FF9800', // Orange
-      '#9C27B0', // Purple
-      '#00BCD4', // Cyan
-      '#E91E63', // Pink
-      '#3F51B5', // Indigo
-      '#009688', // Teal
-      '#8BC34A', // Light Green
-    ];
-    // Seed color index based on current players so colors keep cycling across sessions
-    let nextPlayerColorIdx = state.elements.filter(e => e.type === 'player').length % PLAYER_COLORS.length;
-    const findEmptyPosition = (elements, size = 1, grid) => {
-      for (let y = 0; y < state.grid.height - size + 1; y++) {
-        for (let x = 0; x < state.grid.width - size + 1; x++) {
-          let isOccupied = false;
-          for (const el of elements) {
-            if (
-              x < el.position.x + el.size &&
-              x + size > el.position.x &&
-              y < el.position.y + el.size &&
-              y + size > el.position.y
-            ) {
-              isOccupied = true;
-              break;
-            }
-          }
-          if (!isOccupied) {
-            return { x, y };
-          }
-        }
-      }
-      return { x: 0, y: 0 };
-    };
-    for (let i = 0; i < quantity; i++) {
-      const pos = findEmptyPosition(newElements, 1, state.grid);
-      let type = characterType;
-      let name = type === 'player' ? `Player ${localNextPlayerId++}` : `Enemy ${localNextEnemyId++}`;
-      let color = type === 'player'
-        ? PLAYER_COLORS[(nextPlayerColorIdx++) % PLAYER_COLORS.length]
-        : '#f44336';
-      let newEl = {
-        id: localNextId++,
-        name,
-        type,
-        position: pos,
-        size: 1,
-        color,
-        maxHp: type === 'player' ? 10 : undefined,
-        currentHp: type === 'player' ? 10 : undefined,
-        movement: 30,
-        damage: type === 'enemy' ? 0 : undefined,
-        incapacitated: type !== 'cover' ? false : undefined
-      };
-      newElements.push(newEl);
-      batch.push(newEl);
-    }
-    setState(prev => ({ ...prev, elements: [...prev.elements, ...batch], highlightedElementId: null }));
+    addCharactersBatch(characterType, quantity);
     setModalState(prev => ({ ...prev, addCharacter: false }));
   };
 

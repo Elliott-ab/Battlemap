@@ -4,9 +4,9 @@ import { faGear, faTrashCan, faRotateLeft, faDownload, faUpload, faBars } from '
 import IconButton from '@mui/material/IconButton';
 
 const Toolbar = ({ isDrawingCover, showGridModal, clearMap, undo, showSaveModal, showOverwriteModal, gridSize, openGlobalModifiers }) => {
-  const base = ((import.meta.env.BASE_URL || '/').endsWith('/')
-    ? import.meta.env.BASE_URL
-    : `${import.meta.env.BASE_URL || '/'}\/`).replace(/\\/g, '/');
+  // Normalize Vite base URL to always end with a single '/'
+  const rawBase = import.meta.env.BASE_URL || '/';
+  const base = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
   // Try user-provided name first, then common defaults
   const logoCandidates = [
     `${base}dicelogo.webp`,
