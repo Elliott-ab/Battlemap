@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Button, Container, Grid, Paper, TextField, Typography, Alert, IconButton, InputAdornment } from '@mui/material';
+import { Box, Button, Grid, Paper, TextField, Typography, Alert, IconButton, InputAdornment } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../auth/AuthContext.jsx';
 import { hostGame, joinGameByCode } from '../utils/gameService';
+import Toolbar from '../components/Toolbar.jsx';
+import DashboardSidebar from '../components/DashboardSidebar.jsx';
+import { Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -15,6 +18,7 @@ export default function Dashboard() {
   const [error, setError] = useState('');
   const [email, setEmail] = useState(user?.email || '');
   const [password, setPassword] = useState('');
+  const [showSettings, setShowSettings] = useState(false);
 
   const doHost = async () => {
     setError('');
@@ -72,11 +76,15 @@ export default function Dashboard() {
   };
 
   return (
-    <Container maxWidth="md" sx={{ mt: 6, mb: 6 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h5">Dashboard</Typography>
-        <Button onClick={signOut}>Sign out</Button>
-      </Box>
+    <Box className="app-container" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+      <Toolbar variant="dashboard" onSettingsClick={() => setShowSettings(true)} />
+      <div className="main-content">
+        <DashboardSidebar onOpenBattlemap={() => navigate('/battlemap/LOCAL')} />
+        <Box sx={{ flex: 1, p: 2, overflow: 'auto' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h5">Dashboard</Typography>
+            <Button onClick={signOut}>Sign out</Button>
+          </Box>
       {message && (
         <Alert severity="success" sx={{ mb: 2 }}>
           {message}
@@ -133,34 +141,24 @@ export default function Dashboard() {
             </Box>
           </Paper>
         </Grid>
-        <Grid item xs={12}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Account
-            </Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
-                <TextField label="Email" value={email} onChange={(e) => setEmail(e.target.value)} fullWidth />
-                <Button sx={{ mt: 1 }} onClick={updateEmail}>
-                  Update Email
-                </Button>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  label="New password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  fullWidth
-                />
-                <Button sx={{ mt: 1 }} onClick={updatePassword}>
-                  Update Password
-                </Button>
-              </Grid>
-            </Grid>
-          </Paper>
-        </Grid>
       </Grid>
-    </Container>
+      <Dialog open={showSettings} onClose={() => setShowSettings(false)} fullWidth maxWidth="sm">
+        <DialogTitle>User Settings</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField label="Email" value={email} onChange={(e) => setEmail(e.target.value)} fullWidth />
+            <Button onClick={updateEmail}>Update Email</Button>
+            <TextField label="New password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} fullWidth />
+            <Button onClick={updatePassword}>Update Password</Button>
+            <Button variant="outlined" onClick={() => navigate('/reset-password')}>Reset Password via Email</Button>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowSettings(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+        </Box>
+      </div>
+    </Box>
   );
 }

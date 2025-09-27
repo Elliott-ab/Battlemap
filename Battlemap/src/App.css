@@ -259,6 +259,8 @@ body {
 .toolbar-burger {
     display: none !important;
 }
+/* Show burger on battlemap variant on all sizes */
+.toolbar.toolbar--battlemap .toolbar-burger { display: inline-flex !important; }
 
 /* Faint vertical divider between Global Modifiers button and icon group */
 .toolbar-divider-vert {

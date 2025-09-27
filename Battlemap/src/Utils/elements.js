@@ -52,8 +52,9 @@ export const useElements = (state, setState) => {
       size: 1,
       coverType: 'half',
       groupId: null,
+      participantUserId: undefined,
     };
-    const { position, size, coverType, groupId } = { ...defaults, ...options };
+    const { position, size, coverType, groupId, participantUserId } = { ...defaults, ...options };
     // Generate the element inside the setter so ID uses the latest state
     setState(prev => {
       const newId = Math.max(0, ...prev.elements.map(e => e.id || 0)) + 1;
@@ -86,6 +87,8 @@ export const useElements = (state, setState) => {
         groupId: type === 'cover' ? groupId : undefined,
         // Facing direction in degrees (used for enemies' direction cone). 90° = down.
         facing: type === 'enemy' ? 90 : undefined,
+        // Optional association to Supabase participant user id (for dedup on joins)
+        participantUserId: type === 'player' ? participantUserId : undefined,
       };
       return { ...prev, elements: [...prev.elements, newEl], highlightedElementId: null };
     });

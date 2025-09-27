@@ -1,27 +1,112 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Box, Button, Typography } from '@mui/material';
+import { Box, Dialog, DialogTitle, DialogContent, DialogActions, TextField, IconButton, InputAdornment, Button, Typography, Alert } from '@mui/material';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import App from '../App.jsx';
+import { useAuth } from '../auth/AuthContext.jsx';
+import { hostGame } from '../utils/gameService';
 import { supabase } from '../supabaseClient';
 
 export default function BattlemapPage() {
   const { code } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [hostResult, setHostResult] = useState(null);
+  const [hostOpen, setHostOpen] = useState(false);
+  const [error, setError] = useState('');
+  const [gameId, setGameId] = useState(null);
 
-  const leave = async () => {
-    // optional: sign out? For now just navigate back
-    navigate('/dashboard');
+  const copyCode = async () => {
+    if (!hostResult?.code) return;
+    try { await navigator.clipboard.writeText(hostResult.code); } catch {}
   };
+
+  // Resolve game id for this code once on mount (so we can subscribe to participants)
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      if (!code) return;
+      // Try RPC first, fallback to select
+      const { data: rpcData } = await supabase.rpc('get_game_by_code', { v_code: code }).single();
+      if (mounted && rpcData?.id) { setGameId(rpcData.id); return; }
+      const { data } = await supabase.from('games').select('id').eq('code', code).single();
+      if (mounted) setGameId(data?.id || null);
+    })();
+    return () => { mounted = false; };
+  }, [code]);
+
+  // Subscribe to participants joining and add a player token if not present
+  useEffect(() => {
+    if (!gameId) return;
+    const channel = supabase
+      .channel(`participants-${gameId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'participants', filter: `game_id=eq.${gameId}` }, async (payload) => {
+        const newRow = payload.new;
+        // Avoid adding a token for the current user joining—their token can be added manually if needed
+        // Add a token for the joining user if not present
+        window.dispatchEvent(new CustomEvent('participant-joined', { detail: newRow }));
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [gameId]);
 
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ p: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}>
-        <Typography variant="subtitle1">Game Code: {code}</Typography>
-        <Button onClick={leave}>Leave</Button>
-      </Box>
+      {/* The App component already renders the main Toolbar; pass menu actions */}
       <Box sx={{ flex: 1, minHeight: 0 }}>
-        <App />
+        <App
+          onHostGame={async () => {
+            if (!user) return;
+            setError('');
+            try {
+              const game = await hostGame(user.id);
+              setHostResult(game);
+              setHostOpen(true);
+            } catch (e) {
+              setError(e.message);
+            }
+          }}
+          onLeaveGame={() => navigate('/dashboard')}
+        />
       </Box>
+      <Dialog open={hostOpen} onClose={() => setHostOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Game Hosted</DialogTitle>
+        <DialogContent>
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+          )}
+          {hostResult && (
+            <>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                Share this invite code with your players:
+              </Typography>
+              <TextField
+                label="Invite Code"
+                value={hostResult.code}
+                fullWidth
+                InputProps={{
+                  readOnly: true,
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton onClick={copyCode}>
+                        <ContentCopyIcon />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setHostOpen(false)}>Close</Button>
+          {hostResult && (
+            <Button variant="contained" onClick={() => { setHostOpen(false); navigate(`/battlemap/${hostResult.code}`); }}>
+              Go to Battlemap
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

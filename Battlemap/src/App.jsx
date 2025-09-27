@@ -16,7 +16,7 @@ import { useModals } from './Utils/modals.js';
 import { useStorage } from './Utils/storage.js';
 import { useUndo } from './Utils/undo.js';
 
-function App() {
+function App({ onHostGame, onLeaveGame }) {
   const [drawEnvType, setDrawEnvType] = useState('half');
   const toggleDrawingMode = () => {
     if (!isDrawingCover) {
@@ -67,6 +67,18 @@ function App() {
     updateGridInfo();
   }, [state, updateGridInfo]);
 
+  // When a participant joins (emitted by BattlemapPage subscription), add a player token if not present
+  useEffect(() => {
+    const handler = (e) => {
+      const row = e.detail;
+      if (!row?.user_id) return;
+      const exists = (state.elements || []).some(el => el.type === 'player' && el.participantUserId === row.user_id);
+      if (!exists) addElement('player', { participantUserId: row.user_id });
+    };
+    window.addEventListener('participant-joined', handler);
+    return () => window.removeEventListener('participant-joined', handler);
+  }, [state.elements, addElement]);
+
   // Sync isDrawingCover and coverBlocks into state for grid rendering
   const mergedState = { ...state, isDrawingCover, coverBlocks };
 
@@ -87,6 +99,8 @@ function App() {
         showOverwriteModal={showOverwriteModal}
         gridSize={state.grid.cellSize}
         openGlobalModifiers={() => setModalState(prev => ({ ...prev, globalModifiers: true }))}
+        onHostGame={onHostGame}
+        onLeaveGame={onLeaveGame}
       />
       <div className="main-content">
         <Sidebar
