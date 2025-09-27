@@ -18,6 +18,7 @@ const Toolbar = ({
   logoHref = '#/dashboard',
   onHostGame,
   onLeaveGame,
+  onJoinGame,
 }) => {
   // Normalize Vite base URL to always end with a single '/'
   const rawBase = import.meta.env.BASE_URL || '/';
@@ -127,6 +128,11 @@ const Toolbar = ({
               <span>Upload Map</span>
             </button>
             <hr className="toolbar-divider-horiz" />
+            {onJoinGame && (
+              <button className="menu-item" onClick={() => { onJoinGame(); setMenuOpen(false); }} role="menuitem">
+                <span>Join Game</span>
+              </button>
+            )}
             {onHostGame && (
               <button className="menu-item" onClick={() => { onHostGame(); setMenuOpen(false); }} role="menuitem">
                 <span>Host Game</span>

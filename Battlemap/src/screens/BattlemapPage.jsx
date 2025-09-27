@@ -4,7 +4,7 @@ import { Box, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Icon
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import App from '../App.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
-import { hostGame } from '../utils/gameService';
+import { hostGame, joinGameByCode } from '../utils/gameService';
 import { supabase } from '../supabaseClient';
 
 export default function BattlemapPage() {
@@ -15,6 +15,8 @@ export default function BattlemapPage() {
   const [hostOpen, setHostOpen] = useState(false);
   const [error, setError] = useState('');
   const [gameId, setGameId] = useState(null);
+  const [joinOpen, setJoinOpen] = useState(false);
+  const [joinCode, setJoinCode] = useState('');
 
   const copyCode = async () => {
     if (!hostResult?.code) return;
@@ -67,6 +69,7 @@ export default function BattlemapPage() {
             }
           }}
           onLeaveGame={() => navigate('/dashboard')}
+          onJoinGame={() => setJoinOpen(true)}
         />
       </Box>
       <Dialog open={hostOpen} onClose={() => setHostOpen(false)} fullWidth maxWidth="xs">
@@ -105,6 +108,29 @@ export default function BattlemapPage() {
               Go to Battlemap
             </Button>
           )}
+        </DialogActions>
+      </Dialog>
+      <Dialog open={joinOpen} onClose={() => setJoinOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Join Game</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            Enter an invite code to join a game.
+          </Typography>
+          <TextField label="Invite Code" value={joinCode} onChange={(e) => setJoinCode(e.target.value)} fullWidth />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setJoinOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={async () => {
+            try {
+              const codeTrim = joinCode.trim().toUpperCase();
+              if (!codeTrim || !user) return;
+              const game = await joinGameByCode(user.id, codeTrim);
+              setJoinOpen(false);
+              navigate(`/battlemap/${game.code}`);
+            } catch (e) {
+              setError(e.message);
+            }
+          }}>Join</Button>
         </DialogActions>
       </Dialog>
     </Box>

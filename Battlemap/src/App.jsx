@@ -16,7 +16,7 @@ import { useModals } from './Utils/modals.js';
 import { useStorage } from './Utils/storage.js';
 import { useUndo } from './Utils/undo.js';
 
-function App({ onHostGame, onLeaveGame }) {
+function App({ onHostGame, onLeaveGame, onJoinGame }) {
   const [drawEnvType, setDrawEnvType] = useState('half');
   const toggleDrawingMode = () => {
     if (!isDrawingCover) {
@@ -101,6 +101,7 @@ function App({ onHostGame, onLeaveGame }) {
         openGlobalModifiers={() => setModalState(prev => ({ ...prev, globalModifiers: true }))}
         onHostGame={onHostGame}
         onLeaveGame={onLeaveGame}
+        onJoinGame={onJoinGame}
       />
       <div className="main-content">
         <Sidebar
