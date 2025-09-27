@@ -19,6 +19,10 @@ const Toolbar = ({
   onHostGame,
   onLeaveGame,
   onJoinGame,
+  isHost,
+  onPushToPlayers,
+  onToggleChannel,
+  currentChannel,
 }) => {
   // Normalize Vite base URL to always end with a single '/'
   const rawBase = import.meta.env.BASE_URL || '/';
@@ -96,6 +100,30 @@ const Toolbar = ({
             <IconButton onClick={undo} disabled={isDrawingCover} title="Undo" size="large">
               <FontAwesomeIcon icon={faRotateLeft} style={{ color: isDrawingCover ? 'grey' : 'white', fontSize: 16 }} />
             </IconButton>
+            {isHost && (
+              <>
+                <div className="toolbar-divider-vert" aria-hidden="true" />
+                <button
+                  className="turn-box turn-box--small"
+                  onClick={isDrawingCover ? undefined : onPushToPlayers}
+                  disabled={isDrawingCover}
+                  title="Push current draft to all players"
+                  style={{ cursor: isDrawingCover ? 'not-allowed' : 'pointer' }}
+                >
+                  Push to Players
+                </button>
+                <div className="toolbar-divider-vert" aria-hidden="true" />
+                <button
+                  className="turn-box turn-box--small"
+                  onClick={isDrawingCover ? undefined : onToggleChannel}
+                  disabled={isDrawingCover}
+                  title="Toggle edit/view channel"
+                  style={{ cursor: isDrawingCover ? 'not-allowed' : 'pointer' }}
+                >
+                  {currentChannel === 'draft' ? 'Editing Draft' : 'Viewing Live'}
+                </button>
+              </>
+            )}
           </div>
           <IconButton className="toolbar-burger" title="Menu" size="large" onClick={() => setMenuOpen(v => !v)}>
             <FontAwesomeIcon icon={faBars} style={{ color: 'white', fontSize: 18 }} />
@@ -142,6 +170,17 @@ const Toolbar = ({
               <button className="menu-item" onClick={() => { onLeaveGame(); setMenuOpen(false); }} role="menuitem">
                 <span>Leave Game</span>
               </button>
+            )}
+            {isHost && (
+              <>
+                <hr className="toolbar-divider-horiz" />
+                <button className="menu-item" onClick={() => handleMaybe(onPushToPlayers)} role="menuitem">
+                  <span>Push to Players</span>
+                </button>
+                <button className="menu-item" onClick={() => handleMaybe(onToggleChannel)} role="menuitem">
+                  <span>{currentChannel === 'draft' ? 'Switch to Live' : 'Switch to Draft'}</span>
+                </button>
+              </>
             )}
           </div>
         </>

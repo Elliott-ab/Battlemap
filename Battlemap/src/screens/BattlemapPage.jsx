@@ -57,6 +57,8 @@ export default function BattlemapPage() {
       {/* The App component already renders the main Toolbar; pass menu actions */}
       <Box sx={{ flex: 1, minHeight: 0 }}>
         <App
+          gameId={gameId}
+          user={user}
           onHostGame={async () => {
             if (!user) return;
             setError('');
