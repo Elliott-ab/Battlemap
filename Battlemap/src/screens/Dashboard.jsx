@@ -79,7 +79,10 @@ export default function Dashboard() {
     <Box className="app-container" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <Toolbar variant="dashboard" onSettingsClick={() => setShowSettings(true)} />
       <div className="main-content">
-        <DashboardSidebar onOpenBattlemap={() => navigate('/battlemap/LOCAL')} />
+        <DashboardSidebar 
+          onOpenBattlemap={() => navigate('/battlemap/LOCAL')}
+          onOpenCharacters={() => navigate('/characters')}
+        />
         <Box sx={{ flex: 1, p: 2, overflow: 'auto' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h5">Dashboard</Typography>

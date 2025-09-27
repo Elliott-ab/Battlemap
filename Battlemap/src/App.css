@@ -399,6 +399,59 @@ body {
     background-color: #ccc;
 }
 
+/* Character builder sheet defaults (screen) */
+.sheet {
+    background-color: #2c2c2c !important; /* match sidebar */
+    color: #ffffff !important;
+    border: 1px solid rgba(255,255,255,0.15);
+}
+
+/* Ensure all typical MUI text and inputs are white inside the sheet */
+.sheet .MuiTypography-root { color: #ffffff; }
+.sheet .MuiSvgIcon-root { color: #ffffff; }
+.sheet .MuiButton-root { color: #ffffff; }
+.sheet .MuiInputLabel-root { color: rgba(255,255,255,0.85); }
+.sheet .MuiInputLabel-root.Mui-focused { color: #ffffff; }
+.sheet .MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline { border-color: rgba(255,255,255,0.5); }
+.sheet .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline { border-color: #ffffff; }
+.sheet .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline { border-color: #ffffff; }
+.sheet .MuiInputBase-input, .sheet .MuiInputBase-inputMultiline { color: #ffffff; }
+.sheet input::placeholder, .sheet textarea::placeholder { color: rgba(255,255,255,0.6); }
+.sheet .MuiSelect-icon { color: #ffffff; }
+
+/* Sheet box/ring helpers */
+.sheet .sheet-box { border-color: rgba(255,255,255,0.35) !important; }
+.sheet .sheet-ring { border-color: rgba(255,255,255,0.6) !important; }
+
+/* Print styles for character sheet */
+@media print {
+    body { background: #ffffff !important; color: #000000 !important; }
+    .toolbar, .sidebar, .print-hide { display: none !important; }
+    .main-content { padding: 0 !important; }
+    .app-container { height: auto !important; }
+    .sheet {
+        box-shadow: none !important;
+        border: none !important;
+        background: #ffffff !important;
+        color: #000000 !important;
+        padding: 0 !important;
+    }
+    .sheet .MuiTypography-root,
+    .sheet .MuiSvgIcon-root,
+    .sheet .MuiButton-root,
+    .sheet .MuiInputLabel-root,
+    .sheet .MuiInputBase-input,
+    .sheet .MuiInputBase-inputMultiline { color: #000000 !important; }
+    .sheet .MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline { border-color: #000000 !important; }
+    .sheet .sheet-box { border-color: #000000 !important; }
+    .sheet .sheet-ring { border-color: #000000 !important; }
+}
+
+@page {
+    size: A4;
+    margin: 10mm;
+}
+
 .btn-primary {
     background-color: #4CAF50;
     color: white;
