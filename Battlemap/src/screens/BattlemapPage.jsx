@@ -4,7 +4,7 @@ import { Box, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Icon
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import App from '../App.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
-import { hostGame, joinGameByCode } from '../utils/gameService';
+import { hostGame, joinGameByCode } from '../utils/gameService.js';
 import { supabase } from '../supabaseClient';
 
 export default function BattlemapPage() {
@@ -28,11 +28,9 @@ export default function BattlemapPage() {
     let mounted = true;
     (async () => {
       if (!code) return;
-      // Try RPC first, fallback to select
+      // Use RPC (avoids RLS recursion on games)
       const { data: rpcData } = await supabase.rpc('get_game_by_code', { v_code: code }).single();
-      if (mounted && rpcData?.id) { setGameId(rpcData.id); return; }
-      const { data } = await supabase.from('games').select('id').eq('code', code).single();
-      if (mounted) setGameId(data?.id || null);
+      if (mounted) setGameId(rpcData?.id || null);
     })();
     return () => { mounted = false; };
   }, [code]);

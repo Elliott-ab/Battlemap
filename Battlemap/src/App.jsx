@@ -83,16 +83,22 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
     return () => window.removeEventListener('participant-joined', handler);
   }, [state.elements, addElement]);
 
-  // Determine host status
+  // Determine host status based on participants.role (avoids selecting from games)
   useEffect(() => {
     let active = true;
     (async () => {
-      if (!gameId || !user) return setIsHost(false);
-      const { data } = await supabase.from('games').select('host_id').eq('id', gameId).single();
+      if (!gameId || !user) { setIsHost(false); return; }
+      const { data, error } = await supabase
+        .from('participants')
+        .select('role')
+        .eq('game_id', gameId)
+        .eq('user_id', user.id)
+        .single();
       if (!active) return;
-      setIsHost(!!data && data.host_id === user.id);
+      const host = !error && data?.role === 'host';
+      setIsHost(host);
       // Host edits draft by default, players always view/edit live
-      setChannel(data && data.host_id === user.id ? 'draft' : 'live');
+      setChannel(host ? 'draft' : 'live');
     })();
     return () => { active = false; };
   }, [gameId, user?.id]);

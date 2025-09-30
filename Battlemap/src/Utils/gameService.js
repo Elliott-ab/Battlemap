@@ -8,20 +8,22 @@ function randomCode(length = 6) {
 }
 
 export async function hostGame(userId) {
-  // try create unique code
-  let code = randomCode();
-  // naive retry few times
-  for (let i = 0; i < 5; i += 1) {
-    const { data: existing } = await supabase.from('games').select('id').eq('code', code).maybeSingle();
-    if (!existing) break;
-    code = randomCode();
+  // Generate a unique code by attempting insert and retrying on unique violation
+  let data = null;
+  let lastErr = null;
+  for (let i = 0; i < 6; i += 1) {
+    const code = randomCode();
+    const { data: row, error } = await supabase
+      .from('games')
+      .insert([{ code, host_id: userId }])
+      .select()
+      .single();
+    if (!error && row) { data = row; break; }
+    // 23505 is unique_violation in Postgres
+    if (error && error.code === '23505') { lastErr = error; continue; }
+    if (error) { lastErr = error; break; }
   }
-  const { data, error } = await supabase
-    .from('games')
-    .insert([{ code, host_id: userId }])
-    .select()
-    .single();
-  if (error) throw error;
+  if (!data) throw lastErr || new Error('Failed to create game');
   // add host as participant
   await supabase.from('participants').insert([{ game_id: data.id, user_id: userId, role: 'host' }]);
   return data; // { id, code, host_id }
@@ -31,13 +33,8 @@ export async function joinGameByCode(userId, code) {
   let game = null;
   // Try RPC first (for stricter RLS setups); if missing, fall back to direct select
   const { data: rpcData, error: rpcErr } = await supabase.rpc('get_game_by_code', { v_code: code }).single();
-  if (!rpcErr && rpcData) {
-    game = rpcData;
-  } else {
-    const { data, error } = await supabase.from('games').select('*').eq('code', code).single();
-    if (error) throw error;
-    game = data;
-  }
+  if (rpcErr || !rpcData) throw rpcErr || new Error('Game not found');
+  game = rpcData;
   // upsert participant
   const { error: partErr } = await supabase
     .from('participants')
