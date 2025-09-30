@@ -534,6 +534,28 @@ body {
     gap: 0.75rem;
 }
 
+/* Make only the Creatures list scroll when long */
+.creatures-list {
+    /* Allow the list to grow but scroll within the collapsible */
+    max-height: 40vh; /* default for medium screens */
+    overflow-y: auto;
+    padding-right: 6px; /* avoid scrollbar overlaying content */
+}
+
+/* Environments list keeps default element-list styling; no extra rules needed */
+
+/* Tweak heights for small and large screens */
+@media (max-width: 768px) {
+    .creatures-list {
+        max-height: 32vh; /* shorter on phones so header/footer remain visible */
+    }
+}
+@media (min-width: 1200px) {
+    .creatures-list {
+        max-height: 55vh; /* give more room on big screens */
+    }
+}
+
 .element-item {
     background-color: #383838;
     border: 2px solid #555;

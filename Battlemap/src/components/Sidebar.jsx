@@ -259,7 +259,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
         {/* Popover moved to App.jsx as AddCharacterModal */}
       </div>
   <div className={`collapsible ${creaturesOpen ? 'open' : ''}`}>
-        <div className={`element-list ${isDrawingCover ? 'disabled-while-drawing' : ''}`}>
+    <div className={`element-list creatures-list ${isDrawingCover ? 'disabled-while-drawing' : ''}`}>
           {[...playersList, ...enemiesList].map((el) => (
             <div
               key={el.id}
@@ -433,7 +433,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
         </IconButton>
       </div>
   <div className={`collapsible ${envOpen ? 'open' : ''}`}>
-        <div className="element-list">
+    <div className="element-list environments-list">
           {isDrawingCover && (
           <div className="drawing-options" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 6, marginBottom: 8 }}>
             <label htmlFor="draw-env-half" onClick={() => setDrawEnvType('half')} style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fff', cursor: 'pointer' }}>
