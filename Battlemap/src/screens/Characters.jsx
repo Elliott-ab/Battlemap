@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Button, Paper, Typography, List, ListItem, ListItemText, Divider } from '@mui/material';
+import { Box, Button, Paper, Typography, List, ListItemButton, ListItemText, Divider } from '@mui/material';
 import Toolbar from '../components/Toolbar.jsx';
 import DashboardSidebar from '../components/DashboardSidebar.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
@@ -53,9 +53,9 @@ export default function Characters() {
               <List>
                 {characters.map((c, idx) => (
                   <React.Fragment key={c.id}>
-                    <ListItem button onClick={() => navigate(`/characters/${c.id}`)}>
+                    <ListItemButton onClick={() => navigate(`/characters/${c.id}`)}>
                       <ListItemText primary={c.name || 'Untitled Character'} secondary={`${c.race || 'Race'} ${c.class || 'Class'} • Level ${c.level || 1}`} />
-                    </ListItem>
+                    </ListItemButton>
                     {idx < characters.length - 1 && <Divider />}
                   </React.Fragment>
                 ))}

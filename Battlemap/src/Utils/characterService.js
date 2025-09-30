@@ -10,9 +10,20 @@ import { supabase } from '../supabaseClient';
 //   level int,
 //   background text,
 //   alignment text,
+//   xp int,
 //   str int, dex int, con int, int int, wis int, cha int,
-//   max_hp int, current_hp int, ac int, speed int,
-//   features text, equipment text,
+//   ac int, speed int,
+//   max_hp int, current_hp int, hp_temp int,
+//   saving_throws jsonb,         -- { str: true/false, dex: ..., ... }
+//   skills jsonb,               -- { acrobatics: { prof: bool }, perception: { prof: bool }, ... }
+//   attacks jsonb,              -- [ { name, attack_bonus, damage } ]
+//   spellcasting jsonb,         -- { ability: 'int'|'wis'|'cha', save_dc: int, attack_mod: int }
+//   spells jsonb,               -- { "0": [ { name, prepared } ], "1": [ ... ] }
+//   currency jsonb,             -- { gp: int, sp: int, cp: int, ep?: int, pp?: int }
+//   equipment text,
+//   class_features text,
+//   racial_traits text,
+//   feats text,
 //   created_at timestamptz default now(),
 //   updated_at timestamptz default now()
 // );
