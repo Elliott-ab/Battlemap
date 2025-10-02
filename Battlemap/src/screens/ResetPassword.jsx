@@ -36,7 +36,7 @@ export default function ResetPassword() {
     const { error: err } = await supabase.auth.updateUser({ password });
     if (err) return setError(err.message);
     setMessage('Password updated. Redirecting…');
-    setTimeout(() => navigate('/dashboard'), 1000);
+  setTimeout(() => navigate('/home'), 1000);
   };
 
   return (

@@ -22,7 +22,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
-  const from = location.state?.from?.pathname || '/dashboard';
+  const from = location.state?.from?.pathname || '/home';
 
   const handleLogin = async () => {
     setError('');
@@ -39,7 +39,7 @@ export default function Login() {
     const { error: err } = await supabase.auth.signUp({ email, password });
     setLoading(false);
     if (err) return setError(err.message);
-    navigate('/dashboard');
+  navigate('/home');
   };
 
   return (

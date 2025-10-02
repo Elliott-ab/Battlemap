@@ -4,7 +4,7 @@ import { Box, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Icon
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import App from '../App.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
-import { hostGame, joinGameByCode } from '../utils/gameService.js';
+import { hostGame, joinGameByCode } from '../Utils/gameService.js';
 import { supabase } from '../supabaseClient';
 
 export default function BattlemapPage() {
@@ -68,7 +68,7 @@ export default function BattlemapPage() {
               setError(e.message);
             }
           }}
-          onLeaveGame={() => navigate('/dashboard')}
+          onLeaveGame={() => navigate('/home')}
           onJoinGame={() => setJoinOpen(true)}
         />
       </Box>

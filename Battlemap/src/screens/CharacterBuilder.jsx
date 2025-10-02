@@ -17,7 +17,7 @@ import {
   Stack,
 } from '@mui/material';
 import Toolbar from '../components/Toolbar.jsx';
-import DashboardSidebar from '../components/DashboardSidebar.jsx';
+// Sidebar removed on Character Builder page
 import { useAuth } from '../auth/AuthContext.jsx';
 import { getCharacter, upsertCharacter, deleteCharacter } from '../Utils/characterService.js';
 
@@ -329,10 +329,6 @@ export default function CharacterBuilder() {
     <Box className="app-container sheet" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <Toolbar variant="dashboard" />
       <div className="main-content">
-        <DashboardSidebar
-          onOpenBattlemap={() => navigate('/battlemap/LOCAL')}
-          onOpenCharacters={() => navigate('/characters')}
-        />
         <Box sx={{ flex: 1, p: 2, overflow: 'auto', color: '#fff' }}>
           {/* Top: Character Info */}
           <SectionCard

@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Button, Paper, Typography, List, ListItemButton, ListItemText, Divider } from '@mui/material';
 import Toolbar from '../components/Toolbar.jsx';
-import DashboardSidebar from '../components/DashboardSidebar.jsx';
+// Sidebar removed on Characters page
 import { useAuth } from '../auth/AuthContext.jsx';
-import { listCharacters } from '../utils/characterService.js';
+import { listCharacters } from '../Utils/characterService.js';
 
 export default function Characters() {
   const navigate = useNavigate();
@@ -33,10 +33,6 @@ export default function Characters() {
     <Box className="app-container" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <Toolbar variant="dashboard" />
       <div className="main-content">
-        <DashboardSidebar
-          onOpenBattlemap={() => navigate('/battlemap/LOCAL')}
-          onOpenCharacters={() => navigate('/characters')}
-        />
         <Box sx={{ flex: 1, p: 2, overflow: 'auto' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h5">Characters</Typography>

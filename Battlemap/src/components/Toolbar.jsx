@@ -16,7 +16,7 @@ const Toolbar = ({
   openGlobalModifiers,
   variant = 'battlemap',
   onSettingsClick,
-  logoHref = '#/dashboard',
+  logoHref = '#/home',
   onHostGame,
   onLeaveGame,
   onJoinGame,
@@ -76,7 +76,7 @@ const Toolbar = ({
       {/* Red navigation links */}
       <nav className="toolbar-nav" aria-label="Primary">
         <NavLink
-          to="/dashboard"
+          to="/home"
           className={({ isActive }) => `toolbar-link ${isActive ? 'active' : ''}`}
           title="Home"
         >

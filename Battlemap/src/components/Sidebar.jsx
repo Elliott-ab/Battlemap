@@ -271,14 +271,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
                 console.log('Sidebar: Clicking element ID:', el.id, 'Type:', el.type);
                 toggleMovementHighlight(el.id, battleMapRef);
               }}
-              onDoubleClick={() => {
-                // If this is the local user's player token, open character sheet instead of edit
-                if (onOpenMyCharacterSheet && el.type === 'player' && currentUserId && el.participantUserId === currentUserId) {
-                  onOpenMyCharacterSheet(el);
-                  return;
-                }
-                showEditModal(el.id);
-              }}
+              onDoubleClick={() => { showEditModal(el.id); }}
               style={{
                 position: 'relative',
                 borderColor: (currentTurnId === el.id && (el.type === 'player' || el.type === 'enemy')) ? '#ffffff' : undefined,

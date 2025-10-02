@@ -11,7 +11,6 @@ import SaveModal from './components/Modals/SaveModal.jsx';
 import OverwriteModal from './components/Modals/OverwriteModal.jsx';
 import InitiativeModal from './components/Modals/InitiativeModal.jsx';
 import GlobalModifiersModal from './components/Modals/GlobalModifiersModal.jsx';
-import CharacterSheetPane from './components/CharacterSheetPane.jsx';
 import { initialState } from './Utils/state.js';
 import { useGrid } from './Utils/grid.js';
 import { useElements } from './Utils/elements.js';
@@ -19,7 +18,7 @@ import { useModals } from './Utils/modals.js';
 import { useStorage } from './Utils/storage.js';
 import { useUndo } from './Utils/undo.js';
 import { supabase } from './supabaseClient';
-import { getMapState, upsertMapState, pushDraftToLive } from './utils/mapService';
+import { getMapState, upsertMapState, pushDraftToLive } from './Utils/mapService.js';
 
 function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }) {
   const navigate = useNavigate();
@@ -65,8 +64,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
   const battleMapRef = useRef(null);
   const [isHost, setIsHost] = useState(false);
   const [channel, setChannel] = useState('live'); // 'live' or 'draft'
-  const [selectedCharacter, setSelectedCharacter] = useState(null); // Supabase row
-  const [showCharacterSheet, setShowCharacterSheet] = useState(false);
+  // Character sheet pane removed; selection applies to token only
 
   const { updateGridInfo } = useGrid(state);
   const { addElement, addCharactersBatch, createCoverFromBlocks, getElementById, updateElementPosition, toggleMovementHighlight, highlightCoverGroup, updateElement, deleteElement } = useElements(state, setState);
@@ -77,6 +75,15 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
   useEffect(() => {
     updateGridInfo();
   }, [state, updateGridInfo]);
+
+  // Keep latest state in a ref for reliable save on unmount/visibility changes
+  const latestStateRef = useRef({ elements: state.elements, grid: state.grid });
+  useEffect(() => {
+    latestStateRef.current = { elements: state.elements, grid: state.grid };
+  }, [state.elements, state.grid]);
+
+  // Persist latest state when tab hides/unmounts
+  usePersistOnHide(gameId, user, channel, latestStateRef);
 
   // When a participant joins (emitted by BattlemapPage subscription), add a player token if not present
   useEffect(() => {
@@ -168,7 +175,6 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
   // Apply selected character to the local user's player token
   const applyCharacterToToken = (character) => {
     if (!character || !user) return;
-    setSelectedCharacter(character);
     // Try to find this user's token; if not present, create one
     let token = (state.elements || []).find(el => el.type === 'player' && el.participantUserId === user.id);
     if (!token) {
@@ -212,9 +218,6 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
         }}
       />
       <div className="main-content">
-        {showCharacterSheet ? (
-          <CharacterSheetPane character={selectedCharacter} onClose={() => setShowCharacterSheet(false)} />
-        ) : (
         <Sidebar
           state={mergedState}
           setState={setState}
@@ -229,9 +232,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
           currentUserId={user?.id}
           openAddCharacterModal={() => setModalState(prev => ({ ...prev, addCharacter: true }))}
           openInitiativeModal={() => setModalState(prev => ({ ...prev, initiative: true }))}
-          onOpenMyCharacterSheet={() => setShowCharacterSheet(true)}
-        />)}
-        {!showCharacterSheet && (
+        />
         <BattleMap
           state={mergedState}
           setState={setState}
@@ -243,7 +244,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
           pushUndo={pushUndo}
           highlightCoverGroup={highlightCoverGroup}
           battleMapRef={battleMapRef}
-        />)}
+        />
       </div>
       <AddCharacterModal
         isOpen={modalState.addCharacter}
@@ -262,7 +263,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
       <CharacterSelectModal
         open={modalState.selectCharacter}
         onClose={() => setModalState(prev => ({ ...prev, selectCharacter: false }))}
-        onSelect={(c) => { applyCharacterToToken(c); setModalState(prev => ({ ...prev, selectCharacter: false })); setShowCharacterSheet(true); }}
+        onSelect={(c) => { applyCharacterToToken(c); setModalState(prev => ({ ...prev, selectCharacter: false })); }}
         onBuildNew={() => { setModalState(prev => ({ ...prev, selectCharacter: false })); navigate('/characters/new'); }}
       />
       <GridModal
@@ -304,6 +305,30 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
       />
     </div>
   );
+}
+
+// Persist latest map state on unmount and when tab is hidden
+// Note: best-effort; background tab throttling may delay network
+function usePersistOnHide(gameId, user, channel, latestStateRef) {
+  useEffect(() => {
+    if (!gameId || !user) return;
+    const save = () => {
+      try {
+        const payload = latestStateRef.current || {};
+        // Fire and forget; we don't block navigation
+        upsertMapState(gameId, channel, payload, user.id).catch(() => {});
+      } catch {}
+    };
+    const onVis = () => {
+      if (document.visibilityState === 'hidden') save();
+    };
+    window.addEventListener('visibilitychange', onVis);
+    return () => {
+      window.removeEventListener('visibilitychange', onVis);
+      // Unmount save
+      save();
+    };
+  }, [gameId, user?.id, channel]);
 }
 
 export default App;

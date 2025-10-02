@@ -25,11 +25,11 @@ export default function AppRouter() {
           <ResetPassword />
         ) : (
           <Routes>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<Navigate to="/home" replace />} />
           <Route path="/login" element={<Login />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route
-            path="/dashboard"
+            path="/home"
             element={(
               <RequireAuth>
                 <Dashboard />
@@ -60,7 +60,7 @@ export default function AppRouter() {
               </RequireAuth>
             )}
           />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/home" replace />} />
           </Routes>
         )}
       </HashRouter>
