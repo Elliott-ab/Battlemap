@@ -283,6 +283,26 @@ body {
     margin: 0;
 }
 
+/* Toolbar navigation (Home, Battlemap, Characters) */
+.toolbar-nav {
+    display: inline-flex;
+    align-items: center;
+    gap: 1rem;
+    margin-left: 0.75rem;
+}
+.toolbar-link {
+    color: #f44336; /* red links */
+    text-decoration: none;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+.toolbar-link:hover {
+    text-decoration: underline;
+}
+.toolbar-link.active {
+    text-decoration: underline;
+}
+
 .toolbar-turn {
     margin-left: 1rem;
 }

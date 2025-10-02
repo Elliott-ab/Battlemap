@@ -1,14 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Toolbar from './components/Toolbar.jsx';
 import Sidebar from './components/Sidebar.jsx';
 import BattleMap from './components/BattleMap.jsx';
 import EditModal from './components/Modals/EditModal.jsx';
 import AddCharacterModal from './components/Modals/AddCharacterModal.jsx';
+import CharacterSelectModal from './components/Modals/CharacterSelectModal.jsx';
 import GridModal from './components/Modals/GridModal.jsx';
 import SaveModal from './components/Modals/SaveModal.jsx';
 import OverwriteModal from './components/Modals/OverwriteModal.jsx';
 import InitiativeModal from './components/Modals/InitiativeModal.jsx';
 import GlobalModifiersModal from './components/Modals/GlobalModifiersModal.jsx';
+import CharacterSheetPane from './components/CharacterSheetPane.jsx';
 import { initialState } from './Utils/state.js';
 import { useGrid } from './Utils/grid.js';
 import { useElements } from './Utils/elements.js';
@@ -19,6 +22,7 @@ import { supabase } from './supabaseClient';
 import { getMapState, upsertMapState, pushDraftToLive } from './utils/mapService';
 
 function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }) {
+  const navigate = useNavigate();
   const [drawEnvType, setDrawEnvType] = useState('half');
   const toggleDrawingMode = () => {
     if (!isDrawingCover) {
@@ -52,6 +56,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
     saveModal: false,
     overwriteModal: false,
     addCharacter: false,
+    selectCharacter: false,
     initiative: false,
     globalModifiers: false,
   });
@@ -60,6 +65,8 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
   const battleMapRef = useRef(null);
   const [isHost, setIsHost] = useState(false);
   const [channel, setChannel] = useState('live'); // 'live' or 'draft'
+  const [selectedCharacter, setSelectedCharacter] = useState(null); // Supabase row
+  const [showCharacterSheet, setShowCharacterSheet] = useState(false);
 
   const { updateGridInfo } = useGrid(state);
   const { addElement, addCharactersBatch, createCoverFromBlocks, getElementById, updateElementPosition, toggleMovementHighlight, highlightCoverGroup, updateElement, deleteElement } = useElements(state, setState);
@@ -99,6 +106,8 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
       setIsHost(host);
       // Host edits draft by default, players always view/edit live
       setChannel(host ? 'draft' : 'live');
+      // If a player (not host) joins, open the character selection modal
+      if (!host) setModalState(prev => ({ ...prev, selectCharacter: true }));
     })();
     return () => { active = false; };
   }, [gameId, user?.id]);
@@ -156,6 +165,30 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
     setModalState(prev => ({ ...prev, addCharacter: false }));
   };
 
+  // Apply selected character to the local user's player token
+  const applyCharacterToToken = (character) => {
+    if (!character || !user) return;
+    setSelectedCharacter(character);
+    // Try to find this user's token; if not present, create one
+    let token = (state.elements || []).find(el => el.type === 'player' && el.participantUserId === user.id);
+    if (!token) {
+      addElement('player', { participantUserId: user.id });
+      token = (state.elements || []).find(el => el.type === 'player' && el.participantUserId === user.id);
+    }
+    if (!token) return;
+    const updates = {
+      name: character.name || token.name,
+      maxHp: Number(character.max_hp ?? token.maxHp ?? 10),
+      currentHp: Number(character.current_hp ?? token.currentHp ?? 10),
+      movement: Number(character.speed ?? token.movement ?? 30),
+      characterId: character.id || token.characterId,
+    };
+    setState(prev => ({
+      ...prev,
+      elements: (prev.elements || []).map(el => el.id === token.id ? { ...el, ...updates } : el),
+    }));
+  };
+
   return (
     <div className="app-container">
       <Toolbar
@@ -179,6 +212,9 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
         }}
       />
       <div className="main-content">
+        {showCharacterSheet ? (
+          <CharacterSheetPane character={selectedCharacter} onClose={() => setShowCharacterSheet(false)} />
+        ) : (
         <Sidebar
           state={mergedState}
           setState={setState}
@@ -190,9 +226,12 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
           toggleDrawingMode={toggleDrawingMode}
           drawEnvType={drawEnvType}
           setDrawEnvType={setDrawEnvType}
+          currentUserId={user?.id}
           openAddCharacterModal={() => setModalState(prev => ({ ...prev, addCharacter: true }))}
           openInitiativeModal={() => setModalState(prev => ({ ...prev, initiative: true }))}
-        />
+          onOpenMyCharacterSheet={() => setShowCharacterSheet(true)}
+        />)}
+        {!showCharacterSheet && (
         <BattleMap
           state={mergedState}
           setState={setState}
@@ -204,7 +243,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
           pushUndo={pushUndo}
           highlightCoverGroup={highlightCoverGroup}
           battleMapRef={battleMapRef}
-        />
+        />)}
       </div>
       <AddCharacterModal
         isOpen={modalState.addCharacter}
@@ -219,6 +258,12 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
         deleteElement={deleteElement}
         pushUndo={pushUndo}
         onClose={() => setModalState(prev => ({ ...prev, editModal: { isOpen: false, elementId: null } }))}
+      />
+      <CharacterSelectModal
+        open={modalState.selectCharacter}
+        onClose={() => setModalState(prev => ({ ...prev, selectCharacter: false }))}
+        onSelect={(c) => { applyCharacterToToken(c); setModalState(prev => ({ ...prev, selectCharacter: false })); setShowCharacterSheet(true); }}
+        onBuildNew={() => { setModalState(prev => ({ ...prev, selectCharacter: false })); navigate('/characters/new'); }}
       />
       <GridModal
         isOpen={modalState.gridModal}

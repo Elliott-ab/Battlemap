@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { NavLink } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGear, faTrashCan, faRotateLeft, faDownload, faUpload, faBars, faUserGear } from '@fortawesome/free-solid-svg-icons';
 import IconButton from './common/IconButton.jsx';
@@ -72,6 +73,30 @@ const Toolbar = ({
           Logo
         )}
       </div>
+      {/* Red navigation links */}
+      <nav className="toolbar-nav" aria-label="Primary">
+        <NavLink
+          to="/dashboard"
+          className={({ isActive }) => `toolbar-link ${isActive ? 'active' : ''}`}
+          title="Home"
+        >
+          Home
+        </NavLink>
+        <NavLink
+          to="/battlemap/LOCAL"
+          className={({ isActive }) => `toolbar-link ${isActive ? 'active' : ''}`}
+          title="Battlemap"
+        >
+          Battlemap
+        </NavLink>
+        <NavLink
+          to="/characters"
+          className={({ isActive }) => `toolbar-link ${isActive ? 'active' : ''}`}
+          title="Character"
+        >
+          Character
+        </NavLink>
+      </nav>
       <div className="toolbar-spacer" />
       {variant === 'dashboard' ? (
         <div className="controls">

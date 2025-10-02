@@ -18,7 +18,7 @@ import InlineNumberEditor from './common/InlineNumberEditor.jsx';
 
 // Using Font Awesome icons for UI controls
 
-const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup, showEditModal, battleMapRef, isDrawingCover, toggleDrawingMode, openAddCharacterModal, openInitiativeModal, drawEnvType, setDrawEnvType }) => {
+const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup, showEditModal, battleMapRef, isDrawingCover, toggleDrawingMode, openAddCharacterModal, openInitiativeModal, drawEnvType, setDrawEnvType, onOpenMyCharacterSheet, currentUserId }) => {
   console.log('Sidebar received battleMapRef:', battleMapRef);
 
   // Collapsible sections state
@@ -271,7 +271,14 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
                 console.log('Sidebar: Clicking element ID:', el.id, 'Type:', el.type);
                 toggleMovementHighlight(el.id, battleMapRef);
               }}
-              onDoubleClick={() => showEditModal(el.id)}
+              onDoubleClick={() => {
+                // If this is the local user's player token, open character sheet instead of edit
+                if (onOpenMyCharacterSheet && el.type === 'player' && currentUserId && el.participantUserId === currentUserId) {
+                  onOpenMyCharacterSheet(el);
+                  return;
+                }
+                showEditModal(el.id);
+              }}
               style={{
                 position: 'relative',
                 borderColor: (currentTurnId === el.id && (el.type === 'player' || el.type === 'enemy')) ? '#ffffff' : undefined,
