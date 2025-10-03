@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Box, Dialog, DialogTitle, DialogContent, DialogActions, TextField, IconButton, InputAdornment, Button, Typography, Alert } from '@mui/material';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCopy } from '@fortawesome/free-regular-svg-icons';
 import App from '../App.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
 import { hostGame, joinGameByCode } from '../Utils/gameService.js';
@@ -92,7 +93,7 @@ export default function BattlemapPage() {
                   endAdornment: (
                     <InputAdornment position="end">
                       <IconButton onClick={copyCode}>
-                        <ContentCopyIcon />
+                        <FontAwesomeIcon icon={faCopy} />
                       </IconButton>
                     </InputAdornment>
                   ),

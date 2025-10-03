@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Button, Grid, Paper, TextField, Typography, Alert, IconButton, InputAdornment } from '@mui/material';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCopy } from '@fortawesome/free-regular-svg-icons';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../auth/AuthContext.jsx';
 import { hostGame, joinGameByCode } from '../Utils/gameService.js';
@@ -112,7 +113,7 @@ export default function Dashboard() {
                   endAdornment: (
                     <InputAdornment position="end">
                       <IconButton onClick={copyCode}>
-                        <ContentCopyIcon />
+                        <FontAwesomeIcon icon={faCopy} />
                       </IconButton>
                     </InputAdornment>
                   ),

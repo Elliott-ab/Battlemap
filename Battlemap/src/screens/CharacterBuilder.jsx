@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Box,
@@ -19,7 +19,9 @@ import {
 import Toolbar from '../components/Toolbar.jsx';
 // Sidebar removed on Character Builder page
 import { useAuth } from '../auth/AuthContext.jsx';
-import { getCharacter, upsertCharacter, deleteCharacter } from '../Utils/characterService.js';
+import { getCharacter, upsertCharacter, deleteCharacter, uploadCharacterIcon, deleteCharacterIcon, getSignedCharacterIconUrl } from '../Utils/characterService.js';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCirclePlus, faTrashCan } from '@fortawesome/free-solid-svg-icons';
 
 // Constants and helpers
 const ALIGNMENTS = ['LG','NG','CG','LN','N','CN','LE','NE','CE'];
@@ -245,12 +247,17 @@ export default function CharacterBuilder() {
     feats: '',
     inspiration: 0,
     hit_dice: '1d8',
+    icon_url: '',
   };
 
   const [form, setForm] = useState(defaultForm);
+  const [uploadingIcon, setUploadingIcon] = useState(false);
+  const iconInputRef = useRef(null);
   const [hitDice, setHitDice] = useState(defaultForm.hit_dice);
   const [deathSuccesses, setDeathSuccesses] = useState(0);
   const [deathFailures, setDeathFailures] = useState(0);
+  const [iconLoadError, setIconLoadError] = useState(false);
+  const [resolvedIconUrl, setResolvedIconUrl] = useState('');
 
   useEffect(() => {
     let mounted = true;
@@ -285,6 +292,25 @@ export default function CharacterBuilder() {
   }, [id]);
 
   const update = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
+  // Resolve a signed URL for private buckets when icon_url changes
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setIconLoadError(false);
+        if (!form.icon_url) {
+          if (active) setResolvedIconUrl('');
+          return;
+        }
+        // Try to produce a signed URL (works for both public and private buckets)
+        const signed = await getSignedCharacterIconUrl(form.icon_url);
+        if (active) setResolvedIconUrl(signed || form.icon_url);
+      } catch (_) {
+        if (active) setResolvedIconUrl(form.icon_url);
+      }
+    })();
+    return () => { active = false; };
+  }, [form.icon_url]);
 
   const mod = (k) => abilityMod(form[k]);
   const profBonus = useMemo(() => profFromLevel(form.level), [form.level]);
@@ -307,6 +333,123 @@ export default function CharacterBuilder() {
       setError(e.message || String(e));
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Resize/crop the uploaded image to a centered square (cover) before uploading
+  const onIconSelected = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploadingIcon(true);
+      const objectUrl = URL.createObjectURL(file);
+      const processed = await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            // First draw the original to a temp canvas to detect and trim uniform margins
+            const srcCanvas = document.createElement('canvas');
+            srcCanvas.width = img.naturalWidth || img.width;
+            srcCanvas.height = img.naturalHeight || img.height;
+            const sctx = srcCanvas.getContext('2d');
+            sctx.drawImage(img, 0, 0);
+            const w = srcCanvas.width;
+            const h = srcCanvas.height;
+            let imgData;
+            try { imgData = sctx.getImageData(0, 0, w, h); } catch (_) { imgData = null; }
+
+            let left = 0, right = w - 1, top = 0, bottom = h - 1;
+            if (imgData) {
+              const data = imgData.data;
+              // Use corner average as background color reference
+              const samplePts = [0, 0, w - 1, 0, 0, h - 1, w - 1, h - 1];
+              let br = 0, bg = 0, bb = 0, ba = 0, cnt = 0;
+              for (let i = 0; i < samplePts.length; i += 2) {
+                const x = samplePts[i], y = samplePts[i + 1];
+                const idx = (y * w + x) * 4;
+                br += data[idx]; bg += data[idx + 1]; bb += data[idx + 2]; ba += data[idx + 3]; cnt++;
+              }
+              br = br / cnt; bg = bg / cnt; bb = bb / cnt; ba = ba / cnt;
+              const diff = (r, g, b, a) => Math.abs(r - br) + Math.abs(g - bg) + Math.abs(b - bb) + Math.abs(a - ba);
+              const isBg = (x, y) => {
+                const idx = (y * w + x) * 4;
+                const a = data[idx + 3];
+                if (a < 8) return true; // near-transparent
+                return diff(data[idx], data[idx + 1], data[idx + 2], a) < 40; // close to corner color
+              };
+              // Scan from each side until content encountered
+              // Left
+              while (left < right) {
+                let allBg = true;
+                for (let y = 0; y < h; y += 2) { if (!isBg(left, y)) { allBg = false; break; } }
+                if (!allBg) break; left++;
+              }
+              // Right
+              while (right > left) {
+                let allBg = true;
+                for (let y = 0; y < h; y += 2) { if (!isBg(right, y)) { allBg = false; break; } }
+                if (!allBg) break; right--;
+              }
+              // Top
+              while (top < bottom) {
+                let allBg = true;
+                for (let x = left; x <= right; x += 2) { if (!isBg(x, top)) { allBg = false; break; } }
+                if (!allBg) break; top++;
+              }
+              // Bottom
+              while (bottom > top) {
+                let allBg = true;
+                for (let x = left; x <= right; x += 2) { if (!isBg(x, bottom)) { allBg = false; break; } }
+                if (!allBg) break; bottom--;
+              }
+              // Safety: if trimming is tiny or invalid, fallback to full image
+              const trimmedW = right - left + 1;
+              const trimmedH = bottom - top + 1;
+              if (trimmedW < w * 0.95 || trimmedH < h * 0.95) {
+                // Use trimmed region
+              } else {
+                left = 0; right = w - 1; top = 0; bottom = h - 1;
+              }
+            }
+
+            // Compute a centered square from the (possibly trimmed) rectangle
+            const rectW = right - left + 1;
+            const rectH = bottom - top + 1;
+            const side = Math.min(rectW, rectH);
+            const sx = Math.max(left + Math.floor((rectW - side) / 2), 0);
+            const sy = Math.max(top + Math.floor((rectH - side) / 2), 0);
+
+            // Render to the final square canvas
+            const canvas = document.createElement('canvas');
+            const outSize = 256;
+            canvas.width = outSize;
+            canvas.height = outSize;
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, sx, sy, side, side, 0, 0, outSize, outSize);
+            canvas.toBlob((blob) => {
+              if (!blob) return reject(new Error('Failed to process image'));
+              // Always use PNG for consistency
+              const processedFile = new File([blob], 'avatar.png', { type: 'image/png' });
+              resolve(processedFile);
+            }, 'image/png', 0.92);
+          } catch (err) {
+            reject(err);
+          }
+        };
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = objectUrl;
+      });
+      URL.revokeObjectURL(objectUrl);
+
+      const url = await uploadCharacterIcon(user.id, processed);
+      setIconLoadError(false);
+      setForm((f) => ({ ...f, icon_url: url }));
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setUploadingIcon(false);
     }
   };
 
@@ -342,46 +485,128 @@ export default function CharacterBuilder() {
           >
             {error && <Typography color="error" sx={{ mb: 1 }}>{error}</Typography>}
             <Grid container spacing={2}>
-              <Grid item xs={12} md={4}>
-                <TextField variant="outlined" size="small" label="Character Name" value={form.name} onChange={update('name')} fullWidth />
+              {/* Left: Icon + below badges */}
+              <Grid item xs={12} md={3}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1, width: '100%' }}>
+                  {/* Row: Icon (left) + vertical badges (right) */}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
+                    <Box
+                      sx={{
+                        width: 120,
+                        height: 120,
+                        borderRadius: '50%',
+                        overflow: 'hidden',
+                        border: '2px solid rgba(255,255,255,0.25)',
+                        bgcolor: '#3a3a3a',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        position: 'relative',
+                        cursor: uploadingIcon ? 'progress' : 'pointer',
+                      }}
+                      onClick={() => { if (!uploadingIcon) iconInputRef.current?.click(); }}
+                      title={form.icon_url ? 'Change icon' : 'Add icon'}
+                    >
+                      {resolvedIconUrl && !iconLoadError ? (
+                        <>
+                          <img
+                            src={resolvedIconUrl}
+                            alt=""
+                            onError={() => setIconLoadError(true)}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }}
+                          />
+                          {/* Delete bin icon fixed at bottom center of the circle */}
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              const currentUrl = form.icon_url;
+                              setForm(f => ({ ...f, icon_url: '' }));
+                              try { await deleteCharacterIcon(currentUrl); } catch (_) {/* ignore */}
+                            }}
+                            title="Remove icon"
+                            style={{
+                              position: 'absolute',
+                              left: '50%',
+                              bottom: 6,
+                              transform: 'translateX(-50%)',
+                              width: 24,
+                              height: 24,
+                              border: 'none',
+                              background: 'transparent',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: '#d32f2f',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <FontAwesomeIcon icon={faTrashCan} style={{ fontSize: 16 }} />
+                          </button>
+                        </>
+                      ) : (
+                        // Fallback UI: plus icon if no image; if error, show a simple placeholder
+                        iconLoadError ? (
+                          <span style={{ color: 'rgba(255,255,255,0.8)', fontWeight: 700 }}>
+                            {String(form.name || '?').slice(0,1).toUpperCase()}
+                          </span>
+                        ) : (
+                          <FontAwesomeIcon icon={faCirclePlus} style={{ color: 'rgba(255,255,255,0.85)', fontSize: 36 }} />
+                        )
+                      )}
+                      <input ref={iconInputRef} type="file" accept="image/*" hidden onChange={onIconSelected} />
+                    </Box>
+                    <Stack direction="column" spacing={1} sx={{ minWidth: 0 }}>
+                      <Chip label={`PROF ${withSign(profBonus)}`} sx={{ fontWeight: 700, bgcolor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)' }} />
+                      <Button variant="contained" color="error" sx={{ fontWeight: 800, alignSelf: 'flex-start' }}>
+                        Initiative {withSign(initiative)}
+                      </Button>
+                      <Chip label={`Inspiration ${form.inspiration || 0}`} sx={{ fontWeight: 700, bgcolor: 'rgba(255,215,0,0.2)', color: '#FFD700', border: '1px solid rgba(255,215,0,0.5)' }} />
+                    </Stack>
+                  </Box>
+                  {/* Optional: could render uploading state below if desired */}
+                </Box>
               </Grid>
-              <Grid item xs={6} md={2}>
-                <TextField variant="outlined" size="small" label="Class" value={form.class} onChange={update('class')} fullWidth />
-              </Grid>
-              <Grid item xs={6} md={2}>
-                <TextField variant="outlined" size="small" label="Level" type="number" value={form.level} onChange={(e)=>update('level')({ target: { value: parseInt(e.target.value||'1', 10) } })} fullWidth />
-              </Grid>
-              <Grid item xs={6} md={2}>
-                <TextField variant="outlined" size="small" label="Race" value={form.race} onChange={update('race')} fullWidth />
-              </Grid>
-              <Grid item xs={6} md={2}>
-                <TextField variant="outlined" size="small" label="Background" value={form.background} onChange={update('background')} fullWidth />
-              </Grid>
-              <Grid item xs={12} md={8}>
-                <Stack direction="row" spacing={2} alignItems="center">
-                  <TextField
-                    select
-                    label="Alignment"
-                    size="small"
-                    variant="outlined"
-                    value={form.alignment}
-                    onChange={update('alignment')}
-                    sx={{ width: 220 }}
-                  >
-                    {ALIGNMENTS.map(a => <MenuItem key={a} value={a}>{a}</MenuItem>)}
-                  </TextField>
-                  <TextField label="XP" type="number" size="small" variant="outlined" value={form.xp} onChange={(e)=>update('xp')({ target: { value: parseInt(e.target.value||'0',10) }})} sx={{ width: 160 }} />
-                  <Chip label={`PROF ${withSign(profBonus)}`} sx={{ fontWeight: 700, bgcolor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)' }} />
-                  <Button variant="contained" color="error" sx={{ fontWeight: 800 }}>
-                    Initiative {withSign(initiative)}
-                  </Button>
-                  <Chip label={`Inspiration ${form.inspiration || 0}`} sx={{ fontWeight: 700, bgcolor: 'rgba(255,215,0,0.2)', color: '#FFD700', border: '1px solid rgba(255,215,0,0.5)' }} />
-                </Stack>
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <Stack direction="row" spacing={2} justifyContent="flex-end">
-                  <TextField label="Hit Dice" size="small" variant="outlined" value={hitDice} onChange={(e)=>setHitDice(e.target.value)} />
-                </Stack>
+
+              {/* Right: Character fields */}
+              <Grid item xs={12} md={9}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12}>
+                    <TextField variant="outlined" size="small" label="Character Name" value={form.name} onChange={update('name')} fullWidth />
+                  </Grid>
+                  <Grid item xs={6} md={3}>
+                    <TextField variant="outlined" size="small" label="Class" value={form.class} onChange={update('class')} fullWidth />
+                  </Grid>
+                  <Grid item xs={6} md={3}>
+                    <TextField variant="outlined" size="small" label="Level" type="number" value={form.level} onChange={(e)=>update('level')({ target: { value: parseInt(e.target.value||'1', 10) } })} fullWidth />
+                  </Grid>
+                  <Grid item xs={6} md={3}>
+                    <TextField variant="outlined" size="small" label="Race" value={form.race} onChange={update('race')} fullWidth />
+                  </Grid>
+                  <Grid item xs={6} md={3}>
+                    <TextField variant="outlined" size="small" label="Background" value={form.background} onChange={update('background')} fullWidth />
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <TextField
+                      select
+                      label="Alignment"
+                      size="small"
+                      variant="outlined"
+                      value={form.alignment}
+                      onChange={update('alignment')}
+                      fullWidth
+                    >
+                      {ALIGNMENTS.map(a => <MenuItem key={a} value={a}>{a}</MenuItem>)}
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12} md={3}>
+                    <TextField label="XP" type="number" size="small" variant="outlined" value={form.xp} onChange={(e)=>update('xp')({ target: { value: parseInt(e.target.value||'0',10) }})} fullWidth />
+                  </Grid>
+                  <Grid item xs={12} md={3}>
+                    <TextField label="Hit Dice" size="small" variant="outlined" value={hitDice} onChange={(e)=>setHitDice(e.target.value)} fullWidth />
+                  </Grid>
+                </Grid>
               </Grid>
             </Grid>
           </SectionCard>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Paper, Typography, Grid, Chip, IconButton, Divider } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faXmark } from '@fortawesome/free-solid-svg-icons';
 
 // Minimal read-only pane to view a character sheet while in a game
 // Expects a Supabase character row shape
@@ -15,7 +16,7 @@ const CharacterSheetPane = ({ character, onClose }) => {
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
         <Typography variant="h6" sx={{ fontWeight: 800 }}>{character.name || 'Character'}</Typography>
         <IconButton size="small" onClick={onClose} aria-label="Close sheet" title="Close" sx={{ color: '#fff' }}>
-          <CloseIcon />
+          <FontAwesomeIcon icon={faXmark} />
         </IconButton>
       </Box>
       <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
