@@ -188,6 +188,8 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
       currentHp: Number(character.current_hp ?? token.currentHp ?? 10),
       movement: Number(character.speed ?? token.movement ?? 30),
       characterId: character.id || token.characterId,
+      // Persist the character’s icon URL on the token so all clients can render it without needing DB reads
+      characterIconUrl: character.icon_url || token.characterIconUrl || null,
     };
     setState(prev => ({
       ...prev,

@@ -12,6 +12,7 @@ import {
   faCircleRight as faCircleRightRegular,
 } from '@fortawesome/free-regular-svg-icons';
 import { computeGreyFractionForCell } from '../Utils/visibility.js';
+import { getSignedCharacterIconUrl } from '../Utils/characterService.js';
 import { clearMovementAndSelection } from '../Utils/highlights.js';
 import InlineNumberEditor from './common/InlineNumberEditor.jsx';
 //
@@ -88,6 +89,33 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
       prevCreatureCountRef.current = creatureCount;
     } catch {}
   }, [state.elements, creaturesOpen, envOpen]);
+
+  // Cache resolved/signed icon URLs per element so we don't re-sign each render
+  const [cardIconUrls, setCardIconUrls] = useState({}); // { [elementId]: string }
+
+  React.useEffect(() => {
+    let active = true;
+    const players = (state.elements || []).filter(e => e.type === 'player' && e.characterIconUrl);
+    // Resolve signed URLs for any player whose URL isn't cached yet
+    (async () => {
+      for (const p of players) {
+        const key = p.id;
+        const existing = cardIconUrls[key];
+        if (existing) continue;
+        try {
+          let signed = null;
+          try { signed = await getSignedCharacterIconUrl(p.characterIconUrl); } catch (_) { signed = null; }
+          const finalUrl = signed || p.characterIconUrl;
+          if (!active) return;
+          setCardIconUrls(prev => (prev[key] ? prev : { ...prev, [key]: finalUrl }));
+        } catch (_) {
+          // ignore; leave uncached so fallback circle shows
+        }
+      }
+    })();
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.elements]);
 
   // Initiative UI moved to modal-driven approach in Sidebar header (no drag & drop)
   const hasCharacters = (state.elements || []).some(e => e.type === 'player' || e.type === 'enemy');
@@ -281,7 +309,13 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
               }}
             >
               <div className="element-info">
-                <div className="element-color" style={{ backgroundColor: el.color }}></div>
+                {el.type === 'player' && (el.characterIconUrl || cardIconUrls[el.id]) ? (
+                  <div className="player-avatar" style={{ borderColor: el.color }}>
+                    <img src={cardIconUrls[el.id] || el.characterIconUrl} alt={el.name || 'Avatar'} />
+                  </div>
+                ) : (
+                  <div className="element-color" style={{ backgroundColor: el.color }}></div>
+                )}
                 <span className="element-name text-ellipsis">{el.name}</span>
                 {/* Right-side controls (eye + skull/wand) */}
                 <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6 }}>

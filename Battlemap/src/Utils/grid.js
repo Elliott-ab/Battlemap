@@ -1,4 +1,59 @@
 import { isCellVisibleToAnyEnemy, createVisibilityIconNode } from './visibility.js';
+import { getSignedCharacterIconUrl } from './characterService.js';
+
+// Lightweight cache for character icons so we don't re-sign on every render
+// Key: characterId -> { url: string|null, expiresAt: number, loading?: Promise<string|null> }
+const playerIconCache = new Map();
+
+async function resolveCharacterIconUrl(characterId, publicUrlOrPath) {
+  if (!characterId || !publicUrlOrPath) return null;
+  const now = Date.now();
+  const cached = playerIconCache.get(characterId);
+  if (cached && cached.expiresAt && cached.expiresAt > now && typeof cached.url !== 'undefined') {
+    return cached.url;
+  }
+  if (cached && cached.loading) {
+    try { return await cached.loading; } catch { /* fallthrough */ }
+  }
+  const loader = (async () => {
+    try {
+      // Try to create a signed URL (works for private buckets); fall back to the provided URL if signing fails
+      let signed = null;
+      try { signed = await getSignedCharacterIconUrl(publicUrlOrPath); } catch (_) { signed = null; }
+      const finalUrl = signed || publicUrlOrPath;
+      // Signed URLs typically last 1h; set TTL to ~50 minutes to be safe. Public URLs can have longer TTL.
+      const ttl = signed ? (50 * 60 * 1000) : (60 * 60 * 1000);
+      playerIconCache.set(characterId, { url: finalUrl, expiresAt: now + ttl });
+      return finalUrl;
+    } catch (_) {
+      playerIconCache.set(characterId, { url: null, expiresAt: now + 5 * 60 * 1000 });
+      return null;
+    }
+  })();
+  playerIconCache.set(characterId, { url: undefined, expiresAt: now + 60 * 1000, loading: loader });
+  return loader;
+}
+
+function applyIconToPlayerToken(battleMap, elementId, characterId, fallbackUrl) {
+  if (!battleMap || !elementId || !characterId) return;
+  const apply = (url) => {
+    const elDiv = battleMap.querySelector(`.element.player[data-id="${elementId}"]`);
+    if (!elDiv) return; // element re-rendered/removed
+    if (!url) return; // keep fallback label/color
+    elDiv.classList.add('has-icon');
+    // Use background-image to fill the circular token
+    elDiv.style.backgroundImage = `url("${url}")`;
+    elDiv.style.backgroundSize = 'cover';
+    elDiv.style.backgroundPosition = 'center';
+    elDiv.style.backgroundRepeat = 'no-repeat';
+  };
+  if (fallbackUrl) {
+    // Resolve (sign if needed) using the provided URL/path stored on the token
+    resolveCharacterIconUrl(characterId, fallbackUrl).then(apply).catch(() => { /* ignore */ });
+    return;
+  }
+  // No URL on token; cannot resolve without extra permissions
+}
 
 export const useGrid = (state) => {
   const renderGrid = (battleMapRef, rotationIndex = 0) => {
@@ -121,6 +176,11 @@ export const useGrid = (state) => {
         span.classList.add('token-label');
         span.textContent = (el.name && el.name.length > 0) ? el.name[0].toUpperCase() : 'P';
         elDiv.appendChild(span);
+        // If a character is associated and has an icon, apply it to the token
+        if (el.characterId) {
+          // Defer icon application until after the element is in the DOM
+          queueMicrotask(() => applyIconToPlayerToken(battleMap, el.id, el.characterId, el.characterIconUrl));
+        }
       } else if (el.type === 'cover' && el.coverType === 'difficult') {
         // Difficult terrain: explicit 'DT' label
         const span = document.createElement('span');
