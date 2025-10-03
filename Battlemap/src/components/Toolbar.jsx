@@ -13,6 +13,8 @@ const Toolbar = ({
   undo,
   onSaveMap,
   onLoadMap,
+  onSaveLibrary,
+  onLoadLibrary,
   gridSize,
   openGlobalModifiers,
   variant = 'battlemap',
@@ -82,6 +84,13 @@ const Toolbar = ({
           Home
         </NavLink>
         <NavLink
+          to="/library"
+          className={({ isActive }) => `toolbar-link ${isActive ? 'active' : ''}`}
+          title="Library"
+        >
+          Library
+        </NavLink>
+        <NavLink
           to={game?.code ? `/battlemap/${game.code}` : '/battlemap/LOCAL'}
           className={({ isActive }) => `toolbar-link ${isActive ? 'active' : ''}`}
           title="Battlemap"
@@ -96,8 +105,8 @@ const Toolbar = ({
           Character
         </NavLink>
       </nav>
-      {/* In-game indicator right after nav links */}
-      {game && (
+      {/* In-game indicator right after nav links; only when in an active game */}
+      {game && game.id && game.code && (
         <div className="ingame-indicator" title={game.name || 'In Game'} style={{ marginLeft: 12 }}>
           <FontAwesomeIcon icon={faCircle} style={{ color: '#4caf50', fontSize: 10, marginRight: 6 }} />
           <span>In Game</span>
@@ -125,7 +134,7 @@ const Toolbar = ({
           <div className="toolbar-divider-vert" aria-hidden="true" />
           <div className="toolbar-icons">
             {/* Clear/Undo removed from toolbar; available via burger for hosts only */}
-            {isHost && (
+            {isHost && game && game.id && game.code && (
               <>
                 <div className="toolbar-divider-vert" aria-hidden="true" />
                 <button
@@ -179,7 +188,7 @@ const Toolbar = ({
                 </button>
               </>
             )}
-            {isHost && (
+            {isHost && game && game.id && game.code && (
               <>
                 <button className="menu-item" onClick={() => handleMaybe(onSaveMap)} disabled={isDrawingCover} role="menuitem">
                   <FontAwesomeIcon icon={faDownload} />
@@ -191,6 +200,15 @@ const Toolbar = ({
                 </button>
               </>
             )}
+            {/* Library actions available to all users, even outside a game */}
+            <button className="menu-item" onClick={() => handleMaybe(onSaveLibrary)} disabled={isDrawingCover} role="menuitem">
+              <FontAwesomeIcon icon={faDownload} />
+              <span>Save to Library</span>
+            </button>
+            <button className="menu-item" onClick={() => handleMaybe(onLoadLibrary)} disabled={isDrawingCover} role="menuitem">
+              <FontAwesomeIcon icon={faUpload} />
+              <span>Load from Library</span>
+            </button>
             <hr className="toolbar-divider-horiz" />
             {onJoinGame && (
               <button className="menu-item" onClick={() => { onJoinGame(); setMenuOpen(false); }} role="menuitem">
@@ -207,7 +225,7 @@ const Toolbar = ({
                 <span>Leave Game</span>
               </button>
             )}
-            {isHost && (
+            {isHost && game && game.id && game.code && (
               <>
                 <hr className="toolbar-divider-horiz" />
                 <button className="menu-item" onClick={() => handleMaybe(onPushToPlayers)} role="menuitem">

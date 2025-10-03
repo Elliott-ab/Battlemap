@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Snackbar, Alert } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import Toolbar from './components/Toolbar.jsx';
 import Sidebar from './components/Sidebar.jsx';
@@ -15,7 +16,9 @@ import { useElements } from './Utils/elements.js';
 import { useModals } from './Utils/modals.js';
 import { useUndo } from './Utils/undo.js';
 import { supabase } from './supabaseClient';
-import { getMapState, upsertMapState, pushDraftToLive } from './Utils/mapService.js';
+import { getMapState, upsertMapState, pushDraftToLive, listMapDrafts, upsertMapDraft, getMapDraft, listLibraryMaps, upsertLibraryMap, getLibraryMap } from './Utils/mapService.js';
+import SaveDraftModal from './components/Modals/SaveDraftModal.jsx';
+import LoadDraftModal from './components/Modals/LoadDraftModal.jsx';
 import { useGameSession } from './Utils/GameSessionContext.jsx';
 
 function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }) {
@@ -54,12 +57,20 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
     selectCharacter: false,
     initiative: false,
     globalModifiers: false,
+    saveDraft: false,
+    loadDraft: false,
+    saveLibrary: false,
+    loadLibrary: false,
   });
+  const [draftList, setDraftList] = useState([]);
+  const [libraryList, setLibraryList] = useState([]);
   const [undoStack, setUndoStack] = useState([]);
   const battleMapRef = useRef(null);
   const [isHost, setIsHost] = useState(false);
   const { game: sessionGame, updateSession } = useGameSession();
-  const initialChannel = (sessionGame && (sessionGame.role === 'host' || sessionGame.host_id === user?.id)) ? 'draft' : 'live';
+  const initialChannel = (!sessionGame
+    ? 'draft'
+    : ((sessionGame.role === 'host' || sessionGame.host_id === user?.id) ? 'draft' : 'live'));
   const [channel, setChannel] = useState(initialChannel); // 'live' or 'draft'
   const channelInitializedRef = useRef(false);
   // Character sheet pane removed; selection applies to token only
@@ -68,6 +79,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
   const { addElement, addCharactersBatch, createCoverFromBlocks, getElementById, updateElementPosition, toggleMovementHighlight, highlightCoverGroup, updateElement, deleteElement } = useElements(state, setState);
   const { showEditModal, showGridModal } = useModals(setModalState);
   const { pushUndo, undo } = useUndo(state, setState, setUndoStack);
+  const [toast, setToast] = useState({ open: false, message: '', severity: 'info' });
 
   useEffect(() => {
     updateGridInfo();
@@ -98,7 +110,16 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
   useEffect(() => {
     let active = true;
     (async () => {
-      if (!gameId || !user) { setIsHost(false); return; }
+      if (!user) { setIsHost(false); return; }
+      // Local editor (no game): show host-like controls
+      if (!gameId) {
+        setIsHost(true);
+        if (!channelInitializedRef.current) {
+          setChannel('draft');
+          channelInitializedRef.current = true;
+        }
+        return;
+      }
       const { data, error } = await supabase
         .from('participants')
         .select('role')
@@ -173,42 +194,57 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
   // Sync isDrawingCover and coverBlocks into state for grid rendering
   const mergedState = { ...state, isDrawingCover, coverBlocks };
 
-  // Host-only: Save current map (excluding player tokens) to the draft channel in DB
+  // Host-only: Open save modal for named draft
   const handleSaveMap = async () => {
-    if (!isHost || !gameId || !user) return;
+    if (!isHost) {
+      console.warn('Save Map: Only the host can save maps.');
+      return;
+    }
+    if (!gameId || !user) {
+      setToast({ open: true, severity: 'warning', message: 'No game loaded. Host or open a game first.' });
+      return;
+    }
+    setModalState(prev => ({ ...prev, saveDraft: true }));
+  };
+
+  // Host-only: Open load modal and list drafts
+  const handleLoadMap = async () => {
+    if (!isHost) {
+      console.warn('Load Map: Only the host can load maps.');
+      return;
+    }
+    if (!gameId) {
+      setToast({ open: true, severity: 'warning', message: 'No game loaded. Host or open a game first.' });
+      return;
+    }
     try {
-      const filteredElements = (state.elements || []).filter(el => el.type !== 'player');
-      const payload = {
-        elements: filteredElements,
-        grid: state.grid,
-        // Persist global modifiers if present so drafts include them
-        globalModifiers: state.globalModifiers || [],
-      };
-      await upsertMapState(gameId, 'draft', payload, user.id);
+      const drafts = await listMapDrafts(gameId);
+      setDraftList(drafts);
+      setModalState(prev => ({ ...prev, loadDraft: true }));
     } catch (e) {
-      // no-op
+      console.error('List drafts failed:', e);
+      setToast({ open: true, severity: 'error', message: 'Failed to fetch saved maps.' });
     }
   };
 
-  // Host-only: Load draft map from DB, preserving any existing player tokens on the board
-  const handleLoadMap = async () => {
-    if (!isHost || !gameId) return;
+  // Save current map to the user's library (outside any game)
+  const handleSaveLibrary = async () => {
+    if (!user) { setToast({ open: true, severity: 'warning', message: 'Please sign in to save maps to your library.' }); return; }
+    setModalState(prev => ({ ...prev, saveLibrary: true }));
+  };
+
+  // Load a map from the user's library into the current session
+  const handleLoadLibrary = async () => {
+    if (!user) { setToast({ open: true, severity: 'warning', message: 'Please sign in to access your library.' }); return; }
+    // If currently in a game, require host to load
+    if (gameId && !isHost) { setToast({ open: true, severity: 'info', message: 'Only the host can load a map into an active game.' }); return; }
     try {
-      const row = await getMapState(gameId, 'draft');
-      if (!row?.state) return;
-      const saved = row.state || {};
-      const nonPlayers = (saved.elements || []).filter(el => el.type !== 'player');
-      setState(prev => {
-        const currentPlayers = (prev.elements || []).filter(el => el.type === 'player');
-        return {
-          ...prev,
-          elements: [...currentPlayers, ...nonPlayers],
-          grid: saved.grid || prev.grid,
-          globalModifiers: saved.globalModifiers || prev.globalModifiers,
-        };
-      });
+      const maps = await listLibraryMaps(user.id);
+      setLibraryList(maps);
+      setModalState(prev => ({ ...prev, loadLibrary: true }));
     } catch (e) {
-      // no-op
+      console.error('List library failed:', e);
+      setToast({ open: true, severity: 'error', message: 'Failed to fetch library maps.' });
     }
   };
 
@@ -252,6 +288,8 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
         undo={undo}
         onSaveMap={handleSaveMap}
         onLoadMap={handleLoadMap}
+        onSaveLibrary={handleSaveLibrary}
+        onLoadLibrary={handleLoadLibrary}
         gridSize={state.grid.cellSize}
         openGlobalModifiers={() => setModalState(prev => ({ ...prev, globalModifiers: true }))}
         onHostGame={onHostGame}
@@ -348,6 +386,95 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
         onClose={() => setModalState(prev => ({ ...prev, globalModifiers: false }))}
         isHost={isHost}
       />
+      <SaveDraftModal
+        isOpen={modalState.saveDraft}
+        onClose={() => setModalState(prev => ({ ...prev, saveDraft: false }))}
+        onSave={async (name) => {
+          try {
+            const filteredElements = (state.elements || []).filter(el => el.type !== 'player');
+            const payload = { elements: filteredElements, grid: state.grid, globalModifiers: state.globalModifiers || [] };
+            await upsertMapDraft(gameId, name, payload, user.id);
+            setModalState(prev => ({ ...prev, saveDraft: false }));
+            setToast({ open: true, severity: 'success', message: `Saved as "${name}".` });
+          } catch (e) {
+            console.error('Save named draft failed:', e);
+            setToast({ open: true, severity: 'error', message: 'Failed to save map.' });
+          }
+        }}
+      />
+      <LoadDraftModal
+        isOpen={modalState.loadDraft}
+        drafts={draftList}
+        onClose={() => setModalState(prev => ({ ...prev, loadDraft: false }))}
+        onSelect={async (draft) => {
+          try {
+            // Fetch the full draft by name to get state
+            const row = await getMapDraft(gameId, draft.name);
+            const saved = row?.state || {};
+            const nonPlayers = (saved.elements || []).filter(el => el.type !== 'player');
+            setState(prev => {
+              const currentPlayers = (prev.elements || []).filter(el => el.type === 'player');
+              return { ...prev, elements: [...currentPlayers, ...nonPlayers], grid: saved.grid || prev.grid, globalModifiers: saved.globalModifiers || prev.globalModifiers };
+            });
+            setModalState(prev => ({ ...prev, loadDraft: false }));
+            setToast({ open: true, severity: 'success', message: `Loaded "${draft.name}" (players preserved).` });
+          } catch (e) {
+            console.error('Load named draft failed:', e);
+            setToast({ open: true, severity: 'error', message: 'Failed to load map.' });
+          }
+        }}
+      />
+      <SaveDraftModal
+        isOpen={modalState.saveLibrary}
+        title="Save to Library"
+        onClose={() => setModalState(prev => ({ ...prev, saveLibrary: false }))}
+        onSave={async (name) => {
+          try {
+            const filteredElements = (state.elements || []).filter(el => el.type !== 'player');
+            const payload = { elements: filteredElements, grid: state.grid, globalModifiers: state.globalModifiers || [] };
+            await upsertLibraryMap(user.id, name, payload);
+            setModalState(prev => ({ ...prev, saveLibrary: false }));
+            setToast({ open: true, severity: 'success', message: `Saved to library as "${name}".` });
+          } catch (e) {
+            console.error('Save to library failed:', e);
+            setToast({ open: true, severity: 'error', message: 'Failed to save map to library.' });
+          }
+        }}
+      />
+      <LoadDraftModal
+        isOpen={modalState.loadLibrary}
+        title="Load from Library"
+        emptyText="Your library is empty."
+        drafts={libraryList}
+        onClose={() => setModalState(prev => ({ ...prev, loadLibrary: false }))}
+        onSelect={async (entry) => {
+          try {
+            const row = await getLibraryMap(user.id, entry.name);
+            const saved = row?.state || {};
+            const nonPlayers = (saved.elements || []).filter(el => el.type !== 'player');
+            setState(prev => {
+              const currentPlayers = (prev.elements || []).filter(el => el.type === 'player');
+              return { ...prev, elements: [...currentPlayers, ...nonPlayers], grid: saved.grid || prev.grid, globalModifiers: saved.globalModifiers || prev.globalModifiers };
+            });
+            setModalState(prev => ({ ...prev, loadLibrary: false }));
+            const where = gameId ? 'into game' : 'into editor';
+            setToast({ open: true, severity: 'success', message: `Loaded "${entry.name}" ${where}.` });
+          } catch (e) {
+            console.error('Load from library failed:', e);
+            setToast({ open: true, severity: 'error', message: 'Failed to load map from library.' });
+          }
+        }}
+      />
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={2500}
+        onClose={() => setToast(prev => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setToast(prev => ({ ...prev, open: false }))} severity={toast.severity} sx={{ width: '100%' }}>
+          {toast.message}
+        </Alert>
+      </Snackbar>
     </div>
   );
 }

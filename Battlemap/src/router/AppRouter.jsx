@@ -8,6 +8,7 @@ import Dashboard from '../screens/Dashboard.jsx';
 import BattlemapPage from '../screens/BattlemapPage.jsx';
 import Characters from '../screens/Characters.jsx';
 import CharacterBuilder from '../screens/CharacterBuilder.jsx';
+import Library from '../screens/Library.jsx';
 
 function RequireAuth({ children }) {
   const { user } = useAuth();
@@ -51,6 +52,14 @@ export default function AppRouter() {
             element={(
               <RequireAuth>
                 <Characters />
+              </RequireAuth>
+            )}
+          />
+          <Route
+            path="/library"
+            element={(
+              <RequireAuth>
+                <Library />
               </RequireAuth>
             )}
           />
