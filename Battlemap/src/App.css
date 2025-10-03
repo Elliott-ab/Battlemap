@@ -1427,6 +1427,18 @@ body {
     .element.selected {
         animation: none;
         box-shadow: 0 0 0 3px #ffeb3b;
+    .ingame-indicator {
+        display: inline-flex;
+        align-items: center;
+        background: rgba(76, 175, 80, 0.15);
+        color: #e0ffe4;
+        border: 1px solid rgba(76, 175, 80, 0.35);
+        padding: 4px 8px;
+        border-radius: 999px;
+        margin-left: 12px;
+        font-size: 12px;
+        user-select: none;
+    }
     }
 }
 

@@ -1,6 +1,7 @@
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '../auth/AuthContext.jsx';
+import { GameSessionProvider } from '../Utils/GameSessionContext.jsx';
 import Login from '../screens/Login.jsx';
 import ResetPassword from '../screens/ResetPassword.jsx';
 import Dashboard from '../screens/Dashboard.jsx';
@@ -19,6 +20,7 @@ export default function AppRouter() {
   const isRecovery = typeof window !== 'undefined' && window.location.hash.includes('type=recovery');
   return (
     <AuthProvider>
+      <GameSessionProvider>
       <HashRouter>
         {isRecovery ? (
           // Render reset password screen directly when Supabase returns with a recovery token in the URL hash
@@ -64,6 +66,7 @@ export default function AppRouter() {
           </Routes>
         )}
       </HashRouter>
+      </GameSessionProvider>
     </AuthProvider>
   );
 }

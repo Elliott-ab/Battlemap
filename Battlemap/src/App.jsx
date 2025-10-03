@@ -19,6 +19,7 @@ import { useStorage } from './Utils/storage.js';
 import { useUndo } from './Utils/undo.js';
 import { supabase } from './supabaseClient';
 import { getMapState, upsertMapState, pushDraftToLive } from './Utils/mapService.js';
+import { useGameSession } from './Utils/GameSessionContext.jsx';
 
 function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }) {
   const navigate = useNavigate();
@@ -63,7 +64,10 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
   const uploadInputRef = useRef(null);
   const battleMapRef = useRef(null);
   const [isHost, setIsHost] = useState(false);
-  const [channel, setChannel] = useState('live'); // 'live' or 'draft'
+  const { game: sessionGame } = useGameSession();
+  const initialChannel = (sessionGame && (sessionGame.role === 'host' || sessionGame.host_id === user?.id)) ? 'draft' : 'live';
+  const [channel, setChannel] = useState(initialChannel); // 'live' or 'draft'
+  const channelInitializedRef = useRef(false);
   // Character sheet pane removed; selection applies to token only
 
   const { updateGridInfo } = useGrid(state);
@@ -97,7 +101,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
     return () => window.removeEventListener('participant-joined', handler);
   }, [state.elements, addElement]);
 
-  // Determine host status based on participants.role (avoids selecting from games)
+  // Determine host status based on participants.role, with fallback to session (host_id/role)
   useEffect(() => {
     let active = true;
     (async () => {
@@ -109,15 +113,23 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
         .eq('user_id', user.id)
         .single();
       if (!active) return;
-      const host = !error && data?.role === 'host';
+      const hostFromParticipants = !error && data?.role === 'host';
+      const hostFromSession = !!sessionGame && sessionGame.id === gameId && (sessionGame.role === 'host' || sessionGame.host_id === user.id);
+      const host = hostFromParticipants || hostFromSession;
       setIsHost(host);
-      // Host edits draft by default, players always view/edit live
-      setChannel(host ? 'draft' : 'live');
+      // Initialize channel once per game based on role; don't override manual toggles
+      if (!channelInitializedRef.current) {
+        setChannel(host ? 'draft' : 'live');
+        channelInitializedRef.current = true;
+      }
       // If a player (not host) joins, open the character selection modal
       if (!host) setModalState(prev => ({ ...prev, selectCharacter: true }));
     })();
     return () => { active = false; };
-  }, [gameId, user?.id]);
+  }, [gameId, user?.id, sessionGame?.id, sessionGame?.role, sessionGame?.host_id]);
+
+  // Reset channel initialization when game changes
+  useEffect(() => { channelInitializedRef.current = false; }, [gameId]);
 
   // Load initial map state for the current channel
   useEffect(() => {

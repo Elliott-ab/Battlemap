@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faGear, faTrashCan, faRotateLeft, faDownload, faUpload, faBars, faUserGear } from '@fortawesome/free-solid-svg-icons';
+import { faGear, faTrashCan, faRotateLeft, faDownload, faUpload, faBars, faUserGear, faCircle } from '@fortawesome/free-solid-svg-icons';
 import IconButton from './common/IconButton.jsx';
+import { useGameSession } from '../Utils/GameSessionContext.jsx';
 
 // variant: 'battlemap' | 'dashboard'
 const Toolbar = ({
@@ -25,6 +26,7 @@ const Toolbar = ({
   onToggleChannel,
   currentChannel,
 }) => {
+  const { game } = useGameSession();
   // Normalize Vite base URL to always end with a single '/'
   const rawBase = import.meta.env.BASE_URL || '/';
   const base = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
@@ -83,7 +85,7 @@ const Toolbar = ({
           Home
         </NavLink>
         <NavLink
-          to="/battlemap/LOCAL"
+          to={game?.code ? `/battlemap/${game.code}` : '/battlemap/LOCAL'}
           className={({ isActive }) => `toolbar-link ${isActive ? 'active' : ''}`}
           title="Battlemap"
         >
@@ -97,6 +99,13 @@ const Toolbar = ({
           Character
         </NavLink>
       </nav>
+      {/* In-game indicator right after nav links */}
+      {game && (
+        <div className="ingame-indicator" title={game.name || 'In Game'} style={{ marginLeft: 12 }}>
+          <FontAwesomeIcon icon={faCircle} style={{ color: '#4caf50', fontSize: 10, marginRight: 6 }} />
+          <span>In Game</span>
+        </div>
+      )}
       <div className="toolbar-spacer" />
       {variant === 'dashboard' ? (
         <div className="controls">
@@ -156,6 +165,7 @@ const Toolbar = ({
           <span className="grid-info">Grid: {gridSize}ft per cell</span>
         </div>
       )}
+      {/* Indicator moved up after nav */}
       {menuOpen && variant !== 'dashboard' && (
         <>
           <div className="toolbar-menu-backdrop" onClick={() => setMenuOpen(false)} />

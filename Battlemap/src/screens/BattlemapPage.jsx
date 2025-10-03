@@ -7,6 +7,7 @@ import App from '../App.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
 import { hostGame, joinGameByCode } from '../Utils/gameService.js';
 import { supabase } from '../supabaseClient';
+import { useGameSession } from '../Utils/GameSessionContext.jsx';
 
 export default function BattlemapPage() {
   const { code } = useParams();
@@ -18,6 +19,7 @@ export default function BattlemapPage() {
   const [gameId, setGameId] = useState(null);
   const [joinOpen, setJoinOpen] = useState(false);
   const [joinCode, setJoinCode] = useState('');
+  const { setSession, clearSession, updateSession } = useGameSession();
 
   const copyCode = async () => {
     if (!hostResult?.code) return;
@@ -32,9 +34,13 @@ export default function BattlemapPage() {
       // Use RPC (avoids RLS recursion on games)
       const { data: rpcData } = await supabase.rpc('get_game_by_code', { v_code: code }).single();
       if (mounted) setGameId(rpcData?.id || null);
+      if (mounted && rpcData) {
+        const role = rpcData.host_id === user?.id ? 'host' : undefined;
+        setSession({ id: rpcData.id, code: rpcData.code, name: rpcData.name || null, host_id: rpcData.host_id, role });
+      }
     })();
     return () => { mounted = false; };
-  }, [code]);
+  }, [code, user?.id]);
 
   // Subscribe to participants joining and add a player token if not present
   useEffect(() => {
@@ -46,6 +52,7 @@ export default function BattlemapPage() {
         // Avoid adding a token for the current user joining—their token can be added manually if needed
         // Add a token for the joining user if not present
         window.dispatchEvent(new CustomEvent('participant-joined', { detail: newRow }));
+        if (newRow?.user_id === user?.id && newRow?.role) updateSession({ role: newRow.role });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -65,11 +72,12 @@ export default function BattlemapPage() {
               const game = await hostGame(user.id);
               setHostResult(game);
               setHostOpen(true);
+              setSession({ id: game.id, code: game.code, name: game.name || null, role: 'host' });
             } catch (e) {
               setError(e.message);
             }
           }}
-          onLeaveGame={() => navigate('/home')}
+          onLeaveGame={() => { clearSession(); navigate('/home'); }}
           onJoinGame={() => setJoinOpen(true)}
         />
       </Box>
@@ -127,6 +135,7 @@ export default function BattlemapPage() {
               if (!codeTrim || !user) return;
               const game = await joinGameByCode(user.id, codeTrim);
               setJoinOpen(false);
+              setSession({ id: game.id, code: game.code, name: game.name || null, role: 'player' });
               navigate(`/battlemap/${game.code}`);
             } catch (e) {
               setError(e.message);
