@@ -19,7 +19,7 @@ import InlineNumberEditor from './common/InlineNumberEditor.jsx';
 
 // Using Font Awesome icons for UI controls
 
-const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup, showEditModal, battleMapRef, isDrawingCover, toggleDrawingMode, openAddCharacterModal, openInitiativeModal, drawEnvType, setDrawEnvType, onOpenMyCharacterSheet, currentUserId }) => {
+const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup, showEditModal, battleMapRef, isDrawingCover, toggleDrawingMode, openAddCharacterModal, openInitiativeModal, drawEnvType, setDrawEnvType, onOpenMyCharacterSheet, currentUserId, isHost = false }) => {
   console.log('Sidebar received battleMapRef:', battleMapRef);
 
   // Collapsible sections state
@@ -296,10 +296,13 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
               onClick={() => {
                 if (el.incapacitated) return; // disabled for movement when incapacitated
                 if (damageEdit.targetId != null) return; // prevent movement highlight while editing damage
-                console.log('Sidebar: Clicking element ID:', el.id, 'Type:', el.type);
+                // Players can only select their own player card
+                if (!isHost) {
+                  if (el.type !== 'player' || (el.participantUserId && el.participantUserId !== currentUserId)) return;
+                }
                 toggleMovementHighlight(el.id, battleMapRef);
               }}
-              onDoubleClick={() => { showEditModal(el.id); }}
+              onDoubleClick={() => { if (isHost) showEditModal(el.id); }}
               style={{
                 position: 'relative',
                 borderColor: (currentTurnId === el.id && (el.type === 'player' || el.type === 'enemy')) ? '#ffffff' : undefined,
@@ -350,9 +353,10 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
                     <FontAwesomeIcon
                       icon={faWandSparkles}
                       title="Revive"
-                      style={{ color: '#80DEEA', cursor: 'pointer' }}
+                      style={{ color: isHost ? '#80DEEA' : '#555', cursor: isHost ? 'pointer' : 'not-allowed' }}
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (!isHost) return;
                         setState(prev => ({
                           ...prev,
                           elements: prev.elements.map(x => x.id === el.id ? { ...x, incapacitated: false } : x)
@@ -363,9 +367,10 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
                     <FontAwesomeIcon
                       icon={faSkull}
                       title="Incapacitate"
-                      style={{ color: '#B0BEC5', cursor: 'pointer' }}
+                      style={{ color: isHost ? '#B0BEC5' : '#555', cursor: isHost ? 'pointer' : 'not-allowed' }}
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (!isHost) return;
                         try { document.querySelectorAll('.movement-highlight').forEach(h => h.remove()); } catch {}
                         setState(prev => ({
                           ...prev,
@@ -398,7 +403,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
                           borderColor: damageEdit.targetId === el.id && damageEdit.targetType === 'player' ? '#f44336' : undefined,
                         }}
                       >
-                        {damageEdit.targetId === el.id && damageEdit.targetType === 'player' ? (
+                        {isHost && damageEdit.targetId === el.id && damageEdit.targetType === 'player' ? (
                           <InlineNumberEditor
                             value={damageEdit.value}
                             onChange={(v) => setDamageEdit(p => ({ ...p, value: v }))}
@@ -419,7 +424,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
                 <div className="element-stats">
                   <div
                     className="hp-display"
-                    onDoubleClick={(e) => { e.stopPropagation(); openDamageEdit(el.id, 'enemy'); }}
+                    onDoubleClick={(e) => { e.stopPropagation(); if (!isHost) return; openDamageEdit(el.id, 'enemy'); }}
                     title={
                       damageEdit.targetId === el.id && damageEdit.targetType === 'enemy'
                         ? 'Enter damage, then click OK or press Enter. Press Esc to cancel.'
@@ -433,7 +438,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
                       cursor: (damageEdit.targetId === el.id && damageEdit.targetType === 'enemy') ? 'text' : 'pointer',
                     }}
                   >
-                    {damageEdit.targetId === el.id && damageEdit.targetType === 'enemy' ? (
+                    {isHost && damageEdit.targetId === el.id && damageEdit.targetType === 'enemy' ? (
                       <InlineNumberEditor
                         value={damageEdit.value}
                         onChange={(v) => setDamageEdit(p => ({ ...p, value: v }))}
@@ -455,8 +460,9 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
 
       {/* Inline damage entry handled within the HP bar; no popover */}
 
-      {/* Environments Section */}
+      {/* Environments Section (hidden for players) */}
       <hr className="sidebar-divider" />
+      {isHost && (
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5em', position: 'relative' }}>
         <IconButton onClick={() => setEnvOpen(v => !v)} size="small" title={envOpen ? 'Collapse' : 'Expand'}>
           <FontAwesomeIcon icon={faChevronRight} style={{ color: 'white', transform: envOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
@@ -466,6 +472,8 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
           <FontAwesomeIcon icon={faPenToSquareRegular} style={{ color: isDrawingCover ? '#4CAF50' : 'white' }} />
         </IconButton>
       </div>
+      )}
+      {isHost && (
   <div className={`collapsible ${envOpen ? 'open' : ''}`}>
         <div className="element-list">
           {isDrawingCover && (
@@ -595,6 +603,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
         ))}
         </div>
       </div>
+      )}
       </div>
       {/* Sidebar footer: expand/collapse control (always visible) */}
       <div className="sidebar-footer">

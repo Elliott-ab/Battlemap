@@ -18,7 +18,7 @@ const blankModifier = () => ({
   magnitudeMode: 'plus', // 'plus' | 'minus' | 'percent'
 });
 
-const GlobalModifiersModal = ({ isOpen, state, setState, onClose }) => {
+const GlobalModifiersModal = ({ isOpen, state, setState, onClose, isHost = false }) => {
   const [mods, setMods] = useState([]);
   const [openMenuId, setOpenMenuId] = useState(null);
 
@@ -54,12 +54,14 @@ const GlobalModifiersModal = ({ isOpen, state, setState, onClose }) => {
   if (!isOpen) return null;
 
   const updateMod = (id, patch) => {
+    if (!isHost) return; // read-only for players
     setMods(prev => prev.map(m => (m.id === id ? { ...m, ...patch } : m)));
   };
 
-  const addMod = () => setMods(prev => [...prev, blankModifier()]);
+  const addMod = () => { if (isHost) setMods(prev => [...prev, blankModifier()]); };
 
   const removeMod = (id) => {
+    if (!isHost) return;
     setOpenMenuId(prev => (prev === id ? null : prev));
     setMods(prev => {
       const filtered = prev.filter(m => m.id !== id);
@@ -68,6 +70,7 @@ const GlobalModifiersModal = ({ isOpen, state, setState, onClose }) => {
   };
 
   const handleSave = () => {
+    if (!isHost) return onClose();
     // Persist to global state
     // Persist using explicit booleans for scope to allow both selections
     setState(prev => ({ ...prev, globalModifiers: mods.map(m => ({
@@ -89,7 +92,7 @@ const GlobalModifiersModal = ({ isOpen, state, setState, onClose }) => {
     <div className="modal" style={{ display: 'block' }}>
   <div className="modal-content wide" onClick={() => setOpenMenuId(null)}>
         <span className="close" onClick={onClose}>&times;</span>
-        <h3>Global Modifiers</h3>
+        <h3>Global Modifiers{!isHost ? ' (view only)' : ''}</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {mods.map((m) => (
             <div
@@ -112,7 +115,7 @@ const GlobalModifiersModal = ({ isOpen, state, setState, onClose }) => {
                   background: 'transparent',
                   border: 'none',
                   cursor: 'pointer',
-                  color: '#f44336',
+                  color: isHost ? '#f44336' : '#777',
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -120,8 +123,9 @@ const GlobalModifiersModal = ({ isOpen, state, setState, onClose }) => {
                   height: 28,
                   padding: 0,
                 }}
+                disabled={!isHost}
               >
-                <FontAwesomeIcon icon={faTrashCan} style={{ color: '#f44336', fontSize: 16 }} />
+                <FontAwesomeIcon icon={faTrashCan} style={{ color: isHost ? '#f44336' : '#777', fontSize: 16 }} />
               </button>
               {/* Name fills available left space */}
               <input
@@ -130,6 +134,7 @@ const GlobalModifiersModal = ({ isOpen, state, setState, onClose }) => {
                 value={m.name}
                 onChange={(e) => updateMod(m.id, { name: e.target.value })}
                 style={{ flex: 1, minWidth: 140 }}
+                disabled={!isHost}
               />
               {/* Right controls grouped */}
               <div className="mod-controls" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -138,6 +143,7 @@ const GlobalModifiersModal = ({ isOpen, state, setState, onClose }) => {
                   value={m.category}
                   onChange={(e) => updateMod(m.id, { category: e.target.value })}
                   style={{ flex: 0, width: 150, minWidth: 130 }}
+                  disabled={!isHost}
                 >
                   {EFFECT_OPTIONS.map(opt => (
                     <option key={opt.id} value={opt.id}>{opt.label}</option>
@@ -157,12 +163,14 @@ const GlobalModifiersModal = ({ isOpen, state, setState, onClose }) => {
                       if (v === '' || digits.test(v)) updateMod(m.id, { magnitude: v });
                     }}
                     style={{ width: 70, minWidth: 60, textAlign: 'right', paddingLeft: 32 }}
+                    disabled={!isHost}
                   />
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); setOpenMenuId(prev => prev === m.id ? null : m.id); }}
+                    onClick={(e) => { e.stopPropagation(); if (!isHost) return; setOpenMenuId(prev => prev === m.id ? null : m.id); }}
                     title="Change mode"
                     className="magnitude-affix-btn magnitude-affix-left"
+                    disabled={!isHost}
                   >
                     {m.magnitudeMode === 'percent' ? '%' : (m.magnitudeMode === 'minus' ? '-' : '+')}
                   </button>
@@ -177,7 +185,8 @@ const GlobalModifiersModal = ({ isOpen, state, setState, onClose }) => {
                           key={mode}
                           type="button"
                           className={`magnitude-menu-item ${m.magnitudeMode === mode ? 'active' : ''}`}
-                          onClick={() => { updateMod(m.id, { magnitudeMode: mode }); setOpenMenuId(null); }}
+                          onClick={() => { if (!isHost) return; updateMod(m.id, { magnitudeMode: mode }); setOpenMenuId(null); }}
+                          disabled={!isHost}
                         >
                           {mode === 'percent' ? '%' : (mode === 'minus' ? '-' : '+')}
                         </button>
@@ -197,6 +206,7 @@ const GlobalModifiersModal = ({ isOpen, state, setState, onClose }) => {
                       onClick={() => updateMod(m.id, { applyToPlayers: !m.applyToPlayers })}
                       aria-label="Apply to Players"
                       title="Players"
+                      disabled={!isHost}
                     >
                       P
                     </button>
@@ -206,6 +216,7 @@ const GlobalModifiersModal = ({ isOpen, state, setState, onClose }) => {
                       onClick={() => updateMod(m.id, { applyToEnemies: !m.applyToEnemies })}
                       aria-label="Apply to Enemies"
                       title="Enemies"
+                      disabled={!isHost}
                     >
                       E
                     </button>
@@ -218,16 +229,19 @@ const GlobalModifiersModal = ({ isOpen, state, setState, onClose }) => {
                     type="checkbox"
                     checked={!!m.enabled}
                     onChange={(e) => updateMod(m.id, { enabled: e.target.checked })}
+                    disabled={!isHost}
                   />
                   <span className="slider" />
                 </label>
               </div>
             </div>
           ))}
-          <button className="btn btn-outline btn-sm" onClick={addMod}>+ add modifier</button>
+          {isHost && (
+            <button className="btn btn-outline btn-sm" onClick={addMod}>+ add modifier</button>
+          )}
         </div>
         <div className="form-actions" style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
-          <button className="btn btn-primary" onClick={handleSave}>Save</button>
+          <button className="btn btn-primary" onClick={handleSave} disabled={!isHost}>Save</button>
         </div>
       </div>
     </div>

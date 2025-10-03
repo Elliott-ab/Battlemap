@@ -11,8 +11,8 @@ const Toolbar = ({
   showGridModal,
   clearMap,
   undo,
-  showSaveModal,
-  showOverwriteModal,
+  onSaveMap,
+  onLoadMap,
   gridSize,
   openGlobalModifiers,
   variant = 'battlemap',
@@ -66,14 +66,11 @@ const Toolbar = ({
 
   return (
     <header className={`toolbar ${variant === 'dashboard' ? 'toolbar--dashboard' : 'toolbar--battlemap'}`}>
-      <div className="toolbar-logo">
-        {logoHref ? (
-          <a href={logoHref} style={{ display: 'inline-block' }} title="Back to Dashboard">
-            {Logo}
-          </a>
-        ) : (
-          Logo
-        )}
+      <a href={logoHref} className="toolbar-logo" title="Home" aria-label="Home">
+        {Logo}
+      </a>
+      <div className="toolbar-icons">
+        {/* Quick-access Clear/Undo removed; available via burger menu only */}
       </div>
       {/* Red navigation links */}
       <nav className="toolbar-nav" aria-label="Primary">
@@ -127,13 +124,7 @@ const Toolbar = ({
           </div>
           <div className="toolbar-divider-vert" aria-hidden="true" />
           <div className="toolbar-icons">
-            {/* Keep quick access for Clear/Undo; move Grid/Download/Upload into burger menu */}
-            <IconButton onClick={clearMap} disabled={isDrawingCover} title="Clear Map" size="large">
-              <FontAwesomeIcon icon={faTrashCan} style={{ color: isDrawingCover ? 'grey' : 'white', fontSize: 16 }} />
-            </IconButton>
-            <IconButton onClick={undo} disabled={isDrawingCover} title="Undo" size="large">
-              <FontAwesomeIcon icon={faRotateLeft} style={{ color: isDrawingCover ? 'grey' : 'white', fontSize: 16 }} />
-            </IconButton>
+            {/* Clear/Undo removed from toolbar; available via burger for hosts only */}
             {isHost && (
               <>
                 <div className="toolbar-divider-vert" aria-hidden="true" />
@@ -170,26 +161,36 @@ const Toolbar = ({
         <>
           <div className="toolbar-menu-backdrop" onClick={() => setMenuOpen(false)} />
           <div className="toolbar-menu" role="menu" aria-label="Toolbar menu">
-            <button className="menu-item" onClick={() => handleMaybe(showGridModal)} disabled={isDrawingCover} role="menuitem">
-              <FontAwesomeIcon icon={faGear} />
-              <span>Grid Settings</span>
-            </button>
-            <button className="menu-item" onClick={() => handleMaybe(clearMap)} disabled={isDrawingCover} role="menuitem">
-              <FontAwesomeIcon icon={faTrashCan} />
-              <span>Clear Map</span>
-            </button>
-            <button className="menu-item" onClick={() => handleMaybe(undo)} disabled={isDrawingCover} role="menuitem">
-              <FontAwesomeIcon icon={faRotateLeft} />
-              <span>Undo</span>
-            </button>
-            <button className="menu-item" onClick={() => handleMaybe(showSaveModal)} disabled={isDrawingCover} role="menuitem">
-              <FontAwesomeIcon icon={faDownload} />
-              <span>Download Map</span>
-            </button>
-            <button className="menu-item" onClick={() => handleMaybe(showOverwriteModal)} disabled={isDrawingCover} role="menuitem">
-              <FontAwesomeIcon icon={faUpload} />
-              <span>Upload Map</span>
-            </button>
+            {isHost && (
+              <button className="menu-item" onClick={() => handleMaybe(showGridModal)} disabled={isDrawingCover} role="menuitem">
+                <FontAwesomeIcon icon={faGear} />
+                <span>Grid Settings</span>
+              </button>
+            )}
+            {isHost && (
+              <>
+                <button className="menu-item" onClick={() => handleMaybe(clearMap)} disabled={isDrawingCover} role="menuitem">
+                  <FontAwesomeIcon icon={faTrashCan} />
+                  <span>Clear Map</span>
+                </button>
+                <button className="menu-item" onClick={() => handleMaybe(undo)} disabled={isDrawingCover} role="menuitem">
+                  <FontAwesomeIcon icon={faRotateLeft} />
+                  <span>Undo</span>
+                </button>
+              </>
+            )}
+            {isHost && (
+              <>
+                <button className="menu-item" onClick={() => handleMaybe(onSaveMap)} disabled={isDrawingCover} role="menuitem">
+                  <FontAwesomeIcon icon={faDownload} />
+                  <span>Save Map</span>
+                </button>
+                <button className="menu-item" onClick={() => handleMaybe(onLoadMap)} disabled={isDrawingCover} role="menuitem">
+                  <FontAwesomeIcon icon={faUpload} />
+                  <span>Load Map</span>
+                </button>
+              </>
+            )}
             <hr className="toolbar-divider-horiz" />
             {onJoinGame && (
               <button className="menu-item" onClick={() => { onJoinGame(); setMenuOpen(false); }} role="menuitem">

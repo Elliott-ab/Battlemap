@@ -7,15 +7,12 @@ import EditModal from './components/Modals/EditModal.jsx';
 import AddCharacterModal from './components/Modals/AddCharacterModal.jsx';
 import CharacterSelectModal from './components/Modals/CharacterSelectModal.jsx';
 import GridModal from './components/Modals/GridModal.jsx';
-import SaveModal from './components/Modals/SaveModal.jsx';
-import OverwriteModal from './components/Modals/OverwriteModal.jsx';
 import InitiativeModal from './components/Modals/InitiativeModal.jsx';
 import GlobalModifiersModal from './components/Modals/GlobalModifiersModal.jsx';
 import { initialState } from './Utils/state.js';
 import { useGrid } from './Utils/grid.js';
 import { useElements } from './Utils/elements.js';
 import { useModals } from './Utils/modals.js';
-import { useStorage } from './Utils/storage.js';
 import { useUndo } from './Utils/undo.js';
 import { supabase } from './supabaseClient';
 import { getMapState, upsertMapState, pushDraftToLive } from './Utils/mapService.js';
@@ -53,18 +50,15 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
   const [modalState, setModalState] = useState({
     editModal: { isOpen: false, elementId: null },
     gridModal: false,
-    saveModal: false,
-    overwriteModal: false,
     addCharacter: false,
     selectCharacter: false,
     initiative: false,
     globalModifiers: false,
   });
   const [undoStack, setUndoStack] = useState([]);
-  const uploadInputRef = useRef(null);
   const battleMapRef = useRef(null);
   const [isHost, setIsHost] = useState(false);
-  const { game: sessionGame } = useGameSession();
+  const { game: sessionGame, updateSession } = useGameSession();
   const initialChannel = (sessionGame && (sessionGame.role === 'host' || sessionGame.host_id === user?.id)) ? 'draft' : 'live';
   const [channel, setChannel] = useState(initialChannel); // 'live' or 'draft'
   const channelInitializedRef = useRef(false);
@@ -72,8 +66,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
 
   const { updateGridInfo } = useGrid(state);
   const { addElement, addCharactersBatch, createCoverFromBlocks, getElementById, updateElementPosition, toggleMovementHighlight, highlightCoverGroup, updateElement, deleteElement } = useElements(state, setState);
-  const { showEditModal, showGridModal, showSaveModal, showOverwriteModal } = useModals(setModalState);
-  const { downloadMap, uploadMap } = useStorage(state, setState);
+  const { showEditModal, showGridModal } = useModals(setModalState);
   const { pushUndo, undo } = useUndo(state, setState, setUndoStack);
 
   useEffect(() => {
@@ -122,11 +115,13 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
         setChannel(host ? 'draft' : 'live');
         channelInitializedRef.current = true;
       }
-      // If a player (not host) joins, open the character selection modal
-      if (!host) setModalState(prev => ({ ...prev, selectCharacter: true }));
+      // If a player (not host) just joined (session flag), open selection ONCE
+      if (!host && sessionGame?.promptCharacter) {
+        setModalState(prev => ({ ...prev, selectCharacter: true }));
+      }
     })();
     return () => { active = false; };
-  }, [gameId, user?.id, sessionGame?.id, sessionGame?.role, sessionGame?.host_id]);
+  }, [gameId, user?.id, sessionGame?.id, sessionGame?.role, sessionGame?.host_id, sessionGame?.promptCharacter]);
 
   // Reset channel initialization when game changes
   useEffect(() => { channelInitializedRef.current = false; }, [gameId]);
@@ -178,6 +173,45 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
   // Sync isDrawingCover and coverBlocks into state for grid rendering
   const mergedState = { ...state, isDrawingCover, coverBlocks };
 
+  // Host-only: Save current map (excluding player tokens) to the draft channel in DB
+  const handleSaveMap = async () => {
+    if (!isHost || !gameId || !user) return;
+    try {
+      const filteredElements = (state.elements || []).filter(el => el.type !== 'player');
+      const payload = {
+        elements: filteredElements,
+        grid: state.grid,
+        // Persist global modifiers if present so drafts include them
+        globalModifiers: state.globalModifiers || [],
+      };
+      await upsertMapState(gameId, 'draft', payload, user.id);
+    } catch (e) {
+      // no-op
+    }
+  };
+
+  // Host-only: Load draft map from DB, preserving any existing player tokens on the board
+  const handleLoadMap = async () => {
+    if (!isHost || !gameId) return;
+    try {
+      const row = await getMapState(gameId, 'draft');
+      if (!row?.state) return;
+      const saved = row.state || {};
+      const nonPlayers = (saved.elements || []).filter(el => el.type !== 'player');
+      setState(prev => {
+        const currentPlayers = (prev.elements || []).filter(el => el.type === 'player');
+        return {
+          ...prev,
+          elements: [...currentPlayers, ...nonPlayers],
+          grid: saved.grid || prev.grid,
+          globalModifiers: saved.globalModifiers || prev.globalModifiers,
+        };
+      });
+    } catch (e) {
+      // no-op
+    }
+  };
+
   // Use centralized batch add API
   const handleAddCharacters = (characterType, quantity) => {
     addCharactersBatch(characterType, quantity);
@@ -216,8 +250,8 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
         showGridModal={showGridModal}
         clearMap={() => { setState({ ...state, elements: [], highlightedElementId: null }); pushUndo(); }}
         undo={undo}
-        showSaveModal={showSaveModal}
-        showOverwriteModal={showOverwriteModal}
+        onSaveMap={handleSaveMap}
+        onLoadMap={handleLoadMap}
         gridSize={state.grid.cellSize}
         openGlobalModifiers={() => setModalState(prev => ({ ...prev, globalModifiers: true }))}
         onHostGame={onHostGame}
@@ -244,6 +278,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
           drawEnvType={drawEnvType}
           setDrawEnvType={setDrawEnvType}
           currentUserId={user?.id}
+          isHost={isHost}
           openAddCharacterModal={() => setModalState(prev => ({ ...prev, addCharacter: true }))}
           openInitiativeModal={() => setModalState(prev => ({ ...prev, initiative: true }))}
         />
@@ -258,6 +293,8 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
           pushUndo={pushUndo}
           highlightCoverGroup={highlightCoverGroup}
           battleMapRef={battleMapRef}
+          isHost={isHost}
+          currentUserId={user?.id}
         />
       </div>
       <AddCharacterModal
@@ -276,9 +313,20 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
       />
       <CharacterSelectModal
         open={modalState.selectCharacter}
-        onClose={() => setModalState(prev => ({ ...prev, selectCharacter: false }))}
-        onSelect={(c) => { applyCharacterToToken(c); setModalState(prev => ({ ...prev, selectCharacter: false })); }}
-        onBuildNew={() => { setModalState(prev => ({ ...prev, selectCharacter: false })); navigate('/characters/new'); }}
+        onClose={() => {
+          setModalState(prev => ({ ...prev, selectCharacter: false }));
+          if (sessionGame?.promptCharacter) updateSession({ promptCharacter: false });
+        }}
+        onSelect={(c) => {
+          applyCharacterToToken(c);
+          setModalState(prev => ({ ...prev, selectCharacter: false }));
+          if (sessionGame?.promptCharacter) updateSession({ promptCharacter: false });
+        }}
+        onBuildNew={() => {
+          setModalState(prev => ({ ...prev, selectCharacter: false }));
+          if (sessionGame?.promptCharacter) updateSession({ promptCharacter: false });
+          navigate('/characters/new');
+        }}
       />
       <GridModal
         isOpen={modalState.gridModal}
@@ -298,24 +346,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null }
         state={mergedState}
         setState={setState}
         onClose={() => setModalState(prev => ({ ...prev, globalModifiers: false }))}
-      />
-      <SaveModal
-        isOpen={modalState.saveModal}
-        downloadMap={downloadMap}
-        onClose={() => setModalState(prev => ({ ...prev, saveModal: false }))}
-      />
-      <OverwriteModal
-        isOpen={modalState.overwriteModal}
-        uploadInputRef={uploadInputRef}
-        uploadMap={uploadMap}
-        onClose={() => setModalState(prev => ({ ...prev, overwriteModal: false }))}
-      />
-      <input
-        type="file"
-        id="uploadInput"
-        style={{ display: 'none' }}
-        ref={uploadInputRef}
-        onChange={(e) => uploadMap(e.target.files[0])}
+        isHost={isHost}
       />
     </div>
   );

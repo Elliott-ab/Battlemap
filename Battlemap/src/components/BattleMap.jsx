@@ -5,7 +5,7 @@ import { faMinus, faPlus, faCrosshairs, faGroupArrowsRotate } from '@fortawesome
 import compassRose from '/compass-rose-n-svgrepo-com.svg';
 import { useGrid } from '../Utils/grid.js';
 
-const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlocks, drawEnvType, updateElementPosition, pushUndo, highlightCoverGroup, battleMapRef }) => {
+const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlocks, drawEnvType, updateElementPosition, pushUndo, highlightCoverGroup, battleMapRef, isHost = false, currentUserId = null }) => {
   const localBattleMapRef = useRef(null);
   const containerRef = useRef(null);
   const currentDragElement = useRef(null);
@@ -237,6 +237,17 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
       const x = parseInt(cell.dataset.x);
       const y = parseInt(cell.dataset.y);
       if (element.type === 'player' || element.type === 'enemy') {
+          // Players may only move their own player token; hosts can move any
+          if (!isHost) {
+            if (element.type !== 'player' || (element.participantUserId && element.participantUserId !== currentUserId)) {
+              // Not allowed to move
+              try {
+                if (container && container.dataset) delete container.dataset.highlightedId;
+              } catch {}
+              setState(prev => ({ ...prev, highlightedElementId: null }));
+              return;
+            }
+          }
           // Determine reachability by presence of a movement highlight in the target cell
           const hasHighlight = !!cell.querySelector('.movement-highlight');
           if (hasHighlight) {
@@ -255,6 +266,14 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
           setState({ ...state, highlightedElementId: null });
         }
       } else if (element.type === 'cover') {
+        // Players cannot move cover
+        if (!isHost) {
+          try {
+            if (container && container.dataset) delete container.dataset.highlightedId;
+          } catch {}
+          setState(prev => ({ ...prev, highlightedElementId: null }));
+          return;
+        }
         // Click-to-move for cover: move then end selection/highlighting
         updateElementPosition(element.id, x, y);
         pushUndo();
@@ -315,7 +334,7 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
       }
     }
     const elDiv = e.target.closest('.element');
-    if (elDiv) {
+  if (elDiv) {
       // Prevent the default to avoid generating a click after drag
       if (typeof e.preventDefault === 'function') e.preventDefault();
       if (typeof e.stopPropagation === 'function') e.stopPropagation();
@@ -325,9 +344,17 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
       if (clickedEl && (clickedEl.type === 'player' || clickedEl.type === 'enemy') && clickedEl.incapacitated) {
         return; // do not allow drag on incapacitated units
       }
+      // Players can only drag their own player token
+      if (!isHost && clickedEl) {
+        if (clickedEl.type !== 'player' || (clickedEl.participantUserId && clickedEl.participantUserId !== currentUserId)) {
+          return;
+        }
+      }
       // If the clicked element is a cover but there is a token in the same cell, prefer dragging the token
       // EXCEPT when a cover is currently selected via Sidebar (user intent: reposition cover)
       if (clickedEl && clickedEl.type === 'cover') {
+        // Players cannot drag cover
+        if (!isHost) return;
         const selectedIsCover = !!state.highlightedElementId && (() => {
           const sel = state.elements.find(x => x.id === state.highlightedElementId);
           return sel && sel.type === 'cover';

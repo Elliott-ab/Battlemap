@@ -36,7 +36,8 @@ export default function BattlemapPage() {
       if (mounted) setGameId(rpcData?.id || null);
       if (mounted && rpcData) {
         const role = rpcData.host_id === user?.id ? 'host' : undefined;
-        setSession({ id: rpcData.id, code: rpcData.code, name: rpcData.name || null, host_id: rpcData.host_id, role });
+        // Merge into existing session so flags like promptCharacter are preserved
+        updateSession({ id: rpcData.id, code: rpcData.code, name: rpcData.name || null, host_id: rpcData.host_id, role });
       }
     })();
     return () => { mounted = false; };
@@ -135,7 +136,7 @@ export default function BattlemapPage() {
               if (!codeTrim || !user) return;
               const game = await joinGameByCode(user.id, codeTrim);
               setJoinOpen(false);
-              setSession({ id: game.id, code: game.code, name: game.name || null, role: 'player' });
+              setSession({ id: game.id, code: game.code, name: game.name || null, role: 'player', host_id: game.host_id, promptCharacter: true });
               navigate(`/battlemap/${game.code}`);
             } catch (e) {
               setError(e.message);
