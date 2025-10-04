@@ -47,8 +47,8 @@ export async function getMapState(gameId, channel = 'live') {
     .select('state, updated_at, updated_by, channel')
     .eq('game_id', gameId)
     .eq('channel', channel)
-    .single();
-  if (error && error.code !== 'PGRST116') throw error; // not found is fine
+    .maybeSingle();
+  if (error) throw error;
   return data || null;
 }
 

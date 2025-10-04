@@ -701,7 +701,7 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
         onPointerDown={handlePointerDown}
       ></div>
       {/* Desktop-only zoom controls (bottom-right) */}
-      <div className="zoom-controls">
+      <div className="zoom-controls zoom-controls--desktop">
         <IconButton size="small" aria-label="Zoom out" onClick={() => setScaleAroundViewportCenter(zoom - 0.1)}>
           <FontAwesomeIcon icon={faMinus} style={{ color: '#fff', fontSize: 14 }} />
         </IconButton>
@@ -722,6 +722,21 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
         </IconButton>
         <IconButton size="small" aria-label="Rotate" title="Rotate clockwise" onClick={() => setRotationIndex((r) => (r + 1) % 4)}>
           <FontAwesomeIcon icon={faGroupArrowsRotate} style={{ color: '#fff', fontSize: 14 }} />
+        </IconButton>
+      </div>
+      {/* Mobile zoom controls (fixed bottom-center) */}
+      <div className="zoom-controls zoom-controls--mobile" role="group" aria-label="Zoom controls">
+        <IconButton size="small" aria-label="Zoom out" onClick={() => setScaleAroundViewportCenter(zoom - 0.1)}>
+          <FontAwesomeIcon icon={faMinus} style={{ color: '#fff', fontSize: 12 }} />
+        </IconButton>
+        <IconButton size="small" aria-label="Recenter" title="Recenter" onClick={() => { userZoomedRef.current = false; scheduleFitToScreen(); }}>
+          <FontAwesomeIcon icon={faCrosshairs} style={{ color: '#fff', fontSize: 12 }} />
+        </IconButton>
+        <IconButton size="small" aria-label="Zoom in" onClick={() => setScaleAroundViewportCenter(zoom + 0.1)}>
+          <FontAwesomeIcon icon={faPlus} style={{ color: '#fff', fontSize: 12 }} />
+        </IconButton>
+        <IconButton size="small" aria-label="Rotate" title="Rotate clockwise" onClick={() => setRotationIndex((r) => (r + 1) % 4)}>
+          <FontAwesomeIcon icon={faGroupArrowsRotate} style={{ color: '#fff', fontSize: 12 }} />
         </IconButton>
       </div>
       {/* Compass overlay (top-right), rotates with the grid */}

@@ -737,11 +737,9 @@ body {
     cursor: grab;
 }
 
-/* Desktop-only zoom controls overlay */
+/* Zoom controls base */
 .zoom-controls {
     position: absolute;
-    right: 12px;
-    bottom: 12px;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -753,6 +751,16 @@ body {
     z-index: 50;
     -webkit-backdrop-filter: blur(2px);
     backdrop-filter: blur(2px);
+}
+/* Desktop variant (bottom-right) */
+.zoom-controls--desktop { right: 12px; bottom: 12px; }
+/* Mobile variant (fixed bottom-center inside map container) */
+.zoom-controls--mobile {
+    right: 12px;
+    bottom: 8px;
+    transform: none;
+    padding: 4px 6px;
+    gap: 4px;
 }
 .compass-overlay {
     position: absolute;
@@ -772,9 +780,14 @@ body {
     width: 80px;
     accent-color: #4CAF50;
 }
-/* Hide on small screens */
+/* Responsive visibility: show desktop controls on >=1025px, mobile controls below */
 @media (max-width: 1024px) {
-    .zoom-controls { display: none; }
+    .zoom-controls--desktop { display: none; }
+    .zoom-controls--mobile { display: flex; }
+}
+@media (min-width: 1025px) {
+    .zoom-controls--desktop { display: flex; }
+    .zoom-controls--mobile { display: none; }
 }
 
 .battle-map {
@@ -1036,6 +1049,7 @@ body {
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
     max-height: 80vh;
     overflow-y: auto;
+    overflow-x: hidden; /* prevent horizontal scroll on small screens */
     color: #fff; /* ensure modal text is white */
 }
 
@@ -1122,8 +1136,24 @@ body {
 }
 
 @media (max-width: 780px) {
-    .modifier-card {
-        flex-wrap: wrap;
+    /* Tighter, full-width modal on small screens */
+    .modal-content.wide {
+        width: 95vw;
+        max-width: 95vw;
+        margin: 5% auto;
+        padding: 1rem;
+    }
+    /* New rowed layout: ensure mid row fits on one line */
+    .modifier-card .mod-row--mid {
+        gap: 0.5rem;
+    }
+    .modifier-card .mod-row--mid .mod-select {
+        flex: 1 1 auto;
+        min-width: 120px;
+    }
+    .modifier-card .mod-row--mid .magnitude-wrap input[type="text"] {
+        width: 80px;
+        min-width: 70px;
     }
 }
 
@@ -1355,6 +1385,8 @@ body {
     /* On mobile, hide the icon group and show a burger instead */
     .toolbar-icons { display: none; }
     .toolbar-burger { display: inline-flex !important; }
+    /* Move top nav into burger menu: hide horizontal nav on mobile */
+    .toolbar-nav { display: none; }
     .element {
         font-size: calc(var(--cell-px) * 0.34);
     }
@@ -1558,6 +1590,20 @@ body {
     border-color: #555;
 }
 
+/* Mobile-only items inside the toolbar menu */
+/* Hide by default (desktop/tablet). Use higher specificity to beat .toolbar-menu .menu-item */
+.toolbar-menu .menu-item--mobile-only,
+.menu-item.menu-item--mobile-only,
+.menu-item--mobile-only { display: none; }
+@media (max-width: 768px) {
+    /* Show only on small screens */
+    .toolbar-menu .menu-item--mobile-only,
+    .menu-item.menu-item--mobile-only,
+    .menu-item--mobile-only { display: flex; }
+    /* For divider lines, use block */
+    .toolbar-menu hr.menu-item--mobile-only { display: block; }
+}
+
 /* Collapsed: handled via height on mobile/portrait; keep width on desktop for alignment */
 
 /* Desktop and tablet landscape: collapse sideways to a rail */
@@ -1590,3 +1636,11 @@ body {
 .icon-button:disabled { opacity: 0.5; cursor: not-allowed; }
 .icon-button--small { padding: 2px; }
 .icon-button--large { padding: 8px; }
+
+/* Responsive swap for Global Modifiers card layouts */
+.modifier-card.only-desktop { display: flex !important; }
+.modifier-card.only-mobile { display: none !important; }
+@media (max-width: 768px) {
+    .modifier-card.only-desktop { display: none !important; }
+    .modifier-card.only-mobile { display: flex !important; }
+}

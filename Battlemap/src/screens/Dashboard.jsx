@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Button, Paper, TextField, Typography, Alert, IconButton, InputAdornment, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { Box, Button, Paper, TextField, Typography, Alert, IconButton, InputAdornment, Dialog, DialogTitle, DialogContent, DialogActions, Divider } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCopy, faTrashCan } from '@fortawesome/free-regular-svg-icons';
 import { faCirclePlus } from '@fortawesome/free-solid-svg-icons';
@@ -8,6 +8,7 @@ import { supabase } from '../supabaseClient';
 import { useAuth } from '../auth/AuthContext.jsx';
 import { hostGame, joinGameByCode, listCampaignsByHost } from '../Utils/gameService.js';
 import Toolbar from '../components/Toolbar.jsx';
+import { deleteUserAccountData } from '../Utils/userService.js';
 import { useGameSession } from '../Utils/GameSessionContext.jsx';
 // Sidebar removed on Home page
 // Dialog imports consolidated above
@@ -23,6 +24,10 @@ export default function Dashboard() {
   const [email, setEmail] = useState(user?.email || '');
   const [password, setPassword] = useState('');
   const [showSettings, setShowSettings] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [confirmDeleteText, setConfirmDeleteText] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const [selectedCampaign, setSelectedCampaign] = useState(null);
   const [editName, setEditName] = useState('');
   // Toolbar menu modals
@@ -100,6 +105,23 @@ export default function Dashboard() {
     await supabase.auth.signOut();
     clearSession();
     navigate('/login');
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!user?.id) return;
+    setDeleteError('');
+    setDeleting(true);
+    try {
+      await deleteUserAccountData(user.id);
+      // Note: deleting the auth user requires a server-side function; we sign out client-side
+      await supabase.auth.signOut();
+      clearSession();
+      navigate('/login');
+    } catch (e) {
+      setDeleteError(e.message || 'Failed to delete account');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -191,22 +213,39 @@ export default function Dashboard() {
                   alignItems: 'center',
                   gap: 1,
                   '&:hover': { boxShadow: 8 },
+                  height: { xs: 120, sm: 'auto' },
+                  overflow: 'hidden',
                 }}
               >
-                <Box sx={{ minWidth: 0, flex: 1 }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#fff' }}>
+                <Box sx={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <Typography
+                    variant="subtitle1"
+                    sx={{ fontWeight: 700, color: '#fff' }}
+                    noWrap
+                    title={g.name || 'Untitled Campaign'}
+                  >
                     {g.name || 'Untitled Campaign'}
                   </Typography>
                   {(g.description || '').trim() && (
-                    <Typography variant="body2" sx={{ color: '#fff' }}>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: '#fff',
+                        display: '-webkit-box',
+                        WebkitBoxOrient: 'vertical',
+                        WebkitLineClamp: { xs: 2, sm: 3 },
+                        overflow: 'hidden',
+                      }}
+                      title={g.description}
+                    >
                       {g.description}
                     </Typography>
                   )}
-                  <Typography variant="caption" sx={{ color: '#ccc' }}>
+                  <Typography variant="caption" sx={{ color: '#ccc' }} noWrap title={`Code: ${g.code}`}>
                     Code: {g.code}
                   </Typography>
                 </Box>
-                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+                <Box sx={{ display: { xs: 'none', sm: 'inline-flex' }, alignItems: 'center', gap: 0.75 }}>
                   <Button size="small" variant="contained" onClick={(e) => { e.stopPropagation(); setSession({ id: g.id, code: g.code, name: g.name || null, role: 'host', host_id: g.host_id || user.id }); navigate(`/battlemap/${g.code}`); }}>Start campaign</Button>
                   <IconButton title="Copy code" onClick={(e) => { e.stopPropagation(); copyAnyCode(g.code); }}>
                     <FontAwesomeIcon icon={faCopy} style={{ color: '#fff' }} />
@@ -221,13 +260,50 @@ export default function Dashboard() {
         )}
       </Box>
       {/* Campaign details modal */}
-      <Dialog open={!!selectedCampaign} onClose={() => setSelectedCampaign(null)} fullWidth maxWidth="xs">
+      <Dialog
+        open={!!selectedCampaign}
+        onClose={() => setSelectedCampaign(null)}
+        fullWidth
+        maxWidth="xs"
+        PaperProps={{ sx: { bgcolor: '#2f2f2f', color: '#fff' } }}
+      >
         <DialogTitle>Campaign</DialogTitle>
         <DialogContent>
           {selectedCampaign && (
             <>
-              <TextField label="Campaign name" value={editName} onChange={(e) => setEditName(e.target.value)} fullWidth sx={{ mt: 1 }} />
-              <TextField label="Description (optional)" value={selectedCampaign.description || ''} onChange={(e) => setSelectedCampaign(prev => ({ ...prev, description: e.target.value }))} fullWidth multiline minRows={2} sx={{ mt: 1.25, mb: 2 }} />
+              <TextField
+                label="Campaign name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                fullWidth
+                sx={{
+                  mt: 1,
+                  '& .MuiInputBase-input': { color: '#fff' },
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#fff' },
+                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#fff' },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#fff' },
+                  '& .MuiInputLabel-root': { color: '#fff' },
+                  '& .MuiInputLabel-root.Mui-focused': { color: '#fff' },
+                }}
+              />
+              <TextField
+                label="Description (optional)"
+                value={selectedCampaign.description || ''}
+                onChange={(e) => setSelectedCampaign(prev => ({ ...prev, description: e.target.value }))}
+                fullWidth
+                multiline
+                minRows={2}
+                sx={{
+                  mt: 1.25,
+                  mb: 2,
+                  '& .MuiInputBase-input': { color: '#fff' },
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#fff' },
+                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#fff' },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#fff' },
+                  '& .MuiInputLabel-root': { color: '#fff' },
+                  '& .MuiInputLabel-root.Mui-focused': { color: '#fff' },
+                }}
+              />
               {selectedCampaign.id && (
                 <TextField
                   label="Invite Code"
@@ -297,10 +373,39 @@ export default function Dashboard() {
             <TextField label="New password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} fullWidth />
             <Button onClick={updatePassword}>Update Password</Button>
             <Button variant="outlined" onClick={() => navigate('/reset-password')}>Reset Password via Email</Button>
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#d32f2f' }}>Danger zone</Typography>
+            {deleteError && <Alert severity="error">{deleteError}</Alert>}
+            <Typography variant="body2" color="text.secondary">
+              Deleting your account will remove your characters, library maps, participation in games, and any campaigns you host. This cannot be undone.
+            </Typography>
+            <Box>
+              <Button color="error" variant="contained" onClick={() => { setConfirmDeleteText(''); setConfirmDeleteOpen(true); }}>
+                Delete Account
+              </Button>
+            </Box>
           </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowSettings(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+      {/* Confirm Delete Account */}
+      <Dialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Delete Account</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mb: 2 }}>
+            This action is permanent. Type DELETE to confirm.
+          </Typography>
+          <TextField autoFocus fullWidth label="Type DELETE to confirm" value={confirmDeleteText} onChange={(e) => setConfirmDeleteText(e.target.value)} />
+          {deleting && <Typography sx={{ mt: 1 }} variant="body2">Deleting your data…</Typography>}
+          {deleteError && <Alert severity="error" sx={{ mt: 1 }}>{deleteError}</Alert>}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDeleteOpen(false)} disabled={deleting}>Cancel</Button>
+          <Button color="error" variant="contained" disabled={confirmDeleteText !== 'DELETE' || deleting} onClick={handleDeleteAccount}>
+            Delete
+          </Button>
         </DialogActions>
       </Dialog>
       {/* Toolbar: Host Game dialog */}

@@ -73,7 +73,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
   const [canWriteLive, setCanWriteLive] = useState(false);
   const { game: sessionGame, updateSession } = useGameSession();
   const initialChannel = (!sessionGame
-    ? 'draft'
+    ? 'live' // default to live until role is known to avoid draft reads for players
     : ((sessionGame.role === 'host' || sessionGame.host_id === user?.id) ? 'draft' : 'live'));
   const [channel, setChannel] = useState(initialChannel); // 'live' or 'draft'
   const channelInitializedRef = useRef(false);
@@ -96,7 +96,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
   }, [state.elements, state.grid]);
 
   // Persist latest state when tab hides/unmounts
-  usePersistOnHide(gameId, user, channel, latestStateRef);
+  usePersistOnHide(gameId, user, channel, latestStateRef, isHost, canWriteLive);
 
   // Load a library map into the local editor when requested
   useEffect(() => {
@@ -206,7 +206,8 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
     let active = true;
     (async () => {
       if (!gameId) return;
-      const row = await getMapState(gameId, channel);
+      let row = null;
+      try { row = await getMapState(gameId, channel); } catch (e) { console.warn('getMapState failed:', e); }
       if (!active || !row?.state) return;
       // Replace elements/grid from stored state if present
       if (row.state.elements || row.state.grid) {
@@ -237,8 +238,9 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
       try {
         if (!gameId || !user) return;
         // Only host writes draft; players may write live only after confirmed as participant
-        if (!isHost && channel !== 'live') return;
-        if (!isHost && channel === 'live' && !canWriteLive) return;
+        if (!isHost && channel !== 'live') return; // players never write draft
+        if (!isHost && channel === 'live' && !canWriteLive) return; // wait until participant check
+        if (isHost === false && channel === 'draft') return; // redundant safety
         const saveState = { elements: state.elements, grid: state.grid };
         await upsertMapState(gameId, channel, saveState, user.id);
       } catch (e) {
@@ -655,12 +657,15 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
 
 // Persist latest map state on unmount and when tab is hidden
 // Note: best-effort; background tab throttling may delay network
-function usePersistOnHide(gameId, user, channel, latestStateRef) {
+function usePersistOnHide(gameId, user, channel, latestStateRef, isHost, canWriteLive) {
   useEffect(() => {
     if (!gameId || !user) return;
     const save = () => {
       try {
         const payload = latestStateRef.current || {};
+        // Guard writes according to role/channel to avoid RLS 403s
+        if (!isHost && channel !== 'live') return; // players never write draft
+        if (!isHost && channel === 'live' && !canWriteLive) return; // wait until participant row exists
         // Fire and forget; we don't block navigation
         upsertMapState(gameId, channel, payload, user.id).catch(() => {});
       } catch {}

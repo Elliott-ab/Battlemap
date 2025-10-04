@@ -164,6 +164,20 @@ const Toolbar = ({
         <>
           <div className="toolbar-menu-backdrop" onClick={() => setMenuOpen(false)} />
           <div className="toolbar-menu" role="menu" aria-label="Toolbar menu">
+            {/* Mobile-only primary navigation at the top of the menu */}
+            <a href="#/home" className="menu-item menu-item--mobile-only" onClick={() => setMenuOpen(false)} role="menuitem">
+              <span>Home</span>
+            </a>
+            <a href="#/library" className="menu-item menu-item--mobile-only" onClick={() => setMenuOpen(false)} role="menuitem">
+              <span>Library</span>
+            </a>
+            <a href={game?.code ? `#/battlemap/${game.code}` : '#/battlemap/LOCAL'} className="menu-item menu-item--mobile-only" onClick={() => setMenuOpen(false)} role="menuitem">
+              <span>Battlemap</span>
+            </a>
+            <a href="#/characters" className="menu-item menu-item--mobile-only" onClick={() => setMenuOpen(false)} role="menuitem">
+              <span>Characters</span>
+            </a>
+            <hr className="toolbar-divider-horiz menu-item--mobile-only" />
             {variant === 'battlemap' && isHost && (
               <button className="menu-item" onClick={() => handleMaybe(showGridModal)} disabled={isDrawingCover} role="menuitem">
                 <FontAwesomeIcon icon={faGear} />

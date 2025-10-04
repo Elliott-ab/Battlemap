@@ -95,111 +95,234 @@ const GlobalModifiersModal = ({ isOpen, state, setState, onClose, isHost = false
         <h3>Global Modifiers{!isHost ? ' (view only)' : ''}</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {mods.map((m) => (
-            <div
-              key={m.id}
-              className="modifier-card"
-              style={{
-                display: 'flex', alignItems: 'center', gap: '0.5rem',
-                border: '1px solid #555', borderRadius: 6,
-                padding: '0.5rem 0.7rem', backgroundColor: '#383838',
-                minHeight: 52
-              }}
-            >
-              {/* Remove card button */}
-              <button
-                type="button"
-                onClick={() => removeMod(m.id)}
-                title="Remove modifier"
-                aria-label="Remove modifier"
+            <React.Fragment key={m.id}>
+              {/* Desktop layout (original single-row) */}
+              <div
+                className="modifier-card only-desktop"
                 style={{
-                  background: 'transparent',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: isHost ? '#f44336' : '#777',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: 28,
-                  height: 28,
-                  padding: 0,
+                  display: 'flex', alignItems: 'center', gap: '0.5rem',
+                  border: '1px solid #555', borderRadius: 6,
+                  padding: '0.5rem 0.7rem', backgroundColor: '#383838',
+                  minHeight: 52,
                 }}
-                disabled={!isHost}
               >
-                <FontAwesomeIcon icon={faTrashCan} style={{ color: isHost ? '#f44336' : '#777', fontSize: 16 }} />
-              </button>
-              {/* Name fills available left space */}
-              <input
-                type="text"
-                placeholder="Name"
-                value={m.name}
-                onChange={(e) => updateMod(m.id, { name: e.target.value })}
-                style={{ flex: 1, minWidth: 140 }}
-                disabled={!isHost}
-              />
-              {/* Right controls grouped */}
-              <div className="mod-controls" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                {/* Movement/HP/Damage dropdown */}
-                <select
-                  value={m.category}
-                  onChange={(e) => updateMod(m.id, { category: e.target.value })}
-                  style={{ flex: 0, width: 150, minWidth: 130 }}
+                {/* Remove card button (left) */}
+                <button
+                  type="button"
+                  onClick={() => removeMod(m.id)}
+                  title="Remove modifier"
+                  aria-label="Remove modifier"
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: isHost ? '#f44336' : '#777',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 28,
+                    height: 28,
+                    padding: 0,
+                  }}
                   disabled={!isHost}
                 >
-                  {EFFECT_OPTIONS.map(opt => (
-                    <option key={opt.id} value={opt.id}>{opt.label}</option>
-                  ))}
-                </select>
-                {/* Effect magnitude with in-input left affix for mode */}
-                <div style={{ position: 'relative', flex: 0 }}>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder={'0'}
-                    title="Enter up to 2 digits"
-                    value={m.magnitude}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      const digits = /^\d{0,2}$/; // 0-99
-                      if (v === '' || digits.test(v)) updateMod(m.id, { magnitude: v });
-                    }}
-                    style={{ width: 70, minWidth: 60, textAlign: 'right', paddingLeft: 32 }}
-                    disabled={!isHost}
-                  />
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); if (!isHost) return; setOpenMenuId(prev => prev === m.id ? null : m.id); }}
-                    title="Change mode"
-                    className="magnitude-affix-btn magnitude-affix-left"
+                  <FontAwesomeIcon icon={faTrashCan} style={{ color: isHost ? '#f44336' : '#777', fontSize: 16 }} />
+                </button>
+                {/* Name fills available left space */}
+                <input
+                  type="text"
+                  placeholder="Name"
+                  value={m.name}
+                  onChange={(e) => updateMod(m.id, { name: e.target.value })}
+                  style={{ flex: 1, minWidth: 140 }}
+                  disabled={!isHost}
+                />
+                {/* Right controls grouped */}
+                <div className="mod-controls" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  {/* Category dropdown */}
+                  <select
+                    value={m.category}
+                    onChange={(e) => updateMod(m.id, { category: e.target.value })}
+                    style={{ flex: 0, width: 150, minWidth: 130 }}
                     disabled={!isHost}
                   >
-                    {m.magnitudeMode === 'percent' ? '%' : (m.magnitudeMode === 'minus' ? '-' : '+')}
-                  </button>
-                  {openMenuId === m.id && (
-                    <div
-                      className="magnitude-menu"
-                      style={{ position: 'absolute', left: 0, top: '100%', transform: 'translateY(6px)', zIndex: 10 }}
-                      onClick={(e) => e.stopPropagation()}
+                    {EFFECT_OPTIONS.map(opt => (
+                      <option key={opt.id} value={opt.id}>{opt.label}</option>
+                    ))}
+                  </select>
+                  {/* Magnitude */}
+                  <div style={{ position: 'relative', flex: 0 }}>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder={'0'}
+                      title="Enter up to 2 digits"
+                      value={m.magnitude}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        const digits = /^\d{0,2}$/; // 0-99
+                        if (v === '' || digits.test(v)) updateMod(m.id, { magnitude: v });
+                      }}
+                      style={{ width: 70, minWidth: 60, textAlign: 'right', paddingLeft: 32 }}
+                      disabled={!isHost}
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); if (!isHost) return; setOpenMenuId(prev => prev === m.id ? null : m.id); }}
+                      title="Change mode"
+                      className="magnitude-affix-btn magnitude-affix-left"
+                      disabled={!isHost}
                     >
-                      {['plus','minus','percent'].map(mode => (
-                        <button
-                          key={mode}
-                          type="button"
-                          className={`magnitude-menu-item ${m.magnitudeMode === mode ? 'active' : ''}`}
-                          onClick={() => { if (!isHost) return; updateMod(m.id, { magnitudeMode: mode }); setOpenMenuId(null); }}
-                          disabled={!isHost}
-                        >
-                          {mode === 'percent' ? '%' : (mode === 'minus' ? '-' : '+')}
-                        </button>
-                      ))}
+                      {m.magnitudeMode === 'percent' ? '%' : (m.magnitudeMode === 'minus' ? '-' : '+')}
+                    </button>
+                    {openMenuId === m.id && (
+                      <div
+                        className="magnitude-menu"
+                        style={{ position: 'absolute', left: 0, top: '100%', transform: 'translateY(6px)', zIndex: 10 }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {['plus','minus','percent'].map(mode => (
+                          <button
+                            key={mode}
+                            type="button"
+                            className={`magnitude-menu-item ${m.magnitudeMode === mode ? 'active' : ''}`}
+                            onClick={() => { if (!isHost) return; updateMod(m.id, { magnitudeMode: mode }); setOpenMenuId(null); }}
+                            disabled={!isHost}
+                          >
+                            {mode === 'percent' ? '%' : (mode === 'minus' ? '-' : '+')}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="vert-divider" />
+                  {/* Apply to */}
+                  <div className="apply-to-group" title="Apply to">
+                    <div className="apply-to-label">Apply to:</div>
+                    <div className="apply-to-buttons">
+                      <button
+                        type="button"
+                        className={`circle-toggle ${m.applyToPlayers ? 'active' : ''}`}
+                        onClick={() => updateMod(m.id, { applyToPlayers: !m.applyToPlayers })}
+                        aria-label="Apply to Players"
+                        title="Players"
+                        disabled={!isHost}
+                      >
+                        P
+                      </button>
+                      <button
+                        type="button"
+                        className={`circle-toggle ${m.applyToEnemies ? 'active' : ''}`}
+                        onClick={() => updateMod(m.id, { applyToEnemies: !m.applyToEnemies })}
+                        aria-label="Apply to Enemies"
+                        title="Enemies"
+                        disabled={!isHost}
+                      >
+                        E
+                      </button>
                     </div>
-                  )}
+                  </div>
+                  <div className="vert-divider" />
+                  <label className="switch" title={m.enabled ? 'Enabled' : 'Disabled'}>
+                    <input
+                      type="checkbox"
+                      checked={!!m.enabled}
+                      onChange={(e) => updateMod(m.id, { enabled: e.target.checked })}
+                      disabled={!isHost}
+                    />
+                    <span className="slider" />
+                  </label>
                 </div>
-                {/* Divider before players/enemies */}
-                <div className="vert-divider" />
-                {/* Apply to group: small label to the left of P/E buttons */}
-                <div className="apply-to-group" title="Apply to">
-                  <div className="apply-to-label">Apply to:</div>
-                  <div className="apply-to-buttons">
+              </div>
+
+              {/* Mobile layout (stacked rows) */}
+              <div
+                className="modifier-card only-mobile"
+                style={{
+                  display: 'flex', flexDirection: 'column', gap: '0.5rem',
+                  border: '1px solid #555', borderRadius: 6,
+                  padding: '0.5rem 0.7rem', backgroundColor: '#383838',
+                }}
+              >
+                {/* Top row: Name + Enabled switch */}
+                <div className="mod-row mod-row--top" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <input
+                    type="text"
+                    className="mod-name"
+                    placeholder="Name"
+                    value={m.name}
+                    onChange={(e) => updateMod(m.id, { name: e.target.value })}
+                    style={{ flex: 1, minWidth: 140 }}
+                    disabled={!isHost}
+                  />
+                  <label className="switch" title={m.enabled ? 'Enabled' : 'Disabled'}>
+                    <input
+                      type="checkbox"
+                      checked={!!m.enabled}
+                      onChange={(e) => updateMod(m.id, { enabled: e.target.checked })}
+                      disabled={!isHost}
+                    />
+                    <span className="slider" />
+                  </label>
+                </div>
+                {/* Middle row: Select + Magnitude + Apply icons */}
+                <div className="mod-row mod-row--mid" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <select
+                    className="mod-select"
+                    value={m.category}
+                    onChange={(e) => updateMod(m.id, { category: e.target.value })}
+                    style={{ flex: 1, minWidth: 130 }}
+                    disabled={!isHost}
+                  >
+                    {EFFECT_OPTIONS.map(opt => (
+                      <option key={opt.id} value={opt.id}>{opt.label}</option>
+                    ))}
+                  </select>
+                  <div className="magnitude-wrap" style={{ position: 'relative' }}>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder={'0'}
+                      title="Enter up to 2 digits"
+                      value={m.magnitude}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        const digits = /^\d{0,2}$/; // 0-99
+                        if (v === '' || digits.test(v)) updateMod(m.id, { magnitude: v });
+                      }}
+                      style={{ width: 80, minWidth: 70, textAlign: 'right', paddingLeft: 32 }}
+                      disabled={!isHost}
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); if (!isHost) return; setOpenMenuId(prev => prev === m.id ? null : m.id); }}
+                      title="Change mode"
+                      className="magnitude-affix-btn magnitude-affix-left"
+                      disabled={!isHost}
+                    >
+                      {m.magnitudeMode === 'percent' ? '%' : (m.magnitudeMode === 'minus' ? '-' : '+')}
+                    </button>
+                    {openMenuId === m.id && (
+                      <div
+                        className="magnitude-menu"
+                        style={{ position: 'absolute', left: 0, top: '100%', transform: 'translateY(6px)', zIndex: 10 }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {['plus','minus','percent'].map(mode => (
+                          <button
+                            key={mode}
+                            type="button"
+                            className={`magnitude-menu-item ${m.magnitudeMode === mode ? 'active' : ''}`}
+                            onClick={() => { if (!isHost) return; updateMod(m.id, { magnitudeMode: mode }); setOpenMenuId(null); }}
+                            disabled={!isHost}
+                          >
+                            {mode === 'percent' ? '%' : (mode === 'minus' ? '-' : '+')}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="apply-icons" title="Apply to" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                     <button
                       type="button"
                       className={`circle-toggle ${m.applyToPlayers ? 'active' : ''}`}
@@ -222,19 +345,32 @@ const GlobalModifiersModal = ({ isOpen, state, setState, onClose, isHost = false
                     </button>
                   </div>
                 </div>
-                {/* Divider before slider */}
-                <div className="vert-divider" />
-                <label className="switch" title={m.enabled ? 'Enabled' : 'Disabled'}>
-                  <input
-                    type="checkbox"
-                    checked={!!m.enabled}
-                    onChange={(e) => updateMod(m.id, { enabled: e.target.checked })}
+                {/* Bottom row: Delete centered */}
+                <div className="mod-row mod-row--bottom" style={{ display: 'flex', justifyContent: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={() => removeMod(m.id)}
+                    title="Remove modifier"
+                    aria-label="Remove modifier"
+                    style={{
+                      background: 'transparent',
+                      border: '1px solid #555',
+                      borderRadius: 6,
+                      padding: '6px 10px',
+                      color: isHost ? '#f44336' : '#777',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      cursor: isHost ? 'pointer' : 'default',
+                    }}
                     disabled={!isHost}
-                  />
-                  <span className="slider" />
-                </label>
+                  >
+                    <FontAwesomeIcon icon={faTrashCan} style={{ color: isHost ? '#f44336' : '#777', fontSize: 16 }} />
+                    <span>Delete</span>
+                  </button>
+                </div>
               </div>
-            </div>
+            </React.Fragment>
           ))}
           {isHost && (
             <button className="btn btn-outline btn-sm" onClick={addMod}>+ add modifier</button>

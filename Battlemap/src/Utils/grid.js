@@ -144,6 +144,11 @@ export const useGrid = (state) => {
       }
     }
     state.elements.forEach((el) => {
+      // Guard: skip elements with no valid position (can happen during join or partial loads)
+      if (!el || !el.position || typeof el.position.x !== 'number' || typeof el.position.y !== 'number') {
+        console.warn('Skipping element without valid position', el);
+        return;
+      }
       const elDiv = document.createElement('div');
       elDiv.classList.add('element', el.type);
       // Grey out players and enemies during drawing mode
@@ -196,7 +201,7 @@ export const useGrid = (state) => {
       }
       elDiv.dataset.id = el.id;
       // Map element anchor based on rotation and size (square span)
-      const size = Math.max(1, el.size || 1);
+  const size = Math.max(1, el.size || 1);
       let ax = el.position.x;
       let ay = el.position.y;
       switch (rot) {
@@ -260,7 +265,7 @@ export const useGrid = (state) => {
     // Add movement highlights if an element is selected
     if (state.highlightedElementId) {
       const element = state.elements.find(e => e.id === state.highlightedElementId);
-      if (element && (element.type === 'player' || element.type === 'enemy') && element.movement) {
+      if (element && element.position && typeof element.position.x === 'number' && typeof element.position.y === 'number' && (element.type === 'player' || element.type === 'enemy') && element.movement) {
         // Apply active global movement modifiers to compute effective movement in feet
         const applyMovementModifiers = (baseFeet, el, mods) => {
           let value = baseFeet;
