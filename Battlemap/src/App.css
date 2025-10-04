@@ -1571,6 +1571,10 @@ body {
     gap: 4px;
     z-index: 1001;
     min-width: 220px;
+    /* Make the menu scroll if it grows beyond the viewport height */
+    max-height: calc(100vh - 72px - 16px); /* viewport minus toolbar and margins */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch; /* smooth scrolling on mobile */
 }
 .toolbar-menu .menu-item {
     display: flex;
