@@ -131,7 +131,7 @@ const Toolbar = ({
                 <>
                   <div className="toolbar-divider-vert" aria-hidden="true" />
                   <button
-                    className="turn-box turn-box--small"
+                    className={`turn-box turn-box--small ${currentChannel === 'draft' ? 'turn-box--status-draft' : 'turn-box--status-live'}`}
                     onClick={isDrawingCover ? undefined : onPushToPlayers}
                     disabled={isDrawingCover}
                     title="Push current draft to all players"
@@ -141,7 +141,7 @@ const Toolbar = ({
                   </button>
                   <div className="toolbar-divider-vert" aria-hidden="true" />
                   <button
-                    className="turn-box turn-box--small"
+                    className={`turn-box turn-box--small ${currentChannel === 'draft' ? 'turn-box--status-draft' : 'turn-box--status-live'}`}
                     onClick={isDrawingCover ? undefined : onToggleChannel}
                     disabled={isDrawingCover}
                     title="Toggle edit/view channel"

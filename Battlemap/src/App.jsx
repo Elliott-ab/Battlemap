@@ -84,6 +84,10 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
   useEffect(() => { isHostRef.current = isHost; }, [isHost]);
   // Realtime broadcast channel for live refresh signals
   const liveSignalRef = useRef(null);
+  // Track identity and last live update time to avoid spring-back
+  const userIdRef = useRef(user?.id || null);
+  useEffect(() => { userIdRef.current = user?.id || null; }, [user?.id]);
+  const lastLiveUpdatedAtRef = useRef(0);
   // Character sheet pane removed; selection applies to token only
 
   const { updateGridInfo } = useGrid(state);
@@ -232,7 +236,12 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
         if (current !== 'live') return; // only refresh when viewing live
         try {
           const row = await getMapState(gameId, 'live');
-          if (row?.state) setState(prev => ({ ...prev, ...row.state }));
+          const ts = row?.updated_at ? Date.parse(row.updated_at) : Date.now();
+          if (Number.isFinite(ts) && ts < lastLiveUpdatedAtRef.current) return;
+          if (row?.state) {
+            setState(prev => ({ ...prev, ...row.state }));
+            if (Number.isFinite(ts)) lastLiveUpdatedAtRef.current = ts;
+          }
         } catch (e) {
           console.warn('Live refresh fetch failed:', e);
         }
@@ -342,16 +351,22 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
         const row = payload.new;
         if (row.channel !== 'live') return;
         if (!row.state) return;
+        // Prevent applying our own writes and ignore stale updates (helps avoid snap-back after click-to-move)
+        if (row.updated_by && userIdRef.current && row.updated_by === userIdRef.current) return;
+        const ts = row.updated_at ? Date.parse(row.updated_at) : Date.now();
+        if (Number.isFinite(ts) && ts < lastLiveUpdatedAtRef.current) return;
         const currentChannel = channelRef.current;
         const hostNow = isHostRef.current;
         if (currentChannel === 'live') {
           setState((prev) => ({ ...prev, ...row.state }));
+          if (Number.isFinite(ts)) lastLiveUpdatedAtRef.current = ts;
         } else if (currentChannel === 'draft' && hostNow) {
           const liveEls = row.state?.elements || [];
           setState((prev) => ({
             ...prev,
             elements: mergeActorsIntoElements(prev.elements || [], liveEls),
           }));
+          if (Number.isFinite(ts)) lastLiveUpdatedAtRef.current = ts;
         }
       })
       .subscribe();
@@ -369,6 +384,9 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
         if (isHost === false && channel === 'draft') return; // redundant safety
         const saveState = { elements: state.elements, grid: state.grid };
         await upsertMapState(gameId, channel, saveState, user.id);
+        if (channel === 'live') {
+          lastLiveUpdatedAtRef.current = Date.now();
+        }
               // Send a lightweight broadcast signal to refresh live viewers immediately
               if (channel === 'live' && liveSignalRef.current) {
                 try { await liveSignalRef.current.send({ type: 'broadcast', event: 'live-updated', payload: { by: user.id, t: Date.now() } }); } catch {}
