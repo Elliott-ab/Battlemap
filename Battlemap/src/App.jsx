@@ -16,6 +16,7 @@ import { useElements } from './Utils/elements.js';
 import { useModals } from './Utils/modals.js';
 import { useUndo } from './Utils/undo.js';
 import { supabase } from './supabaseClient';
+import { getCharacter } from './Utils/characterService.js';
 import { getMapState, upsertMapState, pushDraftToLive, listMapDrafts, upsertMapDraft, getMapDraft, listLibraryMaps, upsertLibraryMap, getLibraryMap } from './Utils/mapService.js';
 import SaveDraftModal from './components/Modals/SaveDraftModal.jsx';
 import LoadDraftModal from './components/Modals/LoadDraftModal.jsx';
@@ -69,6 +70,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
   const [undoStack, setUndoStack] = useState([]);
   const battleMapRef = useRef(null);
   const [isHost, setIsHost] = useState(false);
+  const [canWriteLive, setCanWriteLive] = useState(false);
   const { game: sessionGame, updateSession } = useGameSession();
   const initialChannel = (!sessionGame
     ? 'draft'
@@ -126,12 +128,23 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
     const handler = (e) => {
       const row = e.detail;
       if (!row?.user_id) return;
-      const exists = (state.elements || []).some(el => el.type === 'player' && el.participantUserId === row.user_id);
-      if (!exists) addElement('player', { participantUserId: row.user_id });
+      // Do not auto-create any player tokens on join. Each user creates their own
+      // token after selecting a character (applyCharacterToToken handles creation).
+      // If this event is for the current user and they haven't selected a character yet, prompt them.
+      if (row.user_id === user?.id && !isHost) {
+        setCanWriteLive(true); // confirmed participant; allow live writes
+        const myToken = (state.elements || []).find(el => el.type === 'player' && el.participantUserId === user.id);
+        const hasCharacter = !!myToken?.characterId;
+        const guard = sessionStorage.getItem('bm-character-prompt-shown');
+        if (!hasCharacter && !guard) {
+          setModalState(prev => ({ ...prev, selectCharacter: true }));
+          try { sessionStorage.setItem('bm-character-prompt-shown', '1'); } catch {}
+        }
+      }
     };
     window.addEventListener('participant-joined', handler);
     return () => window.removeEventListener('participant-joined', handler);
-  }, [state.elements, addElement]);
+  }, [state.elements, user?.id, isHost]);
 
   // Determine host status based on participants.role, with fallback to session (host_id/role)
   useEffect(() => {
@@ -154,25 +167,39 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
         .eq('user_id', user.id)
         .single();
       if (!active) return;
-      const hostFromParticipants = !error && data?.role === 'host';
+  const hostFromParticipants = !error && data?.role === 'host';
       const hostFromSession = !!sessionGame && sessionGame.id === gameId && (sessionGame.role === 'host' || sessionGame.host_id === user.id);
       const host = hostFromParticipants || hostFromSession;
       setIsHost(host);
+  // If not host but we see a participants row, allow live writes
+  if (!host && !error && data?.role) setCanWriteLive(true);
       // Initialize channel once per game based on role; don't override manual toggles
       if (!channelInitializedRef.current) {
         setChannel(host ? 'draft' : 'live');
         channelInitializedRef.current = true;
       }
-      // If a player (not host) just joined (session flag), open selection ONCE
-      if (!host && sessionGame?.promptCharacter) {
-        setModalState(prev => ({ ...prev, selectCharacter: true }));
+      // If a player (not host) and session requests a prompt OR no character on token, prompt selection once
+      if (!host) {
+        const shouldPrompt = !!sessionGame?.promptCharacter;
+        const myToken = (state.elements || []).find(el => el.type === 'player' && el.participantUserId === user.id);
+        const hasCharacter = !!myToken?.characterId;
+        const guard = sessionStorage.getItem('bm-character-prompt-shown');
+        if (!guard && (shouldPrompt || !hasCharacter)) {
+          setModalState(prev => ({ ...prev, selectCharacter: true }));
+          try { sessionStorage.setItem('bm-character-prompt-shown', '1'); } catch {}
+        }
       }
     })();
     return () => { active = false; };
-  }, [gameId, user?.id, sessionGame?.id, sessionGame?.role, sessionGame?.host_id, sessionGame?.promptCharacter]);
+  }, [gameId, user?.id, sessionGame?.id, sessionGame?.role, sessionGame?.host_id, sessionGame?.promptCharacter, state.elements]);
 
   // Reset channel initialization when game changes
   useEffect(() => { channelInitializedRef.current = false; }, [gameId]);
+
+  // Allow character prompt to show for each new game joined
+  useEffect(() => {
+    try { sessionStorage.removeItem('bm-character-prompt-shown'); } catch {}
+  }, [gameId]);
 
   // Load initial map state for the current channel
   useEffect(() => {
@@ -209,6 +236,9 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
     const debounce = setTimeout(async () => {
       try {
         if (!gameId || !user) return;
+        // Only host writes draft; players may write live only after confirmed as participant
+        if (!isHost && channel !== 'live') return;
+        if (!isHost && channel === 'live' && !canWriteLive) return;
         const saveState = { elements: state.elements, grid: state.grid };
         await upsertMapState(gameId, channel, saveState, user.id);
       } catch (e) {
@@ -216,7 +246,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
       }
     }, 600);
     return () => clearTimeout(debounce);
-  }, [state.elements, state.grid, gameId, user?.id, channel]);
+  }, [state.elements, state.grid, gameId, user?.id, channel, isHost, canWriteLive]);
 
   // Sync isDrawingCover and coverBlocks into state for grid rendering
   const mergedState = { ...state, isDrawingCover, coverBlocks };
@@ -298,27 +328,76 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
   // Apply selected character to the local user's player token
   const applyCharacterToToken = (character) => {
     if (!character || !user) return;
-    // Try to find this user's token; if not present, create one
-    let token = (state.elements || []).find(el => el.type === 'player' && el.participantUserId === user.id);
-    if (!token) {
-      addElement('player', { participantUserId: user.id });
-      token = (state.elements || []).find(el => el.type === 'player' && el.participantUserId === user.id);
-    }
-    if (!token) return;
-    const updates = {
-      name: character.name || token.name,
-      maxHp: Number(character.max_hp ?? token.maxHp ?? 10),
-      currentHp: Number(character.current_hp ?? token.currentHp ?? 10),
-      movement: Number(character.speed ?? token.movement ?? 30),
-      characterId: character.id || token.characterId,
-      // Persist the character’s icon URL on the token so all clients can render it without needing DB reads
-      characterIconUrl: character.icon_url || token.characterIconUrl || null,
-    };
-    setState(prev => ({
-      ...prev,
-      elements: (prev.elements || []).map(el => el.id === token.id ? { ...el, ...updates } : el),
-    }));
+    setState(prev => {
+      // Find or create player's token within the same state transition to avoid stale reads
+      let token = (prev.elements || []).find(el => el.type === 'player' && el.participantUserId === user.id);
+      if (!token) {
+        const nextId = Math.max(0, ...((prev.elements || []).map(e => {
+          const n = typeof e.id === 'number' ? e.id : parseInt(e.id, 10);
+          return Number.isFinite(n) ? n : 0;
+        }))) + 1;
+        token = {
+          id: nextId,
+          type: 'player',
+          participantUserId: user.id,
+          name: character.name || 'Player',
+          position: { x: 0, y: 0 },
+          size: 1,
+          color: '#4CAF50',
+          maxHp: 10,
+          currentHp: 10,
+          movement: 30,
+        };
+        return {
+          ...prev,
+          elements: [...(prev.elements || []), {
+            ...token,
+            name: character.name || token.name,
+            maxHp: Number(character.max_hp ?? token.maxHp ?? 10),
+            currentHp: Number(character.current_hp ?? token.currentHp ?? 10),
+            movement: Number(character.speed ?? token.movement ?? 30),
+            characterId: character.id,
+            characterIconUrl: character.icon_url || null,
+          }],
+        };
+      }
+      const updates = {
+        name: character.name || token.name,
+        maxHp: Number(character.max_hp ?? token.maxHp ?? 10),
+        currentHp: Number(character.current_hp ?? token.currentHp ?? 10),
+        movement: Number(character.speed ?? token.movement ?? 30),
+        characterId: character.id || token.characterId,
+        characterIconUrl: character.icon_url || token.characterIconUrl || null,
+      };
+      return {
+        ...prev,
+        elements: (prev.elements || []).map(el => el.id === token.id ? { ...el, ...updates } : el),
+      };
+    });
   };
+
+  // Detect return from character sheet and refresh the player's token
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const key = 'bm-refresh-character-id';
+        const cid = sessionStorage.getItem(key);
+        const pending = sessionStorage.getItem('bm-refresh-pending') === '1';
+        if (!cid || !user || !pending) return;
+        const row = await getCharacter(cid);
+        if (!active || !row) return;
+        applyCharacterToToken(row);
+        // Notify the user that their changes were applied
+        setToast({ open: true, severity: 'success', message: 'Character saved and applied to your token.' });
+        try {
+          sessionStorage.removeItem(key);
+          sessionStorage.removeItem('bm-refresh-pending');
+        } catch {}
+      } catch (_) {}
+    })();
+    return () => { active = false; };
+  }, [user?.id]);
 
   return (
     <div className="app-container">
@@ -395,16 +474,19 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
         onClose={() => {
           setModalState(prev => ({ ...prev, selectCharacter: false }));
           if (sessionGame?.promptCharacter) updateSession({ promptCharacter: false });
+          try { sessionStorage.removeItem('bm-character-prompt-shown'); } catch {}
         }}
         onSelect={(c) => {
           applyCharacterToToken(c);
           setModalState(prev => ({ ...prev, selectCharacter: false }));
           if (sessionGame?.promptCharacter) updateSession({ promptCharacter: false });
+          try { sessionStorage.removeItem('bm-character-prompt-shown'); } catch {}
         }}
         onBuildNew={() => {
           setModalState(prev => ({ ...prev, selectCharacter: false }));
           if (sessionGame?.promptCharacter) updateSession({ promptCharacter: false });
           navigate('/characters/new');
+          try { sessionStorage.removeItem('bm-character-prompt-shown'); } catch {}
         }}
       />
       <GridModal

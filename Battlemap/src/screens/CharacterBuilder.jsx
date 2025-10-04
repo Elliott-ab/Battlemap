@@ -329,6 +329,19 @@ export default function CharacterBuilder() {
       const saved = await upsertCharacter(payload);
       setForm((f) => ({ ...f, id: saved.id }));
       if (isNew) navigate(`/characters/${saved.id}`);
+      // If this builder was opened from a battlemap double-click, return back after save
+      try {
+        const returnPath = sessionStorage.getItem('bm-return-path');
+        const refreshId = sessionStorage.getItem('bm-refresh-character-id');
+        const shouldReturn = !!returnPath && !!refreshId && String(saved.id || form.id) === String(refreshId);
+        if (shouldReturn) {
+          // Clear flags before navigating back
+          sessionStorage.removeItem('bm-return-path');
+          // Keep bm-refresh-character-id until App reads it (so it can update the token), it'll clear it there
+          navigate(returnPath);
+          return;
+        }
+      } catch (_) {}
     } catch (e) {
       setError(e.message || String(e));
     } finally {

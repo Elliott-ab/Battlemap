@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import IconButton from './common/IconButton.jsx';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSkull, faWandSparkles, faChevronRight, faAnglesLeft, faAnglesRight, faAnglesUp, faAnglesDown } from '@fortawesome/free-solid-svg-icons';
@@ -20,6 +21,7 @@ import InlineNumberEditor from './common/InlineNumberEditor.jsx';
 // Using Font Awesome icons for UI controls
 
 const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup, showEditModal, battleMapRef, isDrawingCover, toggleDrawingMode, openAddCharacterModal, openInitiativeModal, drawEnvType, setDrawEnvType, onOpenMyCharacterSheet, currentUserId, isHost = false }) => {
+  const navigate = useNavigate();
   console.log('Sidebar received battleMapRef:', battleMapRef);
 
   // Collapsible sections state
@@ -302,7 +304,28 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
                 }
                 toggleMovementHighlight(el.id, battleMapRef);
               }}
-              onDoubleClick={() => { if (isHost) showEditModal(el.id); }}
+              onDoubleClick={() => {
+                if (isHost) { showEditModal(el.id); return; }
+                // Players: double-click own player card to open character sheet
+                if (el.type === 'player' && el.participantUserId === currentUserId) {
+                  const cid = el.characterId;
+                  if (cid) {
+                    try {
+                      sessionStorage.setItem('bm-refresh-character-id', String(cid));
+                      sessionStorage.setItem('bm-refresh-pending', '1');
+                      // Persist a one-time return target so we can navigate back to the current battlemap after saving
+                      const hash = (typeof window !== 'undefined' && window.location && window.location.hash) ? window.location.hash : '';
+                      const path = hash.replace(/^#/, '');
+                      if (path.startsWith('/battlemap/')) {
+                        sessionStorage.setItem('bm-return-path', path);
+                      }
+                    } catch {}
+                    navigate(`/characters/${cid}`);
+                  } else {
+                    navigate(`/characters`);
+                  }
+                }
+              }}
               style={{
                 position: 'relative',
                 borderColor: (currentTurnId === el.id && (el.type === 'player' || el.type === 'enemy')) ? '#ffffff' : undefined,
@@ -323,7 +346,9 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
                 {/* Right-side controls (eye + skull/wand) */}
                 <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                   {el.type === 'player' && (() => {
-                    let greyFrac = computeGreyFractionForCell(state, el.position.x, el.position.y);
+                    const px = (el && el.position && typeof el.position.x === 'number') ? el.position.x : 0;
+                    const py = (el && el.position && typeof el.position.y === 'number') ? el.position.y : 0;
+                    let greyFrac = computeGreyFractionForCell(state, px, py);
                     const steps = [0, 0.25, 0.5, 0.75, 1];
                     const eps = 0.02;
                     for (const s of steps) {

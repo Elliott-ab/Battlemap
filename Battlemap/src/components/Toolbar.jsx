@@ -100,9 +100,9 @@ const Toolbar = ({
         <NavLink
           to="/characters"
           className={({ isActive }) => `toolbar-link ${isActive ? 'active' : ''}`}
-          title="Character"
+          title="Characters"
         >
-          Character
+          Characters
         </NavLink>
       </nav>
       {/* In-game indicator right after nav links; only when in an active game */}
