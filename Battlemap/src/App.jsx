@@ -82,6 +82,8 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
   useEffect(() => { channelRef.current = channel; }, [channel]);
   const isHostRef = useRef(isHost);
   useEffect(() => { isHostRef.current = isHost; }, [isHost]);
+  // Realtime broadcast channel for live refresh signals
+  const liveSignalRef = useRef(null);
   // Character sheet pane removed; selection applies to token only
 
   const { updateGridInfo } = useGrid(state);
@@ -220,6 +222,25 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
   useEffect(() => {
     try { sessionStorage.removeItem('bm-character-prompt-shown'); } catch {}
   }, [gameId]);
+  // Subscribe to a broadcast channel that signals live updates to force a small fetch
+  useEffect(() => {
+    if (!gameId) return;
+    const sig = supabase
+      .channel(`game-${gameId}-signals`)
+      .on('broadcast', { event: 'live-updated' }, async () => {
+        const current = channelRef.current;
+        if (current !== 'live') return; // only refresh when viewing live
+        try {
+          const row = await getMapState(gameId, 'live');
+          if (row?.state) setState(prev => ({ ...prev, ...row.state }));
+        } catch (e) {
+          console.warn('Live refresh fetch failed:', e);
+        }
+      })
+      .subscribe();
+    liveSignalRef.current = sig;
+    return () => { liveSignalRef.current = null; supabase.removeChannel(sig); };
+  }, [gameId]);
 
   // Merge helper: ensure all players from live are present in base elements (used when host views draft)
   const mergePlayersIntoElements = (baseElements = [], liveElements = []) => {
@@ -334,6 +355,10 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
         if (isHost === false && channel === 'draft') return; // redundant safety
         const saveState = { elements: state.elements, grid: state.grid };
         await upsertMapState(gameId, channel, saveState, user.id);
+              // Send a lightweight broadcast signal to refresh live viewers immediately
+              if (channel === 'live' && liveSignalRef.current) {
+                try { await liveSignalRef.current.send({ type: 'broadcast', event: 'live-updated', payload: { by: user.id, t: Date.now() } }); } catch {}
+              }
       } catch (e) {
         // swallow
       }
@@ -516,6 +541,10 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
           try {
             await pushDraftToLive(gameId, user.id);
             setToast({ open: true, severity: 'success', message: 'Updates sent to players.' });
+            // Notify all clients to refresh their live view ASAP
+            if (liveSignalRef.current) {
+              try { await liveSignalRef.current.send({ type: 'broadcast', event: 'live-updated', payload: { by: user.id, t: Date.now() } }); } catch {}
+            }
           } catch (e) {
             console.error('Push to players failed:', e);
             setToast({ open: true, severity: 'error', message: 'Failed to push updates to players.' });
