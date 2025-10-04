@@ -8,4 +8,16 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('Supabase env vars are missing. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
 }
 
-export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
+// Use sessionStorage so auth persists across reloads in the same tab,
+// but is cleared when the browser/tab is closed (fresh sign-in next time).
+// Guard for non-browser environments.
+const authOptions = {
+  persistSession: true,
+  autoRefreshToken: true,
+  detectSessionInUrl: true,
+  storage: (typeof window !== 'undefined' && window.sessionStorage) ? window.sessionStorage : undefined,
+};
+
+export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
+  auth: authOptions,
+});

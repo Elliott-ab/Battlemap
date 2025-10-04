@@ -89,6 +89,21 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
     updateGridInfo();
   }, [state, updateGridInfo]);
 
+  // One-time cleanup: if a previous build stored Supabase auth in localStorage,
+  // remove it so users don't remain logged in after switching to sessionStorage.
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        // Supabase default key pattern
+        const keys = Object.keys(window.localStorage).filter(k => k.startsWith('sb-'));
+        for (const k of keys) {
+          // remove only the auth-related keys; sb- prefix is safe for Supabase
+          window.localStorage.removeItem(k);
+        }
+      }
+    } catch {}
+  }, []);
+
   // Keep latest state in a ref for reliable save on unmount/visibility changes
   const latestStateRef = useRef({ elements: state.elements, grid: state.grid });
   useEffect(() => {
