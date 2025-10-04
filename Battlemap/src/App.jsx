@@ -242,8 +242,8 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
     return () => { liveSignalRef.current = null; supabase.removeChannel(sig); };
   }, [gameId]);
 
-  // Merge helper: ensure all players from live are present in base elements (used when host views draft)
-  const mergePlayersIntoElements = (baseElements = [], liveElements = []) => {
+  // Merge helper: ensure all actors (players+enemies) from live are present in base elements (used when host views draft)
+  const mergeActorsIntoElements = (baseElements = [], liveElements = []) => {
     const result = [...(baseElements || [])];
     const existingIds = new Set(result.map(e => e.id));
     const maxId = result.reduce((m, e) => {
@@ -251,23 +251,37 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
       return Number.isFinite(n) ? Math.max(m, n) : m;
     }, 0);
     let nextId = maxId + 1;
-    // Index base players by participantUserId primarily; fallback to characterId
-    const basePlayersByKey = new Map(
+    // Index base actors:
+    // - players by participantUserId, then characterId, then name
+    // - enemies by stable id if present, else name+size
+    const baseActorsByKey = new Map(
       result
-        .filter(e => e && e.type === 'player')
+        .filter(e => e && (e.type === 'player' || e.type === 'enemy'))
         .map(e => {
-          const key = e.participantUserId ? `u:${e.participantUserId}` : (e.characterId ? `c:${e.characterId}` : `n:${e.name || ''}`);
+          let key;
+          if (e.type === 'player') {
+            key = e.participantUserId ? `p:u:${e.participantUserId}` : (e.characterId ? `p:c:${e.characterId}` : `p:n:${e.name || ''}`);
+          } else {
+            const hasId = e.id !== undefined && e.id !== null && `${e.id}` !== '';
+            key = hasId ? `e:id:${e.id}` : `e:n:${e.name || ''}|s:${e.size ?? ''}`;
+          }
           return [key, e];
         })
     );
     for (const el of (liveElements || [])) {
-      if (!el || el.type !== 'player') continue;
-      const key = el.participantUserId ? `u:${el.participantUserId}` : (el.characterId ? `c:${el.characterId}` : `n:${el.name || ''}`);
-      if (basePlayersByKey.has(key)) {
+      if (!el || (el.type !== 'player' && el.type !== 'enemy')) continue;
+      let key;
+      if (el.type === 'player') {
+        key = el.participantUserId ? `p:u:${el.participantUserId}` : (el.characterId ? `p:c:${el.characterId}` : `p:n:${el.name || ''}`);
+      } else {
+        const hasId = el.id !== undefined && el.id !== null && `${el.id}` !== '';
+        key = hasId ? `e:id:${el.id}` : `e:n:${el.name || ''}|s:${el.size ?? ''}`;
+      }
+      if (baseActorsByKey.has(key)) {
         // Already present in draft; keep draft's position so host edits persist
         continue;
       }
-      // Add a copy of the live player into draft, ensuring a unique id
+      // Add a copy of the live actor into draft, ensuring a unique id
       let newId = el.id;
       const numeric = typeof newId === 'number' ? newId : parseInt(newId, 10);
       if (!Number.isFinite(numeric) || existingIds.has(newId)) {
@@ -275,7 +289,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
       }
       result.push({ ...el, id: newId });
       existingIds.add(newId);
-      basePlayersByKey.set(key, el);
+      baseActorsByKey.set(key, el);
     }
     return result;
   };
@@ -299,7 +313,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
         if (!active) return;
         const draftState = draftRow?.state || {};
         const liveState = liveRow?.state || {};
-        const mergedElements = mergePlayersIntoElements(draftState.elements || [], liveState.elements || []);
+        const mergedElements = mergeActorsIntoElements(draftState.elements || [], liveState.elements || []);
         setState((prev) => ({
           ...prev,
           // Keep draft as source of truth for non-player content
@@ -336,7 +350,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
           const liveEls = row.state?.elements || [];
           setState((prev) => ({
             ...prev,
-            elements: mergePlayersIntoElements(prev.elements || [], liveEls),
+            elements: mergeActorsIntoElements(prev.elements || [], liveEls),
           }));
         }
       })
