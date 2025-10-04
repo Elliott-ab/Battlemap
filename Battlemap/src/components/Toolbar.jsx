@@ -113,70 +113,64 @@ const Toolbar = ({
         </div>
       )}
       <div className="toolbar-spacer" />
-      {variant === 'dashboard' ? (
-        <div className="controls">
-          <div className="toolbar-icons">
-            <IconButton onClick={onSettingsClick} title="User Settings" size="large">
-              <FontAwesomeIcon icon={faUserGear} style={{ color: 'white', fontSize: 18 }} />
-            </IconButton>
-          </div>
-        </div>
-      ) : (
-        <div className="controls">
-          <div
-            className="turn-box turn-box--small turn-box--danger"
-            onClick={isDrawingCover ? undefined : openGlobalModifiers}
-            style={{ cursor: isDrawingCover ? 'not-allowed' : 'pointer', minWidth: 0 }}
-            title="Global Modifiers"
-          >
-            Global Modifiers
-          </div>
-          <div className="toolbar-divider-vert" aria-hidden="true" />
-          <div className="toolbar-icons">
-            {/* Clear/Undo removed from toolbar; available via burger for hosts only */}
-            {isHost && game && game.id && game.code && (
-              <>
-                <div className="toolbar-divider-vert" aria-hidden="true" />
-                <button
-                  className="turn-box turn-box--small"
-                  onClick={isDrawingCover ? undefined : onPushToPlayers}
-                  disabled={isDrawingCover}
-                  title="Push current draft to all players"
-                  style={{ cursor: isDrawingCover ? 'not-allowed' : 'pointer' }}
-                >
-                  Push to Players
-                </button>
-                <div className="toolbar-divider-vert" aria-hidden="true" />
-                <button
-                  className="turn-box turn-box--small"
-                  onClick={isDrawingCover ? undefined : onToggleChannel}
-                  disabled={isDrawingCover}
-                  title="Toggle edit/view channel"
-                  style={{ cursor: isDrawingCover ? 'not-allowed' : 'pointer' }}
-                >
-                  {currentChannel === 'draft' ? 'Editing Draft' : 'Viewing Live'}
-                </button>
-              </>
-            )}
-          </div>
-          <IconButton className="toolbar-burger" title="Menu" size="large" onClick={() => setMenuOpen(v => !v)}>
-            <FontAwesomeIcon icon={faBars} style={{ color: 'white', fontSize: 18 }} />
-          </IconButton>
-          <span className="grid-info">Grid: {gridSize}ft per cell</span>
-        </div>
-      )}
+      <div className="controls">
+        {variant === 'battlemap' && (
+          <>
+            <div
+              className="turn-box turn-box--small turn-box--danger"
+              onClick={isDrawingCover ? undefined : openGlobalModifiers}
+              style={{ cursor: isDrawingCover ? 'not-allowed' : 'pointer', minWidth: 0 }}
+              title="Global Modifiers"
+            >
+              Global Modifiers
+            </div>
+            <div className="toolbar-divider-vert" aria-hidden="true" />
+            <div className="toolbar-icons">
+              {/* Clear/Undo removed from toolbar; available via burger for hosts only */}
+              {isHost && game && game.id && game.code && (
+                <>
+                  <div className="toolbar-divider-vert" aria-hidden="true" />
+                  <button
+                    className="turn-box turn-box--small"
+                    onClick={isDrawingCover ? undefined : onPushToPlayers}
+                    disabled={isDrawingCover}
+                    title="Push current draft to all players"
+                    style={{ cursor: isDrawingCover ? 'not-allowed' : 'pointer' }}
+                  >
+                    Push to Players
+                  </button>
+                  <div className="toolbar-divider-vert" aria-hidden="true" />
+                  <button
+                    className="turn-box turn-box--small"
+                    onClick={isDrawingCover ? undefined : onToggleChannel}
+                    disabled={isDrawingCover}
+                    title="Toggle edit/view channel"
+                    style={{ cursor: isDrawingCover ? 'not-allowed' : 'pointer' }}
+                  >
+                    {currentChannel === 'draft' ? 'Editing Draft' : 'Viewing Live'}
+                  </button>
+                </>
+              )}
+            </div>
+            <span className="grid-info">Grid: {gridSize}ft per cell</span>
+          </>
+        )}
+        <IconButton className="toolbar-burger" title="Menu" size="large" onClick={() => setMenuOpen(v => !v)}>
+          <FontAwesomeIcon icon={faBars} style={{ color: 'white', fontSize: 18 }} />
+        </IconButton>
+      </div>
       {/* Indicator moved up after nav */}
-      {menuOpen && variant !== 'dashboard' && (
+      {menuOpen && (
         <>
           <div className="toolbar-menu-backdrop" onClick={() => setMenuOpen(false)} />
           <div className="toolbar-menu" role="menu" aria-label="Toolbar menu">
-            {isHost && (
+            {variant === 'battlemap' && isHost && (
               <button className="menu-item" onClick={() => handleMaybe(showGridModal)} disabled={isDrawingCover} role="menuitem">
                 <FontAwesomeIcon icon={faGear} />
                 <span>Grid Settings</span>
               </button>
             )}
-            {isHost && (
+            {variant === 'battlemap' && isHost && (
               <>
                 <button className="menu-item" onClick={() => handleMaybe(clearMap)} disabled={isDrawingCover} role="menuitem">
                   <FontAwesomeIcon icon={faTrashCan} />
@@ -188,7 +182,7 @@ const Toolbar = ({
                 </button>
               </>
             )}
-            {isHost && game && game.id && game.code && (
+            {variant === 'battlemap' && isHost && game && game.id && game.code && (
               <>
                 <button className="menu-item" onClick={() => handleMaybe(onSaveMap)} disabled={isDrawingCover} role="menuitem">
                   <FontAwesomeIcon icon={faDownload} />
@@ -200,15 +194,19 @@ const Toolbar = ({
                 </button>
               </>
             )}
-            {/* Library actions available to all users, even outside a game */}
-            <button className="menu-item" onClick={() => handleMaybe(onSaveLibrary)} disabled={isDrawingCover} role="menuitem">
-              <FontAwesomeIcon icon={faDownload} />
-              <span>Save to Library</span>
-            </button>
-            <button className="menu-item" onClick={() => handleMaybe(onLoadLibrary)} disabled={isDrawingCover} role="menuitem">
-              <FontAwesomeIcon icon={faUpload} />
-              <span>Load from Library</span>
-            </button>
+            {/* Library actions only visible on Battlemap per request */}
+            {variant === 'battlemap' && (
+              <>
+                <button className="menu-item" onClick={() => handleMaybe(onSaveLibrary)} disabled={isDrawingCover} role="menuitem">
+                  <FontAwesomeIcon icon={faDownload} />
+                  <span>Save to Library</span>
+                </button>
+                <button className="menu-item" onClick={() => handleMaybe(onLoadLibrary)} disabled={isDrawingCover} role="menuitem">
+                  <FontAwesomeIcon icon={faUpload} />
+                  <span>Load from Library</span>
+                </button>
+              </>
+            )}
             <hr className="toolbar-divider-horiz" />
             {onJoinGame && (
               <button className="menu-item" onClick={() => { onJoinGame(); setMenuOpen(false); }} role="menuitem">
@@ -225,7 +223,7 @@ const Toolbar = ({
                 <span>Leave Game</span>
               </button>
             )}
-            {isHost && game && game.id && game.code && (
+            {variant === 'battlemap' && isHost && game && game.id && game.code && (
               <>
                 <hr className="toolbar-divider-horiz" />
                 <button className="menu-item" onClick={() => handleMaybe(onPushToPlayers)} role="menuitem">
@@ -236,6 +234,11 @@ const Toolbar = ({
                 </button>
               </>
             )}
+            <hr className="toolbar-divider-horiz" />
+            <button className="menu-item" onClick={() => handleMaybe(onSettingsClick)} role="menuitem">
+              <FontAwesomeIcon icon={faUserGear} />
+              <span>User Settings</span>
+            </button>
           </div>
         </>
       )}

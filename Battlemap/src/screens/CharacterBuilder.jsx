@@ -15,6 +15,13 @@ import {
   Chip,
   Divider,
   Stack,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  InputAdornment,
+  IconButton,
+  Alert,
 } from '@mui/material';
 import Toolbar from '../components/Toolbar.jsx';
 // Sidebar removed on Character Builder page
@@ -22,6 +29,9 @@ import { useAuth } from '../auth/AuthContext.jsx';
 import { getCharacter, upsertCharacter, deleteCharacter, uploadCharacterIcon, deleteCharacterIcon, getSignedCharacterIconUrl } from '../Utils/characterService.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCirclePlus, faTrashCan } from '@fortawesome/free-solid-svg-icons';
+import { faCopy } from '@fortawesome/free-regular-svg-icons';
+import { hostGame, joinGameByCode } from '../Utils/gameService.js';
+import { useGameSession } from '../Utils/GameSessionContext.jsx';
 
 // Constants and helpers
 const ALIGNMENTS = ['LG','NG','CG','LN','N','CN','LE','NE','CE'];
@@ -216,6 +226,7 @@ export default function CharacterBuilder() {
   const navigate = useNavigate();
   const { id } = useParams();
   const { user } = useAuth();
+  const { setSession, clearSession } = useGameSession();
 
   const isNew = !id || id === 'new';
   const [loading, setLoading] = useState(false);
@@ -252,6 +263,12 @@ export default function CharacterBuilder() {
 
   const [form, setForm] = useState(defaultForm);
   const [uploadingIcon, setUploadingIcon] = useState(false);
+  // Toolbar actions
+  const [hostOpen, setHostOpen] = useState(false);
+  const [hostResult, setHostResult] = useState(null);
+  const [hostError, setHostError] = useState('');
+  const [joinOpen, setJoinOpen] = useState(false);
+  const [joinCode, setJoinCode] = useState('');
   const iconInputRef = useRef(null);
   const [hitDice, setHitDice] = useState(defaultForm.hit_dice);
   const [deathSuccesses, setDeathSuccesses] = useState(0);
@@ -483,7 +500,23 @@ export default function CharacterBuilder() {
 
   return (
     <Box className="app-container sheet" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <Toolbar variant="dashboard" />
+      <Toolbar
+        variant="dashboard"
+        onJoinGame={() => setJoinOpen(true)}
+        onHostGame={async () => {
+          if (!user) return;
+          setHostError('');
+          try {
+            const game = await hostGame(user.id);
+            setHostResult(game);
+            setHostOpen(true);
+            setSession({ id: game.id, code: game.code, name: game.name || null, role: 'host' });
+          } catch (e) {
+            setHostError(e.message || 'Failed to host game');
+          }
+        }}
+        onLeaveGame={() => { clearSession(); navigate('/home'); }}
+      />
       <div className="main-content">
         <Box sx={{ flex: 1, p: 2, overflow: 'auto', color: '#fff' }}>
           {/* Top: Character Info */}
@@ -858,6 +891,70 @@ export default function CharacterBuilder() {
           )}
         </Box>
       </div>
+      {/* Toolbar: Host Game dialog */}
+      <Dialog open={hostOpen} onClose={() => setHostOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Game Hosted</DialogTitle>
+        <DialogContent>
+          {hostError && (
+            <Alert severity="error" sx={{ mb: 2 }}>{hostError}</Alert>
+          )}
+          {hostResult && (
+            <>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                Share this invite code with your players:
+              </Typography>
+              <TextField
+                label="Invite Code"
+                value={hostResult.code}
+                fullWidth
+                InputProps={{
+                  readOnly: true,
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton onClick={() => navigator.clipboard.writeText(hostResult.code)}>
+                        <FontAwesomeIcon icon={faCopy} />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setHostOpen(false)}>Close</Button>
+          {hostResult && (
+            <Button variant="contained" onClick={() => { setHostOpen(false); navigate(`/battlemap/${hostResult.code}`); }}>
+              Go to Battlemap
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+      {/* Toolbar: Join Game dialog */}
+      <Dialog open={joinOpen} onClose={() => setJoinOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Join Game</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            Enter an invite code to join a game.
+          </Typography>
+          <TextField label="Invite Code" value={joinCode} onChange={(e) => setJoinCode(e.target.value)} fullWidth />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setJoinOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={async () => {
+            try {
+              const codeTrim = joinCode.trim().toUpperCase();
+              if (!codeTrim || !user) return;
+              const game = await joinGameByCode(user.id, codeTrim);
+              setJoinOpen(false);
+              setSession({ id: game.id, code: game.code, name: game.name || null, role: 'player', host_id: game.host_id, promptCharacter: true });
+              navigate(`/battlemap/${game.code}`);
+            } catch (e) {
+              setError(e.message);
+            }
+          }}>Join</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

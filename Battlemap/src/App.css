@@ -255,12 +255,10 @@ body {
     align-items: center;
     gap: 0.25rem;
 }
-/* Hidden hamburger by default; shown on mobile */
+/* Always show hamburger on all pages/sizes */
 .toolbar-burger {
-    display: none !important;
+    display: inline-flex !important;
 }
-/* Show burger on battlemap variant on all sizes */
-.toolbar.toolbar--battlemap .toolbar-burger { display: inline-flex !important; }
 
 /* Faint vertical divider between Global Modifiers button and icon group */
 .toolbar-divider-vert {

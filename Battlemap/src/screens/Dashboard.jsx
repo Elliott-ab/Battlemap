@@ -25,6 +25,11 @@ export default function Dashboard() {
   const [showSettings, setShowSettings] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
   const [editName, setEditName] = useState('');
+  // Toolbar menu modals
+  const [hostOpen, setHostOpen] = useState(false);
+  const [hostResult, setHostResult] = useState(null);
+  const [hostError, setHostError] = useState('');
+  const [joinOpen, setJoinOpen] = useState(false);
 
   // Creation happens via the Campaign modal (when selectedCampaign has no id)
 
@@ -99,7 +104,24 @@ export default function Dashboard() {
 
   return (
     <Box className="app-container" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <Toolbar variant="dashboard" onSettingsClick={() => setShowSettings(true)} />
+      <Toolbar
+        variant="dashboard"
+        onSettingsClick={() => setShowSettings(true)}
+        onJoinGame={() => setJoinOpen(true)}
+        onHostGame={async () => {
+          if (!user) return;
+          setHostError('');
+          try {
+            const game = await hostGame(user.id);
+            setHostResult(game);
+            setHostOpen(true);
+            setSession({ id: game.id, code: game.code, name: game.name || null, role: 'host' });
+          } catch (e) {
+            setHostError(e.message || 'Failed to host game');
+          }
+        }}
+        onLeaveGame={() => { clearSession(); navigate('/home'); }}
+      />
       <div className="main-content">
         <Box sx={{ flex: 1, p: 2, overflow: 'auto' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -279,6 +301,70 @@ export default function Dashboard() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowSettings(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+      {/* Toolbar: Host Game dialog */}
+      <Dialog open={hostOpen} onClose={() => setHostOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Game Hosted</DialogTitle>
+        <DialogContent>
+          {hostError && (
+            <Alert severity="error" sx={{ mb: 2 }}>{hostError}</Alert>
+          )}
+          {hostResult && (
+            <>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                Share this invite code with your players:
+              </Typography>
+              <TextField
+                label="Invite Code"
+                value={hostResult.code}
+                fullWidth
+                InputProps={{
+                  readOnly: true,
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton onClick={() => copyAnyCode(hostResult.code)}>
+                        <FontAwesomeIcon icon={faCopy} />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setHostOpen(false)}>Close</Button>
+          {hostResult && (
+            <Button variant="contained" onClick={() => { setHostOpen(false); navigate(`/battlemap/${hostResult.code}`); }}>
+              Go to Battlemap
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+      {/* Toolbar: Join Game dialog */}
+      <Dialog open={joinOpen} onClose={() => setJoinOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Join Game</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            Enter an invite code to join a game.
+          </Typography>
+          <TextField label="Invite Code" value={joinCode} onChange={(e) => setJoinCode(e.target.value)} fullWidth />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setJoinOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={async () => {
+            try {
+              const codeTrim = joinCode.trim().toUpperCase();
+              if (!codeTrim || !user) return;
+              const game = await joinGameByCode(user.id, codeTrim);
+              setJoinOpen(false);
+              setSession({ id: game.id, code: game.code, name: game.name || null, role: 'player', host_id: game.host_id, promptCharacter: true });
+              navigate(`/battlemap/${game.code}`);
+            } catch (e) {
+              setError(e.message);
+            }
+          }}>Join</Button>
         </DialogActions>
       </Dialog>
         </Box>
