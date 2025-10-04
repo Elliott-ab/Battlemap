@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Box, Dialog, DialogTitle, DialogContent, DialogActions, TextField, IconButton, InputAdornment, Button, Typography, Alert } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCopy } from '@fortawesome/free-regular-svg-icons';
@@ -12,6 +12,7 @@ import { useGameSession } from '../Utils/GameSessionContext.jsx';
 export default function BattlemapPage() {
   const { code } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [hostResult, setHostResult] = useState(null);
   const [hostOpen, setHostOpen] = useState(false);
@@ -66,6 +67,7 @@ export default function BattlemapPage() {
         <App
           gameId={gameId}
           user={user}
+          libraryLoadRequest={location.state && location.state.libraryMapName ? { name: location.state.libraryMapName } : null}
           onHostGame={async () => {
             if (!user) return;
             setError('');

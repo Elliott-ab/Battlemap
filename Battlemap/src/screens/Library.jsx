@@ -63,15 +63,9 @@ export default function Library() {
                       {new Date(m.updated_at).toLocaleString()}
                     </Typography>
                     <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
-                      <Button size="small" variant="outlined" onClick={async () => {
-                        try {
-                          const full = await getLibraryMap(user.id, m.name);
-                          const state = full?.state || {};
-                          console.log('Map preview state', state);
-                        } catch (e) {
-                          console.error(e);
-                        }
-                      }}>Preview</Button>
+                      <Button size="small" variant="outlined" onClick={() => {
+                        navigate('/battlemap/LOCAL', { state: { libraryMapName: m.name } });
+                      }}>Open In Battlemap</Button>
                     </Box>
                   </Paper>
                 </Grid>
