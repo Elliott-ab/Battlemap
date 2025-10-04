@@ -1,0 +1,1497 @@
+.magnitude-affix-btn.magnitude-affix-left {
+    position: absolute;
+    left: 2px;
+    top: 2px;
+    bottom: 2px; /* full height inside input minus borders */
+    width: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #2c2c2c; /* grey background as requested */
+    color: #eee;
+    border: none;
+    border-right: 1px solid #555; /* separator inside input */
+    border-radius: 4px 0 0 4px;
+    line-height: 1;
+    cursor: pointer;
+    font-weight: 700;
+}
+.magnitude-affix-btn.magnitude-affix-left:hover {
+    filter: brightness(0.95);
+}
+
+/* Vertical divider used in modifier card */
+.vert-divider {
+    width: 1px;
+    height: 28px;
+    background: #555;
+    opacity: 0.6;
+    margin: 0 6px;
+}
+
+/* Players/Enemies circular toggles */
+.circle-toggle {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid #777;
+    background: #2c2c2c;
+    color: #eee;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    cursor: pointer;
+}
+.circle-toggle.active {
+    border-color: #4CAF50;
+    box-shadow: 0 0 4px rgba(76, 175, 80, 0.5);
+}
+.circle-toggle:hover {
+    filter: brightness(1.1);
+}
+
+/* Wrapper for circular toggle with inline text label */
+.circle-toggle-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+    color: #ddd;
+}
+.circle-toggle-wrap span {
+    font-size: 0.9rem;
+}
+.circle-toggle-wrap:hover span {
+    color: #fff;
+}
+
+/* Apply-to group with a faint label above circular buttons */
+.apply-to-group {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+.apply-to-label {
+    font-size: 0.7rem; /* smaller label */
+    color: #999; /* faint */
+    line-height: 1;
+}
+.apply-to-buttons {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.magnitude-prefix-btn {
+    background-color: #ffffff;
+    color: #000;
+    border: 2px solid #555;
+    border-radius: 4px;
+    min-width: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    cursor: pointer;
+}
+.magnitude-prefix-btn:hover {
+    filter: brightness(0.95);
+}
+/* Highlight for cover block boundary (no z-index so tokens stay above) */
+.cover-block-highlight {
+    box-shadow: 0 0 0 1px rgba(255, 235, 59, 0.45);
+    border: 2px solid #FFEB3B;
+    border-radius: 4px;
+}
+.element-position {
+    font-size: 0.8rem;
+    color: #aaa;
+}
+
+/* Ensure cover highlight shows above the default white element border */
+.element.cover.cover-block-highlight {
+    border: 2px solid #FFEB3B !important;
+    box-shadow: 0 0 0 1px rgba(255, 235, 59, 0.35);
+    border-radius: 4px;
+}
+
+.movement-highlight {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(33, 150, 243, 0.25);
+    box-shadow: 0 0 6px 2px rgba(33, 150, 243, 0.2);
+    border: 1px solid rgba(33, 150, 243, 0.6);
+    border-radius: 4px;
+    pointer-events: none;
+    z-index: 5; /* Increased z-index */
+}
+
+.movement-highlight.enemy {
+    background-color: rgba(244, 67, 54, 0.25);
+    box-shadow: 0 0 6px 2px rgba(244, 67, 54, 0.2);
+    border: 1px solid rgba(244, 67, 54, 0.6);
+}
+
+.grid-cell {
+    position: relative;
+}
+
+.element-stats {
+    margin: 0.5rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.hp-display {
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+    display: inline-block;
+}
+
+.hp-display.healthy {
+    color: #4CAF50;
+    background-color: rgba(76, 175, 80, 0.2);
+}
+
+.hp-display.bloodied {
+    color: #FF9800;
+    background-color: rgba(255, 152, 0, 0.2);
+}
+
+.hp-display.critical {
+    color: #f44336;
+    background-color: rgba(244, 67, 54, 0.2);
+}
+
+.hp-display.unconscious {
+    color: #9E9E9E;
+    background-color: rgba(158, 158, 158, 0.2);
+    text-decoration: line-through;
+}
+
+.stealth-tag {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #9C27B0;
+    background-color: rgba(156, 39, 176, 0.2);
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.stealth-item {
+    border-left: 3px solid #9C27B0;
+    background-color: rgba(156, 39, 176, 0.1);
+}
+
+:root {
+    /* Base grid cell size (overridden by media queries) */
+    --cell-px: 40px;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Roboto, Helvetica, sans-serif;
+    background-color: #1a1a1a;
+    color: #ffffff;
+    height: 100vh;
+    overflow: hidden;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
+}
+
+.app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+.toolbar {
+    background-color: #2c2c2c;
+    padding: 0 1rem; /* horizontal padding only so height stays fixed */
+    height: 72px; /* fixed toolbar height */
+    border-bottom: 1px solid #444;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    flex-shrink: 0;
+}
+
+.toolbar h1 {
+    font-size: 1.5rem;
+    color: #fff;
+}
+
+.controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+/* Group of icon buttons shown on desktop/tablet */
+.toolbar-icons {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+/* Hidden hamburger by default; shown on mobile */
+.toolbar-burger {
+    display: none !important;
+}
+
+/* Faint vertical divider between Global Modifiers button and icon group */
+.toolbar-divider-vert {
+    width: 1px;
+    height: 28px;
+    background: rgba(255,255,255,0.2);
+    margin: 0 4px; /* 8px (gap) + 4px (margin) = 12px on both sides */
+}
+
+.toolbar-logo {
+    width: 280px; /* match sidebar width so edges align */
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    height: 100%;
+    flex-shrink: 0;
+}
+
+.toolbar-logo h1 {
+    margin: 0;
+}
+
+.toolbar-turn {
+    margin-left: 1rem;
+}
+
+.toolbar-spacer {
+    flex: 1;
+}
+
+.turn-box {
+    border: 2px solid #ffffff;
+    color: #fff;
+    padding: 0.25rem 0.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    background: rgba(255,255,255,0.06);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.turn-box.turn-box--small {
+    padding: 0.15rem 0.4rem;
+    font-size: 0.9rem;
+    border-radius: 6px;
+    font-weight: 400; /* not bold */
+}
+
+/* Red variant for Global Modifiers button */
+.turn-box--danger {
+    border-color: #f44336 !important;
+    color: #f44336 !important;
+}
+
+/* Toggle switch used in Global Modifiers */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 42px;
+    height: 22px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #777;
+    transition: .2s;
+    border-radius: 22px;
+    box-shadow: inset 0 0 2px rgba(0,0,0,0.4);
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: .2s;
+    border-radius: 50%;
+}
+
+.switch input:checked + .slider {
+    background-color: #4CAF50;
+}
+
+.switch input:checked + .slider:before {
+    transform: translateX(20px);
+}
+
+/* Utility: single-line ellipsis for long text */
+.text-ellipsis {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.grid-info {
+    font-size: 0.9rem;
+    color: #ccc;
+    white-space: nowrap;
+}
+
+.btn {
+    padding: 0.75rem 1rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    touch-action: manipulation;
+    min-height: 44px;
+    white-space: nowrap;
+}
+
+.btn:active {
+    transform: translateY(1px);
+}
+
+.controls .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: #ccc;
+}
+
+.btn-primary {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #45a049;
+}
+
+.btn-secondary {
+    background-color: #2196F3;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: #1976D2;
+}
+
+.btn-tertiary {
+    background-color: #FF9800;
+    color: white;
+}
+
+.btn-tertiary:hover {
+    background-color: #F57C00;
+}
+
+.btn-cover {
+    background-color: #795548;
+    color: white;
+}
+
+.btn-cover:hover {
+    background-color: #5D4037;
+}
+
+.btn-danger {
+    background-color: #f44336;
+    color: white;
+}
+
+.btn-danger:hover {
+    background-color: #d32f2f;
+}
+
+/* Outline button: transparent background with white border */
+.btn-outline {
+    background-color: transparent;
+    border: 2px solid #ffffff;
+    color: #ffffff;
+}
+
+.btn-outline:hover,
+.btn-outline:focus {
+    background-color: transparent; /* keep transparent on hover */
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.4);
+}
+
+/* Small button variant for tighter UI */
+.btn-sm {
+    padding: 0.35rem 0.6rem;
+    min-height: 32px;
+    font-size: 0.85rem;
+    border-radius: 6px;
+}
+
+.main-content {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+.sidebar {
+    width: 280px;
+    background-color: #2c2c2c;
+    border-right: 1px solid #444;
+    padding: 0; /* we'll pad inner body so sticky footer spans full width */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* prevent double scroll; inner body will handle */
+    flex-shrink: 0;
+    font-size: 0.85rem; /* further reduced base font for sidebar */
+    position: relative;
+    transition: width 200ms ease, height 200ms ease;
+}
+
+/* Sidebar inner scrollable body and sticky footer */
+.sidebar-body {
+    padding: 1rem;
+    overflow: auto; /* this becomes the primary scroll area */
+    max-height: 100%;
+    flex: 1 1 auto; /* fill available space so footer stays at bottom */
+}
+.sidebar.collapsed .sidebar-body {
+    display: none;
+}
+/* Sticky footer for collapse/expand toggle */
+.sidebar-footer {
+    border-top: 1px solid #444;
+    padding: 6px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #2c2c2c;
+    margin-top: auto; /* push footer to bottom within flex column */
+}
+
+/* Smooth collapse/expand for lists (restoring original behavior) */
+.collapsible {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 200ms ease;
+}
+.collapsible.open {
+    max-height: 600px; /* enough to show typical lists; expand if needed */
+}
+
+/* Divider to separate initiative controls from elements */
+.sidebar-divider {
+    width: 100%;
+    border: 0;
+    border-top: 1px solid #444;
+    margin: 0.5rem 0 1rem 0;
+}
+
+.sidebar h3 {
+    margin-bottom: 1rem;
+    color: #fff;
+    font-size: 1rem; /* reduce header size further */
+}
+
+.element-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+/* Make only the Creatures list scroll when long */
+.creatures-list {
+    /* Allow the list to grow but scroll within the collapsible */
+    max-height: 40vh; /* default for medium screens */
+    overflow-y: auto;
+    padding-right: 6px; /* avoid scrollbar overlaying content */
+}
+
+/* Environments list keeps default element-list styling; no extra rules needed */
+
+/* Tweak heights for small and large screens */
+@media (max-width: 768px) {
+    .creatures-list {
+        max-height: 32vh; /* shorter on phones so header/footer remain visible */
+    }
+}
+@media (min-width: 1200px) {
+    .creatures-list {
+        max-height: 55vh; /* give more room on big screens */
+    }
+}
+
+.element-item {
+    background-color: #383838;
+    border: 2px solid #555;
+    border-radius: 6px;
+    padding: 0.5rem 0.6rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    touch-action: manipulation;
+}
+
+.element-item:hover,
+.element-item:active {
+    background-color: #444;
+    border-color: #666;
+    transform: translateX(2px);
+}
+
+.element-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
+}
+
+.element-color {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    flex-shrink: 0;
+}
+
+.element-symbol {
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    background-color: #795548;
+    color: white;
+    border-color: #5D4037;
+}
+
+.element-name {
+    font-weight: 600;
+    color: #fff;
+    max-width: 100%;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.element-type {
+    font-size: 0.8rem;
+    color: #ccc;
+}
+
+/* Cover items: tighter vertical rhythm and centered icon/text */
+.element-item.cover-item {
+    padding: 0.35rem 0.55rem;
+}
+.element-item.cover-item .element-info {
+    margin-bottom: 0; /* no extra space under row */
+}
+
+/* Smooth collapse/expand for Creatures list */
+.collapsible {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 200ms ease;
+}
+.collapsible.open {
+    max-height: 600px; /* enough to show typical lists; expand if needed */
+}
+
+/* Better looking radios on dark background */
+.drawing-options input[type="radio"] {
+    accent-color: #4CAF50; /* green radio */
+}
+
+.element-size {
+    font-size: 0.8rem;
+    color: #FF9800;
+    font-weight: 500;
+}
+
+.element-position {
+    font-size: 0.8rem;
+    color: #aaa;
+}
+
+.map-container {
+    flex: 1;
+    padding: 1rem;
+    overflow: hidden; /* we'll manage panning via transform anchors */
+    -webkit-overflow-scrolling: touch; /* smooth */
+    background-color: #1a1a1a;
+    background-image: 
+        radial-gradient(circle at 1px 1px, rgba(255,255,255,0.15) 1px, transparent 0);
+    background-size: 20px 20px;
+    /* allow pinch-zoom custom handling */
+    touch-action: none;
+    position: relative;
+    display: inline-block;
+}
+.map-container.panning {
+    cursor: grab;
+}
+
+/* Desktop-only zoom controls overlay */
+.zoom-controls {
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(34,34,34,0.7);
+    border: 1px solid #444;
+    border-radius: 8px;
+    padding: 4px 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.45);
+    z-index: 50;
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+}
+.compass-overlay {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 64px;
+    height: 64px;
+    opacity: 0.35;
+    /* make the SVG appear white while keeping a subtle shadow */
+    filter: brightness(0) invert(1) drop-shadow(0 0 2px rgba(0,0,0,0.4));
+    z-index: 40; /* below zoom controls (50), above grid */
+    pointer-events: auto;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+.zoom-controls input[type="range"] {
+    width: 80px;
+    accent-color: #4CAF50;
+}
+/* Hide on small screens */
+@media (max-width: 1024px) {
+    .zoom-controls { display: none; }
+}
+
+.battle-map {
+    display: grid;
+    gap: 1px;
+    background-color: #333;
+    padding: 10px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    margin: 0;
+    width: fit-content;
+    min-width: min-content;
+}
+
+.grid-cell {
+    width: var(--cell-px);
+    height: var(--cell-px);
+    background-color: #4a4a4a;
+    border: 1px solid #666;
+    position: relative;
+    transition: background-color 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+}
+
+.grid-cell:hover {
+    background-color: #555;
+}
+
+/* Bold 5x grid lines using in-cell overlays to avoid changing external gaps */
+.grid-cell.bold-right::after,
+.grid-cell.bold-bottom::before {
+    content: "";
+    position: absolute;
+    background-color: #888;
+    pointer-events: none;
+}
+
+/* Right edge every 5th column */
+.grid-cell.bold-right::after {
+    top: 0;
+    right: 0; /* render inside the cell */
+    width: 2px;
+    height: 100%;
+}
+
+/* Bottom edge every 5th row */
+.grid-cell.bold-bottom::before {
+    bottom: 0; /* render inside the cell */
+    left: 0;
+    height: 2px;
+    width: 100%;
+}
+
+.element {
+    width: calc(100% - 2px);
+    height: calc(100% - 2px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: calc(var(--cell-px) * 0.35);
+    color: white;
+    text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.7);
+    border: 2px solid #fff;
+    cursor: move;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    z-index: 10;
+    position: relative;
+    touch-action: none;
+}
+
+/* Token labels: simple inline element (no rotation) */
+.element .token-label {
+    display: inline-block;
+}
+
+.element:hover,
+.element:active {
+    transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+}
+
+.element.selected {
+    border-color: #ffeb3b;
+    box-shadow: 0 0 10px #ffeb3b;
+    animation: pulse 1s infinite;
+}
+
+/* Enemy facing cone (like Google Maps) */
+.direction-cone {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: calc(var(--cell-px) * 2);
+    height: calc(var(--cell-px) * 2);
+    pointer-events: none;
+    z-index: 1; /* inside the cell, below tokens (which are separate grid items with higher z-index) */
+    transform-origin: 50% 50%; /* rotate around token center */
+    /* Radial gradient that fades from the center (token) outward */
+    background: radial-gradient(
+        circle at 50% 50%,
+        rgba(var(--cone-rgb, 244, 67, 54), 0.58) 0%,
+        rgba(var(--cone-rgb, 244, 67, 54), 0.28) 56%,
+        rgba(var(--cone-rgb, 244, 67, 54), 0) 85%
+    );
+    /* Wedge shape with the tip at the center */
+    /* Mid-width wedge between original and current */
+    clip-path: polygon(50% 50%, 24% 95%, 76% 95%);
+    filter: drop-shadow(0 0 2px rgba(0,0,0,0.3));
+}
+
+/* Initiative modal number inputs: hide spinner arrows */
+.initiative-form input[type="number"]::-webkit-outer-spin-button,
+.initiative-form input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.initiative-form input[type="number"] {
+    -moz-appearance: textfield; /* Firefox */
+    appearance: textfield; /* Modern browsers */
+}
+
+/* Utility: hide number input spinners wherever applied */
+.no-spinner::-webkit-outer-spin-button,
+.no-spinner::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.no-spinner {
+    -moz-appearance: textfield; /* Firefox */
+    appearance: textfield; /* Modern browsers */
+}
+
+.element.player {
+    border-radius: 50%;
+    border-color: #4CAF50;
+}
+
+.element.enemy {
+    border-radius: 50%;
+    border-color: #f44336;
+}
+
+.element.cover {
+    border-radius: 4px;
+    border-color: #795548;
+    background-color: #795548 !important;
+}
+
+.element.cover.half {
+    background: linear-gradient(135deg, #795548 50%, transparent 50%) !important;
+}
+
+.element.cover.three-quarters {
+    background: linear-gradient(135deg, #795548 75%, transparent 75%) !important;
+}
+
+.element.cover.full {
+    background-color: #5D4037 !important;
+}
+
+.element.cover.difficult {
+    background: repeating-linear-gradient(
+        45deg,
+        rgba(121, 85, 72, 0.4),
+        rgba(121, 85, 72, 0.4) 10px,
+        rgba(93, 64, 55, 0.4) 10px,
+        rgba(93, 64, 55, 0.4) 20px
+    ) !important;
+}
+
+/* Ensure cover is always beneath tokens during drag and after re-render */
+.element.cover { z-index: 1 !important; }
+.element.player, .element.enemy { z-index: 15 !important; }
+
+/* Generic greying helper for disabled UI during drawing mode */
+.disabled-while-drawing {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* Re-enable specific sections while parent is disabled */
+.drawing-enabled {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+/* Specifically grey out players on the grid while drawing */
+.element.player.greyed-out {
+    opacity: 0.5;
+    filter: grayscale(0.85);
+    pointer-events: none;
+}
+
+.element.enemy.greyed-out {
+    opacity: 0.5;
+    filter: grayscale(0.85);
+    pointer-events: none;
+}
+
+.grid-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.row-and-grid {
+    display: flex;
+    gap: 0;
+}
+
+@keyframes pulse {
+    0%, 100% { 
+        transform: scale(1.05); 
+        opacity: 1;
+    }
+    50% { 
+        transform: scale(1.1); 
+        opacity: 0.8;
+    }
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(2px);
+}
+
+.modal-content {
+    background-color: #2c2c2c;
+    margin: 10% auto;
+    padding: 2rem;
+    border: 1px solid #555;
+    border-radius: 8px;
+    width: 400px;
+    max-width: 90%;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+    max-height: 80vh;
+    overflow-y: auto;
+    color: #fff; /* ensure modal text is white */
+}
+
+.modal-content.wide {
+    width: 760px;
+    max-width: 95%;
+}
+
+/* Smaller modal variant */
+.modal-content.small {
+    width: 340px;
+    max-width: 95%;
+    padding: 1.25rem 1rem;
+}
+
+.modifier-card {
+    gap: 0.5rem;
+}
+
+.modifier-card input[type="text"],
+.modifier-card select {
+    padding: 0.5rem 0.6rem;
+    border: 2px solid #555;
+    border-radius: 4px;
+    background-color: #383838;
+    color: #fff;
+    min-height: 40px;
+}
+
+.modifier-card input[placeholder^="e.g. -2"],
+.modifier-card input[title*="percentages"] {
+    text-align: right;
+}
+
+/* Suffix button for magnitude input */
+.magnitude-suffix-btn {
+    position: absolute;
+    right: 2px;
+    top: 2px;
+    bottom: 2px; /* full height inside input minus borders */
+    width: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #2c2c2c;
+    color: #eee;
+    border: none;
+    border-left: 1px solid #555; /* separator line to distinguish from input */
+    border-radius: 0 4px 4px 0;
+    line-height: 1;
+    cursor: pointer;
+}
+.magnitude-suffix-btn:hover {
+    background-color: #3a3a3a;
+}
+
+.magnitude-menu {
+    background: #2c2c2c;
+    border: 1px solid #555;
+    border-radius: 6px;
+    padding: 4px;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.5);
+}
+.magnitude-menu-item {
+    background: transparent;
+    color: #fff;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 4px 8px;
+    min-width: 36px;
+    cursor: pointer;
+}
+.magnitude-menu-item:hover,
+.magnitude-menu-item.active {
+    background: #383838;
+    border-color: #555;
+}
+
+.modifier-card input[type="text"]:focus,
+.modifier-card select:focus {
+    outline: none;
+    border-color: #4CAF50;
+    box-shadow: 0 0 5px rgba(76, 175, 80, 0.3);
+}
+
+@media (max-width: 780px) {
+    .modifier-card {
+        flex-wrap: wrap;
+    }
+}
+
+.close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    line-height: 1;
+    touch-action: manipulation;
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.close:hover,
+.close:focus,
+.close:active {
+    color: #fff;
+}
+
+.modal-content h3 {
+    margin-bottom: 1.5rem;
+    color: #fff;
+    margin-top: 0.5rem;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #fff;
+    font-weight: 500;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid #555;
+    border-radius: 4px;
+    background-color: #383838;
+    color: #fff;
+    font-size: 1rem;
+    min-height: 44px;
+    touch-action: manipulation;
+}
+
+/* Compact initiative rows */
+.initiative-form .form-group {
+    margin-bottom: 0.4rem;
+}
+.initiative-form .form-group input[type="number"] {
+    padding: 0.35rem 0.5rem;
+    min-height: 32px;
+    font-size: 0.95rem;
+}
+.initiative-form .form-group label {
+    display: flex;
+    align-items: center;
+    margin: 0; /* override global margin-bottom to center vertically */
+    min-height: 32px; /* match input height for vertical centering */
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: #4CAF50;
+    box-shadow: 0 0 5px rgba(76, 175, 80, 0.3);
+}
+
+.form-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+    margin-top: 2rem;
+    flex-wrap: wrap;
+}
+
+.custom-cover {
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    border: 1px solid #5d4037;
+    background-color: rgba(121, 85, 72, 0.7);
+}
+
+.drawing-cover-highlight {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    background: transparent !important; /* no fill; rely on outline only */
+    border: 2px solid #FFEB3B; /* bright yellow outline */
+    border-radius: 4px;
+    box-shadow: 0 0 6px rgba(255, 235, 59, 0.45);
+    pointer-events: none;
+    z-index: 6; /* above preview tile */
+}
+
+.cover-highlight {
+    outline: 2px solid #FFD700;
+    position: absolute;
+    inset: 0;
+    z-index: 2; /* below tokens (15) and movement highlights (5) */
+    pointer-events: none; /* don't interfere with hit testing */
+}
+
+/* Small visibility eye position inside movement highlight */
+.visibility-eye {
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+    filter: drop-shadow(0 0 2px rgba(0,0,0,0.6));
+    pointer-events: none;
+}
+
+.element.cover.custom-cover {
+    opacity: 0.6;
+    border: 1px dashed #333;
+    text-align: center;
+    line-height: 1;
+}
+
+/* Make only difficult terrain slightly less opaque */
+.element.cover.difficult.custom-cover {
+    opacity: 0.45;
+}
+
+/* Style the DT label on difficult terrain to be small and readable */
+.element.cover.difficult {
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+}
+
+@media (max-width: 1024px) and (orientation: landscape) {
+    :root { --cell-px: 35px; }
+    .sidebar {
+        width: 220px;
+    }
+    .element {
+        font-size: calc(var(--cell-px) * 0.34);
+    }
+    .toolbar h1 {
+        font-size: 1.3rem;
+    }
+    .btn {
+        padding: 0.6rem 0.8rem;
+        font-size: 0.85rem;
+    }
+}
+
+@media (max-width: 1024px) and (orientation: portrait) {
+    :root { --cell-px: 35px; }
+    .main-content {
+        flex-direction: column;
+    }
+    .sidebar {
+        width: 100%;
+        height: 200px;
+        border-right: none;
+        border-bottom: 1px solid #444;
+    }
+    /* Collapsed state reduces height significantly on portrait */
+    .sidebar.collapsed {
+        height: 56px; /* just header/body top if present + footer toggle */
+    }
+    .element-list {
+        flex-direction: row;
+        overflow-x: auto;
+        gap: 0.5rem;
+        padding-bottom: 0.5rem;
+        -webkit-overflow-scrolling: touch;
+    }
+    .element-item {
+        min-width: 150px;
+        flex-shrink: 0;
+    }
+    .toolbar {
+        padding: 0.75rem;
+    }
+    .toolbar h1 {
+        font-size: 1.3rem;
+    }
+    .controls {
+        gap: 0.3rem;
+    }
+    .btn {
+        padding: 0.6rem 0.8rem;
+        font-size: 0.8rem;
+    }
+}
+
+@media (max-width: 768px) {
+    :root { --cell-px: 30px; }
+    .toolbar {
+        /* keep a single row so logo stays left and burger stays right */
+        flex-direction: row;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0 0.75rem;
+        height: 72px;
+    }
+    .toolbar-logo {
+        width: auto;
+        max-width: 45vw; /* prevent logo from pushing controls */
+        flex: 0 1 auto;   /* allow shrink on small screens */
+        min-width: 0;
+    }
+    .controls {
+        justify-content: flex-end;
+        flex-wrap: nowrap; /* avoid icons/burger dropping to next line */
+        gap: 0.4rem;
+    }
+    /* Hide non-essential text to save space */
+    .grid-info { display: none; }
+    /* On mobile, hide the icon group and show a burger instead */
+    .toolbar-icons { display: none; }
+    .toolbar-burger { display: inline-flex !important; }
+    .element {
+        font-size: calc(var(--cell-px) * 0.34);
+    }
+    .sidebar {
+        height: 180px;
+        padding: 0.75rem 0.75rem 0.25rem 0.75rem; /* tighter bottom to fit footer */
+    }
+    .sidebar.collapsed { height: 52px; }
+    .modal-content { margin: 5% auto; width: 94%; padding: 1.25rem; }
+    .modal-content.small { width: 90%; padding: 1rem; }
+    .form-actions {
+        flex-direction: column;
+    }
+    .form-actions .btn {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    :root { --cell-px: 25px; }
+    .toolbar h1 {
+        font-size: 1.1rem;
+    }
+    .btn {
+        padding: 0.5rem 0.6rem;
+        font-size: 0.75rem;
+        min-height: 40px;
+    }
+    .sidebar {
+        height: 150px;
+        padding: 0.5rem 0.5rem 0.2rem 0.5rem;
+    }
+    .sidebar.collapsed { height: 48px; }
+    .element-item {
+        min-width: 120px;
+        padding: 0.5rem;
+    }
+    .element-info {
+        gap: 0.5rem;
+    }
+    .element-color {
+        width: 16px;
+        height: 16px;
+    }
+    .modal-content { padding: 0.9rem; width: 94%; }
+    .modal-content.small { width: 92%; padding: 0.85rem; }
+    .form-group {
+        margin-bottom: 1rem;
+    }
+}
+
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    .grid-cell {
+        border-width: 0.5px;
+    }
+    .element {
+        border-width: 1px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .element,
+    .btn,
+    .element-item,
+    .grid-cell {
+        transition: none;
+    }
+    .element.selected {
+        animation: none;
+        box-shadow: 0 0 0 3px #ffeb3b;
+    }
+}
+
+.btn:focus-visible,
+.element-item:focus-visible,
+.grid-cell:focus-visible {
+    outline: 2px solid #4CAF50;
+    outline-offset: 2px;
+}
+
+.sidebar::-webkit-scrollbar,
+.map-container::-webkit-scrollbar,
+.modal-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.sidebar::-webkit-scrollbar-track,
+.map-container::-webkit-scrollbar-track,
+.modal-content::-webkit-scrollbar-track {
+    background: #2c2c2c;
+}
+
+.sidebar::-webkit-scrollbar-thumb,
+.map-container::-webkit-scrollbar-thumb,
+.modal-content::-webkit-scrollbar-thumb {
+    background: #555;
+    border-radius: 4px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover,
+.map-container::-webkit-scrollbar-thumb:hover,
+.modal-content::-webkit-scrollbar-thumb:hover {
+    background: #666;
+}
+
+.btn:active,
+.element-item:active,
+.element:active {
+    opacity: 0.8;
+}
+
+.element,
+.btn,
+.element-item,
+.grid-cell {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+/* --- Mobile sidebar density adjustments --- */
+@media (max-width: 768px) {
+    /* Smaller base font and tighter spacing for sidebar */
+    .sidebar { font-size: 0.78rem; }
+    .sidebar h3 { font-size: 0.95rem; margin-bottom: 0.6rem; }
+    .sidebar-body { padding: 0.75rem; }
+    .element-list { gap: 0.5rem; }
+    .element-item { padding: 0.4rem 0.5rem; }
+    .element-info { gap: 0.4rem; margin-bottom: 0.3rem; }
+    .element-color { width: 16px; height: 16px; }
+    .element-name { font-size: 0.95rem; }
+    .element-type { font-size: 0.75rem; }
+    .hp-display { font-size: 0.75rem; padding: 0.2rem 0.4rem; }
+}
+
+@media (max-width: 480px) {
+    .sidebar { font-size: 0.74rem; }
+    .element-item { padding: 0.4rem; }
+    .element-info { gap: 0.35rem; }
+    .element-color { width: 14px; height: 14px; }
+    .hp-display { font-size: 0.7rem; }
+    .element-name { font-size: 0.92rem; }
+}
+
+/* --- Ensure sidebar fills viewport height in landscape on tablets/phones --- */
+@media (max-width: 1024px) and (orientation: landscape) {
+    .main-content { min-height: calc(100vh - 72px); align-items: stretch; }
+    .sidebar { height: calc(100vh - 72px); }
+}
+
+/* Burger dropdown menu and backdrop */
+.toolbar-menu-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.35);
+    z-index: 1000;
+}
+.toolbar-menu {
+    position: fixed;
+    top: 72px; /* below toolbar */
+    right: 8px;
+    background: #2b2b2b;
+    border: 1px solid #444;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    z-index: 1001;
+    min-width: 220px;
+}
+.toolbar-menu .menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: #fff;
+    padding: 10px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    min-height: 44px;
+    text-align: left;
+}
+.toolbar-menu .menu-item:hover {
+    background: #383838;
+    border-color: #555;
+}
+
+/* Collapsed: handled via height on mobile/portrait; keep width on desktop for alignment */
+
+/* Desktop and tablet landscape: collapse sideways to a rail */
+@media (min-width: 769px), (orientation: landscape) {
+    .sidebar.collapsed {
+        width: 56px; /* narrow rail */
+    }
+    .sidebar.collapsed .sidebar-body { display: none; }
+}
+
+/* When sidebar is collapsed sideways, allow toolbar logo to shrink for visual alignment */
+@media (min-width: 769px), (orientation: landscape) {
+    body.app--sidebar-collapsed .toolbar-logo { width: 56px; }
+    body.app--sidebar-collapsed .toolbar-logo h1 { display: none; }
+}
+
+/* Minimal icon button component */
+.icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: inherit;
+    padding: 4px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+.icon-button:hover { background: rgba(255,255,255,0.08); }
+.icon-button:disabled { opacity: 0.5; cursor: not-allowed; }
+.icon-button--small { padding: 2px; }
+.icon-button--large { padding: 8px; }
