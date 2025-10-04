@@ -77,6 +77,11 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
     : ((sessionGame.role === 'host' || sessionGame.host_id === user?.id) ? 'draft' : 'live'));
   const [channel, setChannel] = useState(initialChannel); // 'live' or 'draft'
   const channelInitializedRef = useRef(false);
+  // Keep refs of current channel/role for realtime handlers
+  const channelRef = useRef(channel);
+  useEffect(() => { channelRef.current = channel; }, [channel]);
+  const isHostRef = useRef(isHost);
+  useEffect(() => { isHostRef.current = isHost; }, [isHost]);
   // Character sheet pane removed; selection applies to token only
 
   const { updateGridInfo } = useGrid(state);
@@ -216,32 +221,103 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
     try { sessionStorage.removeItem('bm-character-prompt-shown'); } catch {}
   }, [gameId]);
 
+  // Merge helper: ensure all players from live are present in base elements (used when host views draft)
+  const mergePlayersIntoElements = (baseElements = [], liveElements = []) => {
+    const result = [...(baseElements || [])];
+    const existingIds = new Set(result.map(e => e.id));
+    const maxId = result.reduce((m, e) => {
+      const n = typeof e.id === 'number' ? e.id : parseInt(e.id, 10);
+      return Number.isFinite(n) ? Math.max(m, n) : m;
+    }, 0);
+    let nextId = maxId + 1;
+    // Index base players by participantUserId primarily; fallback to characterId
+    const basePlayersByKey = new Map(
+      result
+        .filter(e => e && e.type === 'player')
+        .map(e => {
+          const key = e.participantUserId ? `u:${e.participantUserId}` : (e.characterId ? `c:${e.characterId}` : `n:${e.name || ''}`);
+          return [key, e];
+        })
+    );
+    for (const el of (liveElements || [])) {
+      if (!el || el.type !== 'player') continue;
+      const key = el.participantUserId ? `u:${el.participantUserId}` : (el.characterId ? `c:${el.characterId}` : `n:${el.name || ''}`);
+      if (basePlayersByKey.has(key)) {
+        // Already present in draft; keep draft's position so host edits persist
+        continue;
+      }
+      // Add a copy of the live player into draft, ensuring a unique id
+      let newId = el.id;
+      const numeric = typeof newId === 'number' ? newId : parseInt(newId, 10);
+      if (!Number.isFinite(numeric) || existingIds.has(newId)) {
+        newId = nextId++;
+      }
+      result.push({ ...el, id: newId });
+      existingIds.add(newId);
+      basePlayersByKey.set(key, el);
+    }
+    return result;
+  };
+
   // Load initial map state for the current channel
   useEffect(() => {
     let active = true;
     (async () => {
       if (!gameId) return;
+      // Host viewing draft: load draft, then merge in live players
+      if (channel === 'draft' && isHost) {
+        let draftRow = null;
+        let liveRow = null;
+        try {
+          const [d, l] = await Promise.all([
+            getMapState(gameId, 'draft').catch(e => { console.warn('getMapState draft failed:', e); return null; }),
+            getMapState(gameId, 'live').catch(e => { console.warn('getMapState live failed:', e); return null; }),
+          ]);
+          draftRow = d; liveRow = l;
+        } catch (_) {}
+        if (!active) return;
+        const draftState = draftRow?.state || {};
+        const liveState = liveRow?.state || {};
+        const mergedElements = mergePlayersIntoElements(draftState.elements || [], liveState.elements || []);
+        setState((prev) => ({
+          ...prev,
+          // Keep draft as source of truth for non-player content
+          elements: mergedElements,
+          grid: draftState.grid ?? prev.grid,
+          globalModifiers: draftState.globalModifiers ?? prev.globalModifiers,
+        }));
+        return;
+      }
+      // Default behavior: load the selected channel normally
       let row = null;
       try { row = await getMapState(gameId, channel); } catch (e) { console.warn('getMapState failed:', e); }
       if (!active || !row?.state) return;
-      // Replace elements/grid from stored state if present
-      if (row.state.elements || row.state.grid) {
-        setState((prev) => ({ ...prev, ...row.state }));
-      }
+      if (row.state.elements || row.state.grid) setState((prev) => ({ ...prev, ...row.state }));
     })();
     return () => { active = false; };
-  }, [gameId, channel]);
+  }, [gameId, channel, isHost]);
 
-  // Realtime subscription to live updates (players and host when viewing live)
+  // Realtime: apply live updates when viewing live; when viewing draft as host, only merge in missing players
   useEffect(() => {
     if (!gameId) return;
     const channelName = `map-live-${gameId}`;
     const ch = supabase
       .channel(channelName)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'map_states', filter: `game_id=eq.${gameId}` }, (payload) => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'map_states', filter: `game_id=eq.${gameId}` }, (payload) => {
         const row = payload.new;
         if (row.channel !== 'live') return;
-        if (row.state) setState((prev) => ({ ...prev, ...row.state }));
+        if (!row.state) return;
+        const currentChannel = channelRef.current;
+        const hostNow = isHostRef.current;
+        if (currentChannel === 'live') {
+          setState((prev) => ({ ...prev, ...row.state }));
+        } else if (currentChannel === 'draft' && hostNow) {
+          const liveEls = row.state?.elements || [];
+          setState((prev) => ({
+            ...prev,
+            elements: mergePlayersIntoElements(prev.elements || [], liveEls),
+          }));
+        }
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
@@ -437,7 +513,13 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
         onToggleChannel={() => setChannel((c) => (c === 'draft' ? 'live' : 'draft'))}
         onPushToPlayers={async () => {
           if (!isHost || !gameId || !user) return;
-          try { await pushDraftToLive(gameId, user.id); } catch {}
+          try {
+            await pushDraftToLive(gameId, user.id);
+            setToast({ open: true, severity: 'success', message: 'Updates sent to players.' });
+          } catch (e) {
+            console.error('Push to players failed:', e);
+            setToast({ open: true, severity: 'error', message: 'Failed to push updates to players.' });
+          }
         }}
       />
       <div className="main-content">
