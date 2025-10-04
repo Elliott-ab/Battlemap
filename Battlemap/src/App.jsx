@@ -88,6 +88,9 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
   const userIdRef = useRef(user?.id || null);
   useEffect(() => { userIdRef.current = user?.id || null; }, [user?.id]);
   const lastLiveUpdatedAtRef = useRef(0);
+  // Track very recent local token moves so incoming live state doesn't briefly overwrite them
+  const pendingMovesRef = useRef(new Map()); // id -> timestamp
+  const PENDING_TTL_MS = 1500;
   // Character sheet pane removed; selection applies to token only
 
   const { updateGridInfo } = useGrid(state);
@@ -239,7 +242,13 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
           const ts = row?.updated_at ? Date.parse(row.updated_at) : Date.now();
           if (Number.isFinite(ts) && ts < lastLiveUpdatedAtRef.current) return;
           if (row?.state) {
-            setState(prev => ({ ...prev, ...row.state }));
+            setState(prev => {
+              const next = { ...prev, ...row.state };
+              if (Array.isArray(row.state?.elements)) {
+                next.elements = mergeIncomingWithPending(row.state.elements, prev.elements || []);
+              }
+              return next;
+            });
             if (Number.isFinite(ts)) lastLiveUpdatedAtRef.current = ts;
           }
         } catch (e) {
@@ -303,6 +312,30 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
     return result;
   };
 
+  // Preserve positions of elements moved locally in the last PENDING_TTL_MS when applying incoming state
+  const mergeIncomingWithPending = (incomingEls = [], prevEls = []) => {
+    const now = Date.now();
+    // Clean out stale entries
+    try {
+      for (const [eid, ts] of pendingMovesRef.current.entries()) {
+        if (now - ts > PENDING_TTL_MS) pendingMovesRef.current.delete(eid);
+      }
+    } catch {}
+    const prevById = new Map((prevEls || []).map(e => [typeof e.id === 'number' ? e.id : parseInt(e.id, 10), e]));
+    return (incomingEls || []).map(e => {
+      const idNum = typeof e.id === 'number' ? e.id : parseInt(e.id, 10);
+      if (!Number.isFinite(idNum)) return e;
+      const movedAt = pendingMovesRef.current.get(idNum);
+      if (movedAt && (Date.now() - movedAt) <= PENDING_TTL_MS) {
+        const prevEl = prevById.get(idNum);
+        if (prevEl && prevEl.position) {
+          return { ...e, position: { ...prevEl.position } };
+        }
+      }
+      return e;
+    });
+  };
+
   // Load initial map state for the current channel
   useEffect(() => {
     let active = true;
@@ -358,7 +391,13 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
         const currentChannel = channelRef.current;
         const hostNow = isHostRef.current;
         if (currentChannel === 'live') {
-          setState((prev) => ({ ...prev, ...row.state }));
+          setState((prev) => {
+            const next = { ...prev, ...row.state };
+            if (Array.isArray(row.state?.elements)) {
+              next.elements = mergeIncomingWithPending(row.state.elements, prev.elements || []);
+            }
+            return next;
+          });
           if (Number.isFinite(ts)) lastLiveUpdatedAtRef.current = ts;
         } else if (currentChannel === 'draft' && hostNow) {
           const liveEls = row.state?.elements || [];
@@ -400,6 +439,12 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
 
   // Sync isDrawingCover and coverBlocks into state for grid rendering
   const mergedState = { ...state, isDrawingCover, coverBlocks };
+
+  // Wrap position updates to record a short-lived pending move marker per element
+  const safeUpdateElementPosition = (id, x, y) => {
+    try { pendingMovesRef.current.set(Number(id), Date.now()); } catch {}
+    updateElementPosition(id, x, y);
+  };
 
   // Host-only: Open save modal for named draft
   const handleSaveMap = async () => {
@@ -607,7 +652,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
           coverBlocks={coverBlocks}
           setCoverBlocks={setCoverBlocks}
           drawEnvType={drawEnvType}
-          updateElementPosition={updateElementPosition}
+          updateElementPosition={safeUpdateElementPosition}
           pushUndo={pushUndo}
           highlightCoverGroup={highlightCoverGroup}
           battleMapRef={battleMapRef}
