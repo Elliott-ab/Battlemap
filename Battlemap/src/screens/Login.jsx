@@ -47,7 +47,15 @@ export default function Login() {
       setError('Sign up is disabled. Append ?testMode=true to enable test sign-up.');
       return;
     }
-    const { error: err } = await supabase.auth.signUp({ email, password });
+    // Ensure the email confirmation link redirects to the correct deployed path.
+    // In production, import.meta.env.BASE_URL should be '/Battlemap/' (from vite.config base).
+    // In dev, it's usually '/'.
+    const redirectBase = new URL(import.meta.env.BASE_URL || '/', window.location.origin).toString();
+    const { error: err } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: redirectBase },
+    });
     setLoading(false);
     if (err) return setError(err.message);
   navigate('/home');
