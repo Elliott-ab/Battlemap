@@ -1561,6 +1561,7 @@ body {
     position: fixed;
     top: 72px; /* below toolbar */
     right: 8px;
+    bottom: 8px; /* ensure it never extends beyond the viewport height */
     background: #2b2b2b;
     border: 1px solid #444;
     border-radius: 10px;
@@ -1571,10 +1572,17 @@ body {
     gap: 4px;
     z-index: 1001;
     min-width: 220px;
-    /* Make the menu scroll if it grows beyond the viewport height */
-    max-height: calc(100vh - 72px - 16px); /* viewport minus toolbar and margins */
+    /* Scroll when content exceeds available space between top and bottom */
     overflow-y: auto;
     -webkit-overflow-scrolling: touch; /* smooth scrolling on mobile */
+    touch-action: pan-y; /* allow vertical scroll gestures */
+    overscroll-behavior: contain; /* prevent background from overscrolling */
+    padding-bottom: calc(8px + env(safe-area-inset-bottom)); /* account for iOS home indicator */
+}
+
+/* Fallback for browsers without env(safe-area-inset-bottom) support */
+@supports not (padding-bottom: env(safe-area-inset-bottom)) {
+    .toolbar-menu { padding-bottom: 8px; }
 }
 .toolbar-menu .menu-item {
     display: flex;
