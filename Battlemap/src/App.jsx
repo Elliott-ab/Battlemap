@@ -119,10 +119,24 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
   }, []);
 
   // Keep latest state in a ref for reliable save on unmount/visibility changes
-  const latestStateRef = useRef({ elements: state.elements, grid: state.grid });
+  const latestStateRef = useRef({
+    elements: state.elements,
+    grid: state.grid,
+    globalModifiers: state.globalModifiers,
+    initiativeOrder: state.initiativeOrder,
+    initiativeScores: state.initiativeScores,
+    currentTurnIndex: state.currentTurnIndex,
+  });
   useEffect(() => {
-    latestStateRef.current = { elements: state.elements, grid: state.grid };
-  }, [state.elements, state.grid]);
+    latestStateRef.current = {
+      elements: state.elements,
+      grid: state.grid,
+      globalModifiers: state.globalModifiers,
+      initiativeOrder: state.initiativeOrder,
+      initiativeScores: state.initiativeScores,
+      currentTurnIndex: state.currentTurnIndex,
+    };
+  }, [state.elements, state.grid, state.globalModifiers, state.initiativeOrder, state.initiativeScores, state.currentTurnIndex]);
 
   // Persist latest state when tab hides/unmounts
   usePersistOnHide(gameId, user, channel, latestStateRef, isHost, canWriteLive);
@@ -368,7 +382,11 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
           // Keep draft as source of truth for non-player content
           elements: mergedElements,
           grid: draftState.grid ?? prev.grid,
-          globalModifiers: draftState.globalModifiers ?? prev.globalModifiers,
+          // Show live-shared values while host edits draft
+          globalModifiers: liveState.globalModifiers ?? prev.globalModifiers,
+          initiativeOrder: liveState.initiativeOrder ?? prev.initiativeOrder,
+          initiativeScores: liveState.initiativeScores ?? prev.initiativeScores,
+          currentTurnIndex: liveState.currentTurnIndex ?? prev.currentTurnIndex,
         }));
         return;
       }
@@ -428,7 +446,15 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
         if (!isHost && channel !== 'live') return; // players never write draft
         if (!isHost && channel === 'live' && !canWriteLive) return; // wait until participant check
         if (isHost === false && channel === 'draft') return; // redundant safety
-        const saveState = { elements: state.elements, grid: state.grid };
+        // Save full state to avoid wiping shared fields on refresh
+        const saveState = {
+          elements: state.elements,
+          grid: state.grid,
+          globalModifiers: state.globalModifiers,
+          initiativeOrder: state.initiativeOrder,
+          initiativeScores: state.initiativeScores,
+          currentTurnIndex: state.currentTurnIndex,
+        };
         await upsertMapState(gameId, channel, saveState, user.id);
         if (channel === 'live') {
           lastLiveUpdatedAtRef.current = Date.now();
@@ -442,7 +468,36 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
       }
     }, 600);
     return () => clearTimeout(debounce);
-  }, [state.elements, state.grid, gameId, user?.id, channel, isHost, canWriteLive]);
+  }, [state.elements, state.grid, state.globalModifiers, state.initiativeOrder, state.initiativeScores, state.currentTurnIndex, gameId, user?.id, channel, isHost, canWriteLive]);
+
+  // Always sync shared fields (initiative and global modifiers) to LIVE so everyone sees them.
+  // This runs especially when host is in draft; it merges only those fields into live without touching elements/grid.
+  useEffect(() => {
+    const debounce = setTimeout(async () => {
+      try {
+        if (!gameId || !user) return;
+        // If we're already in live, the normal autosave will persist everything
+        if (channel === 'live') return;
+        // Only the host can edit modifiers in draft; still sync to live. Initiative can be edited by anyone, but players aren't in draft.
+        if (!isHost) return;
+        const liveRow = await getMapState(gameId, 'live').catch(() => null);
+        const liveState = liveRow?.state || {};
+        const merged = {
+          ...liveState,
+          initiativeOrder: state.initiativeOrder || [],
+          initiativeScores: state.initiativeScores || {},
+          currentTurnIndex: Number.isFinite(state.currentTurnIndex) ? state.currentTurnIndex : (liveState.currentTurnIndex || 0),
+          globalModifiers: Array.isArray(state.globalModifiers) ? state.globalModifiers : (liveState.globalModifiers || []),
+        };
+        await upsertMapState(gameId, 'live', merged, user.id);
+        lastLiveUpdatedAtRef.current = Date.now();
+        if (liveSignalRef.current) {
+          try { await liveSignalRef.current.send({ type: 'broadcast', event: 'live-updated', payload: { by: user.id, t: Date.now() } }); } catch {}
+        }
+      } catch (_) { /* ignore */ }
+    }, 500);
+    return () => clearTimeout(debounce);
+  }, [state.initiativeOrder, state.initiativeScores, state.currentTurnIndex, state.globalModifiers, gameId, user?.id, channel, isHost]);
 
   // Sync isDrawingCover and coverBlocks into state for grid rendering
   const mergedState = { ...state, isDrawingCover, coverBlocks };
@@ -711,13 +766,23 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
       <InitiativeModal
         isOpen={modalState.initiative}
         state={mergedState}
-        setState={setState}
+        setState={(updater) => {
+          setState(prev => {
+            const next = typeof updater === 'function' ? updater(prev) : updater;
+            return next;
+          });
+        }}
         onClose={() => setModalState(prev => ({ ...prev, initiative: false }))}
       />
       <GlobalModifiersModal
         isOpen={modalState.globalModifiers}
         state={mergedState}
-        setState={setState}
+        setState={(updater) => {
+          setState(prev => {
+            const next = typeof updater === 'function' ? updater(prev) : updater;
+            return next;
+          });
+        }}
         onClose={() => setModalState(prev => ({ ...prev, globalModifiers: false }))}
         isHost={isHost}
       />

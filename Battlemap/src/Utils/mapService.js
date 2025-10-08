@@ -70,9 +70,19 @@ export async function upsertMapState(gameId, channel, state, userId) {
 }
 
 export async function pushDraftToLive(gameId, userId) {
-  const draft = await getMapState(gameId, 'draft');
-  const state = draft?.state || {};
-  return upsertMapState(gameId, 'live', state, userId);
+  const [draft, live] = await Promise.all([
+    getMapState(gameId, 'draft').catch(() => null),
+    getMapState(gameId, 'live').catch(() => null),
+  ]);
+  const draftState = draft?.state || {};
+  const liveState = live?.state || {};
+  // Only push map content (elements, grid) from draft; preserve shared live-only fields
+  const merged = {
+    ...liveState,
+    elements: draftState.elements || liveState.elements || [],
+    grid: draftState.grid || liveState.grid || liveState.grid,
+  };
+  return upsertMapState(gameId, 'live', merged, userId);
 }
 
 // Named drafts (multiple per game) -----------------------------------------
