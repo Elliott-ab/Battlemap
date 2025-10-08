@@ -91,6 +91,9 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
   // Track very recent local token moves so incoming live state doesn't briefly overwrite them
   const pendingMovesRef = useRef(new Map()); // id -> timestamp
   const PENDING_TTL_MS = 1500;
+  // Fast-move queue for immediate broadcast and local apply
+  const moveQueueRef = useRef([]); // [{id,x,y}]
+  const moveFlushTimerRef = useRef(null);
   // Character sheet pane removed; selection applies to token only
 
   const { updateGridInfo } = useGrid(state);
@@ -276,6 +279,26 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
         try { clearSession && clearSession(); } catch {}
         try { navigate('/home'); } catch {}
       })
+      .on('broadcast', { event: 'move-batch' }, async (payload) => {
+        try {
+          const data = payload?.payload;
+          const moves = Array.isArray(data?.moves) ? data.moves : [];
+          if (!moves.length) return;
+          const current = channelRef.current;
+          const hostNow = isHostRef.current;
+          // Apply directly in both live viewers and host viewing draft
+          setState(prev => {
+            const byId = new Map(moves.map(m => [Number(m.id), m]));
+            const nextEls = (prev.elements || []).map(el => {
+              const m = byId.get(Number(el.id));
+              if (!m) return el;
+              // Only update position; keep other fields
+              return { ...el, position: { x: Number(m.x) || 0, y: Number(m.y) || 0 } };
+            });
+            return { ...prev, elements: nextEls };
+          });
+        } catch {}
+      })
       .subscribe();
     liveSignalRef.current = sig;
     return () => { liveSignalRef.current = null; supabase.removeChannel(sig); };
@@ -295,6 +318,51 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
     window.addEventListener('bm-turn-changed', handler);
     return () => window.removeEventListener('bm-turn-changed', handler);
   }, [gameId]);
+
+  // Listen for local element moves and broadcast them quickly to peers
+  useEffect(() => {
+    const onMoved = (e) => {
+      try {
+        const detail = e?.detail || {};
+        const moves = Array.isArray(detail.moves) ? detail.moves : [];
+        if (!moves.length) return;
+        // Queue moves
+        moveQueueRef.current = [...moveQueueRef.current, ...moves];
+        // Apply immediately to our local state to keep UI responsive
+        setState(prev => {
+          const byId = new Map(moves.map(m => [Number(m.id), m]));
+          const nextEls = (prev.elements || []).map(el => {
+            const m = byId.get(Number(el.id));
+            if (!m) return el;
+            return { ...el, position: { x: Number(m.x) || 0, y: Number(m.y) || 0 } };
+          });
+          return { ...prev, elements: nextEls };
+        });
+        // Debounced/throttled flush
+        if (moveFlushTimerRef.current) clearTimeout(moveFlushTimerRef.current);
+        moveFlushTimerRef.current = setTimeout(async () => {
+          const batch = moveQueueRef.current;
+          moveQueueRef.current = [];
+          try {
+            // Players only send when in live and allowed; host may send in live too
+            const current = channelRef.current;
+            const hostNow = isHostRef.current;
+            // Only broadcast when viewing LIVE; host-in-draft should not leak moves
+            if (current !== 'live') return;
+            if (!hostNow && current === 'live' && !canWriteLive) return;
+            if (!gameId) return;
+            const sig = liveSignalRef.current;
+            if (!sig) return;
+            await sig.send({ type: 'broadcast', event: 'move-batch', payload: { moves: batch, t: Date.now() } });
+            // Optional: also send a live-updated nudge
+            await sig.send({ type: 'broadcast', event: 'live-updated', payload: { t: Date.now() } });
+          } catch {}
+        }, 120);
+      } catch {}
+    };
+    window.addEventListener('bm-element-moved', onMoved);
+    return () => window.removeEventListener('bm-element-moved', onMoved);
+  }, [gameId, canWriteLive]);
 
   // Merge helper: ensure all actors (players+enemies) from live are present in base elements (used when host views draft)
   const mergeActorsIntoElements = (baseElements = [], liveElements = []) => {

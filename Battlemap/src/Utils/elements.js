@@ -299,6 +299,16 @@ export const useElements = (state, setState) => {
       });
   // After moving a cover group, do not preserve selection; UI clears highlight after one move
   setState({ ...state, elements: updatedElements, highlightedElementId: null });
+      // Inform app about moved positions (batch-friendly): include all moved cover blocks
+      try {
+        const moves = state.elements
+          .filter(e => e.type === 'cover' && e.groupId === el.groupId)
+          .map(e => ({ id: e.id, x: e.position.x + finalDx, y: e.position.y + finalDy }));
+        if (moves.length && typeof window !== 'undefined') {
+          const ev = new CustomEvent('bm-element-moved', { detail: { moves, t: Date.now() } });
+          window.dispatchEvent(ev);
+        }
+      } catch {}
     } else {
       // Clamp single element to bounds
       let clampedX = Math.max(0, Math.min(x, state.grid.width - el.size));
@@ -332,6 +342,13 @@ export const useElements = (state, setState) => {
         ),
         highlightedElementId: null,
       });
+      // Notify app about this single-element move for fast broadcast to peers
+      try {
+        if (typeof window !== 'undefined') {
+          const ev = new CustomEvent('bm-element-moved', { detail: { moves: [{ id, x: clampedX, y: clampedY }], t: Date.now() } });
+          window.dispatchEvent(ev);
+        }
+      } catch {}
     }
   };
 
