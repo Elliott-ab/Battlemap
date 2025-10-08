@@ -246,7 +246,10 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
               return { ...prev, currentTurnIndex: prevIdx };
             });
             try {
-              const ev = new CustomEvent('bm-turn-changed', { detail: { dir: -1, t: Date.now() } });
+              const order = (state.initiativeOrder || []).slice();
+              const len = order.length;
+              const prevIdx = len ? ((state.currentTurnIndex || 0) - 1 + len) % len : 0;
+              const ev = new CustomEvent('bm-turn-changed', { detail: { dir: -1, index: prevIdx, order, t: Date.now() } });
               window.dispatchEvent(ev);
             } catch {}
           }}>
@@ -276,7 +279,10 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
               return { ...prev, currentTurnIndex: nextIdx };
             });
             try {
-              const ev = new CustomEvent('bm-turn-changed', { detail: { dir: 1, t: Date.now() } });
+              const order = (state.initiativeOrder || []).slice();
+              const len = order.length;
+              const nextIdx = len ? ((state.currentTurnIndex || 0) + 1) % len : 0;
+              const ev = new CustomEvent('bm-turn-changed', { detail: { dir: 1, index: nextIdx, order, t: Date.now() } });
               window.dispatchEvent(ev);
             } catch {}
           }}>

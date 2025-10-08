@@ -94,6 +94,8 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
   // Fast-move queue for immediate broadcast and local apply
   const moveQueueRef = useRef([]); // [{id,x,y}]
   const moveFlushTimerRef = useRef(null);
+  // Track whether initial state has loaded per channel to avoid wiping server on refresh
+  const initialLoadedRef = useRef({ live: false, draft: false });
   // Character sheet pane removed; selection applies to token only
 
   const { updateGridInfo } = useGrid(state);
@@ -239,8 +241,8 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
     return () => { active = false; };
   }, [gameId, user?.id, sessionGame?.id, sessionGame?.role, sessionGame?.host_id, sessionGame?.promptCharacter, state.elements]);
 
-  // Reset channel initialization when game changes
-  useEffect(() => { channelInitializedRef.current = false; }, [gameId]);
+  // Reset channel initialization when game changes and clear loaded flags
+  useEffect(() => { channelInitializedRef.current = false; initialLoadedRef.current = { live: false, draft: false }; }, [gameId]);
 
   // Allow character prompt to show for each new game joined
   useEffect(() => {
@@ -279,6 +281,18 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
         try { clearSession && clearSession(); } catch {}
         try { navigate('/home'); } catch {}
       })
+      .on('broadcast', { event: 'turn-changed' }, async (payload) => {
+        try {
+          const data = payload?.payload || {};
+          const idx = Number(data.index);
+          const order = Array.isArray(data.order) ? data.order : undefined;
+          setState(prev => ({
+            ...prev,
+            currentTurnIndex: Number.isFinite(idx) ? idx : prev.currentTurnIndex,
+            initiativeOrder: order || prev.initiativeOrder,
+          }));
+        } catch {}
+      })
       .on('broadcast', { event: 'move-batch' }, async (payload) => {
         try {
           const data = payload?.payload;
@@ -304,20 +318,38 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
     return () => { liveSignalRef.current = null; supabase.removeChannel(sig); };
   }, [gameId]);
 
-  // Nudge: when turn arrows are clicked, dispatch a fast broadcast so live viewers refetch promptly
+  // On local turn change, broadcast exact data and persist to live if allowed
   useEffect(() => {
-    const handler = async () => {
+    const handler = async (e) => {
       try {
         if (!gameId) return;
+        const detail = e?.detail || {};
+        const idx = Number(detail.index);
+        const order = Array.isArray(detail.order) ? detail.order : undefined;
         const sig = liveSignalRef.current;
         if (sig) {
+          await sig.send({ type: 'broadcast', event: 'turn-changed', payload: { index: idx, order, t: Date.now() } });
           await sig.send({ type: 'broadcast', event: 'live-updated', payload: { t: Date.now() } });
+        }
+        // Persist to live immediately when in live and permitted, after initial load
+        const current = channelRef.current;
+        const hostNow = isHostRef.current;
+        if (current === 'live' && (hostNow || canWriteLive) && initialLoadedRef.current.live) {
+          const liveRow = await getMapState(gameId, 'live').catch(() => null);
+          const liveState = liveRow?.state || {};
+          const merged = {
+            ...liveState,
+            initiativeOrder: order || (state.initiativeOrder || []),
+            currentTurnIndex: Number.isFinite(idx) ? idx : (state.currentTurnIndex || 0),
+          };
+          await upsertMapState(gameId, 'live', merged, user?.id);
+          lastLiveUpdatedAtRef.current = Date.now();
         }
       } catch {}
     };
     window.addEventListener('bm-turn-changed', handler);
     return () => window.removeEventListener('bm-turn-changed', handler);
-  }, [gameId]);
+  }, [gameId, canWriteLive, state.initiativeOrder, state.currentTurnIndex, user?.id]);
 
   // Listen for local element moves and broadcast them quickly to peers
   useEffect(() => {
@@ -445,6 +477,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
     let active = true;
     (async () => {
       if (!gameId) return;
+      try { initialLoadedRef.current[channel] = false; } catch {}
       // Host viewing draft: load draft, then merge in live players
       if (channel === 'draft' && isHost) {
         let draftRow = null;
@@ -471,6 +504,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
           initiativeScores: liveState.initiativeScores ?? prev.initiativeScores,
           currentTurnIndex: liveState.currentTurnIndex ?? prev.currentTurnIndex,
         }));
+        try { initialLoadedRef.current.draft = true; } catch {}
         return;
       }
       // Default behavior: load the selected channel normally
@@ -478,6 +512,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
       try { row = await getMapState(gameId, channel); } catch (e) { console.warn('getMapState failed:', e); }
       if (!active || !row?.state) return;
       if (row.state.elements || row.state.grid) setState((prev) => ({ ...prev, ...row.state }));
+      try { initialLoadedRef.current[channel] = true; } catch {}
     })();
     return () => { active = false; };
   }, [gameId, channel, isHost]);
@@ -535,6 +570,8 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
         if (!isHost && channel !== 'live') return; // players never write draft
         if (!isHost && channel === 'live' && !canWriteLive) return; // wait until participant check
         if (isHost === false && channel === 'draft') return; // redundant safety
+  // Avoid writing before first load completes on this channel (prevents wipe on refresh)
+  if (!initialLoadedRef.current[channel]) return;
         // Save full state to avoid wiping shared fields on refresh
         const saveState = {
           elements: state.elements,
