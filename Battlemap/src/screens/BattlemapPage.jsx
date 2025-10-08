@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Box, Dialog, DialogTitle, DialogContent, DialogActions, TextField, IconButton, InputAdornment, Button, Typography, Alert } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -23,6 +23,7 @@ export default function BattlemapPage() {
   const { setSession, clearSession, updateSession, game } = useGameSession();
   const [confirmEndOpen, setConfirmEndOpen] = useState(false);
   const [playersInGame, setPlayersInGame] = useState(0);
+  const didEndOrLeaveRef = useRef(false);
 
   const copyCode = async () => {
     if (!hostResult?.code) return;
@@ -49,6 +50,14 @@ export default function BattlemapPage() {
   // Subscribe to participants joining and add a player token if not present
   useEffect(() => {
     if (!gameId) return;
+    // Ensure we also listen for game-ended here for immediate navigation
+    const sig = supabase
+      .channel(`game-${gameId}-signals`)
+      .on('broadcast', { event: 'game-ended' }, () => {
+        clearSession();
+        navigate('/home');
+      })
+      .subscribe();
     const channel = supabase
       .channel(`participants-${gameId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'participants', filter: `game_id=eq.${gameId}` }, async (payload) => {
@@ -58,9 +67,58 @@ export default function BattlemapPage() {
         window.dispatchEvent(new CustomEvent('participant-joined', { detail: newRow }));
         if (newRow?.user_id === user?.id && newRow?.role) updateSession({ role: newRow.role });
       })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'participants', filter: `game_id=eq.${gameId}` }, async (payload) => {
+        const oldRow = payload.old;
+        // If the host participant was removed, end the session for everyone
+        if (oldRow?.role === 'host') {
+          clearSession();
+          navigate('/home');
+          return;
+        }
+        // If this client's participant row was removed by the host ending the game, exit
+        if (oldRow?.user_id === user?.id) {
+          clearSession();
+          navigate('/home');
+        }
+      })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { supabase.removeChannel(channel); supabase.removeChannel(sig); };
   }, [gameId]);
+
+  // On tab/window close, remove participant or end game (host) similarly to explicit Leave Game
+  useEffect(() => {
+    if (!gameId || !user) return;
+    const handler = async () => {
+      if (didEndOrLeaveRef.current) return;
+      didEndOrLeaveRef.current = true;
+      try {
+        const iAmHost = (user.id && game?.host_id && user.id === game.host_id) || game?.role === 'host';
+        if (iAmHost) {
+          // Best-effort: remove all players then remove host participant
+          try { await endGame(gameId); } catch {}
+          try { await leaveGame(gameId, user.id); } catch {}
+          // Try to broadcast game-ended; may be dropped on unload, but we attempt
+          try {
+            const ch = supabase.channel(`game-${gameId}-signals`);
+            await ch.subscribe();
+            await ch.send({ type: 'broadcast', event: 'game-ended', payload: { by: user.id, t: Date.now() } });
+            supabase.removeChannel(ch);
+          } catch {}
+        } else {
+          try { await leaveGame(gameId, user.id); } catch {}
+        }
+        // Sign out locally when the tab is closing; sessionStorage will be cleared too
+        try { await supabase.auth.signOut({ scope: 'local' }); } catch {}
+      } catch {}
+    };
+    // pagehide fires for bfcache navigations and is more reliable on mobile; beforeunload as fallback
+    window.addEventListener('pagehide', handler);
+    window.addEventListener('beforeunload', handler);
+    return () => {
+      window.removeEventListener('pagehide', handler);
+      window.removeEventListener('beforeunload', handler);
+    };
+  }, [gameId, user?.id, game?.host_id, game?.role]);
 
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
