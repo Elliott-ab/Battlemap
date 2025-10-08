@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCopy } from '@fortawesome/free-regular-svg-icons';
 import App from '../App.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
-import { hostGame, joinGameByCode } from '../Utils/gameService.js';
+import { hostGame, joinGameByCode, endGame, leaveGame } from '../Utils/gameService.js';
 import { supabase } from '../supabaseClient';
 import { useGameSession } from '../Utils/GameSessionContext.jsx';
 
@@ -20,7 +20,9 @@ export default function BattlemapPage() {
   const [gameId, setGameId] = useState(null);
   const [joinOpen, setJoinOpen] = useState(false);
   const [joinCode, setJoinCode] = useState('');
-  const { setSession, clearSession, updateSession } = useGameSession();
+  const { setSession, clearSession, updateSession, game } = useGameSession();
+  const [confirmEndOpen, setConfirmEndOpen] = useState(false);
+  const [playersInGame, setPlayersInGame] = useState(0);
 
   const copyCode = async () => {
     if (!hostResult?.code) return;
@@ -80,7 +82,48 @@ export default function BattlemapPage() {
               setError(e.message);
             }
           }}
-          onLeaveGame={() => { clearSession(); navigate('/home'); }}
+          onLeaveGame={async () => {
+            try {
+              if (!user || !gameId) { clearSession(); navigate('/home'); return; }
+              const isHost = user.id && (user.id === (game?.host_id));
+              // If role not yet in context, derive via RPC-loaded game in session
+              const role = game?.role;
+              const iAmHost = isHost || role === 'host';
+              if (iAmHost) {
+                // Count other participants (excluding host)
+                const { count } = await supabase
+                  .from('participants')
+                  .select('user_id', { count: 'exact', head: true })
+                  .eq('game_id', gameId)
+                  .neq('user_id', user.id);
+                const others = typeof count === 'number' ? count : 0;
+                if (others > 0) {
+                  setPlayersInGame(others);
+                  setConfirmEndOpen(true);
+                  return;
+                }
+                // No other players; end immediately
+                try { await endGame(gameId); } catch {}
+                // Broadcast end signal so any connected clients bail out
+                try {
+                  const ch = supabase.channel(`game-${gameId}-signals`);
+                  await ch.subscribe();
+                  await ch.send({ type: 'broadcast', event: 'game-ended', payload: { by: user.id, t: Date.now() } });
+                  supabase.removeChannel(ch);
+                } catch {}
+                clearSession();
+                navigate('/home');
+              } else {
+                // Non-host leaves: remove themselves from participants
+                try { await leaveGame(gameId, user.id); } catch {}
+                clearSession();
+                navigate('/home');
+              }
+            } catch (_) {
+              clearSession();
+              navigate('/home');
+            }
+          }}
           onJoinGame={() => setJoinOpen(true)}
         />
       </Box>
@@ -144,6 +187,37 @@ export default function BattlemapPage() {
               setError(e.message);
             }
           }}>Join</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Confirm end game (host only) */}
+      <Dialog open={confirmEndOpen} onClose={() => setConfirmEndOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>End Game for Everyone?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            {playersInGame > 0
+              ? `There ${playersInGame === 1 ? 'is' : 'are'} ${playersInGame} player${playersInGame === 1 ? '' : 's'} in this game. Ending now will kick everyone and close the game.`
+              : 'This will end the game.'}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmEndOpen(false)}>Cancel</Button>
+          <Button color="error" variant="contained" onClick={async () => {
+            try {
+              await endGame(gameId);
+              // Broadcast end signal; use a transient channel to send
+              try {
+                const ch = supabase.channel(`game-${gameId}-signals`);
+                await ch.subscribe();
+                await ch.send({ type: 'broadcast', event: 'game-ended', payload: { t: Date.now() } });
+                supabase.removeChannel(ch);
+              } catch {}
+            } finally {
+              setConfirmEndOpen(false);
+              clearSession();
+              navigate('/home');
+            }
+          }}>End Game</Button>
         </DialogActions>
       </Dialog>
     </Box>

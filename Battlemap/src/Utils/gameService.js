@@ -89,3 +89,27 @@ export async function listCampaignsByHost(userId) {
   // Sort newest first by created_at if present
   return out.sort((a, b) => (new Date(b.created_at || 0)) - (new Date(a.created_at || 0)));
 }
+
+// End the game: remove all participants and delete the game row (best-effort)
+// Must be called by the host to satisfy RLS policies.
+export async function endGame(gameId) {
+  // Remove all players (keep the host so the game persists and can be reused later)
+  try {
+    await supabase
+      .from('participants')
+      .delete()
+      .eq('game_id', gameId)
+      .neq('role', 'host');
+  } catch (_) { /* ignore; best-effort */ }
+}
+
+// Player leaves a game: remove their participant row only
+export async function leaveGame(gameId, userId) {
+  try {
+    await supabase
+      .from('participants')
+      .delete()
+      .eq('game_id', gameId)
+      .eq('user_id', userId);
+  } catch (_) { /* ignore; best-effort */ }
+}

@@ -71,7 +71,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
   const battleMapRef = useRef(null);
   const [isHost, setIsHost] = useState(false);
   const [canWriteLive, setCanWriteLive] = useState(false);
-  const { game: sessionGame, updateSession } = useGameSession();
+  const { game: sessionGame, updateSession, clearSession } = useGameSession();
   const initialChannel = (!sessionGame
     ? 'live' // default to live until role is known to avoid draft reads for players
     : ((sessionGame.role === 'host' || sessionGame.host_id === user?.id) ? 'draft' : 'live'));
@@ -229,7 +229,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
   useEffect(() => {
     try { sessionStorage.removeItem('bm-character-prompt-shown'); } catch {}
   }, [gameId]);
-  // Subscribe to a broadcast channel that signals live updates to force a small fetch
+  // Subscribe to a broadcast channel for live refresh and game end signals
   useEffect(() => {
     if (!gameId) return;
     const sig = supabase
@@ -254,6 +254,13 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
         } catch (e) {
           console.warn('Live refresh fetch failed:', e);
         }
+      })
+      .on('broadcast', { event: 'game-ended' }, async (payload) => {
+        try {
+          setToast({ open: true, severity: 'info', message: 'The host ended the game.' });
+        } catch {}
+        try { clearSession && clearSession(); } catch {}
+        try { navigate('/home'); } catch {}
       })
       .subscribe();
     liveSignalRef.current = sig;
