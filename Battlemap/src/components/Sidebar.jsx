@@ -245,6 +245,10 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
               const prevIdx = ((prev.currentTurnIndex || 0) - 1 + len) % len;
               return { ...prev, currentTurnIndex: prevIdx };
             });
+            try {
+              const ev = new CustomEvent('bm-turn-changed', { detail: { dir: -1, t: Date.now() } });
+              window.dispatchEvent(ev);
+            } catch {}
           }}>
             <FontAwesomeIcon icon={faCircleLeftRegular} style={{ color: 'white' }} />
           </IconButton>
@@ -271,6 +275,10 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
               const nextIdx = ((prev.currentTurnIndex || 0) + 1) % len;
               return { ...prev, currentTurnIndex: nextIdx };
             });
+            try {
+              const ev = new CustomEvent('bm-turn-changed', { detail: { dir: 1, t: Date.now() } });
+              window.dispatchEvent(ev);
+            } catch {}
           }}>
             <FontAwesomeIcon icon={faCircleRightRegular} style={{ color: 'white' }} />
           </IconButton>

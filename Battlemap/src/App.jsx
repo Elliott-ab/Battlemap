@@ -281,6 +281,21 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
     return () => { liveSignalRef.current = null; supabase.removeChannel(sig); };
   }, [gameId]);
 
+  // Nudge: when turn arrows are clicked, dispatch a fast broadcast so live viewers refetch promptly
+  useEffect(() => {
+    const handler = async () => {
+      try {
+        if (!gameId) return;
+        const sig = liveSignalRef.current;
+        if (sig) {
+          await sig.send({ type: 'broadcast', event: 'live-updated', payload: { t: Date.now() } });
+        }
+      } catch {}
+    };
+    window.addEventListener('bm-turn-changed', handler);
+    return () => window.removeEventListener('bm-turn-changed', handler);
+  }, [gameId]);
+
   // Merge helper: ensure all actors (players+enemies) from live are present in base elements (used when host views draft)
   const mergeActorsIntoElements = (baseElements = [], liveElements = []) => {
     const result = [...(baseElements || [])];
@@ -428,7 +443,13 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
           const liveEls = row.state?.elements || [];
           setState((prev) => ({
             ...prev,
+            // Preserve draft elements, but pull in missing actors from live
             elements: mergeActorsIntoElements(prev.elements || [], liveEls),
+            // Also adopt shared live fields so host sees current initiative/modifiers
+            globalModifiers: row.state?.globalModifiers ?? prev.globalModifiers,
+            initiativeOrder: row.state?.initiativeOrder ?? prev.initiativeOrder,
+            initiativeScores: row.state?.initiativeScores ?? prev.initiativeScores,
+            currentTurnIndex: (typeof row.state?.currentTurnIndex === 'number') ? row.state.currentTurnIndex : prev.currentTurnIndex,
           }));
           if (Number.isFinite(ts)) lastLiveUpdatedAtRef.current = ts;
         }
