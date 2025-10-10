@@ -6,6 +6,7 @@ import { faCopy } from '@fortawesome/free-regular-svg-icons';
 import App from '../App.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
 import { hostGame, joinGameByCode, endGame, leaveGame } from '../Utils/gameService.js';
+import { getMapState, upsertMapState } from '../Utils/mapService.js';
 import { supabase } from '../supabaseClient';
 import { useGameSession } from '../Utils/GameSessionContext.jsx';
 
@@ -69,6 +70,8 @@ export default function BattlemapPage() {
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'participants', filter: `game_id=eq.${gameId}` }, async (payload) => {
         const oldRow = payload.old;
+        // Notify app to remove the player's token from local state
+        try { window.dispatchEvent(new CustomEvent('participant-left', { detail: oldRow })); } catch {}
         // If the host participant was removed, end the session for everyone
         if (oldRow?.role === 'host') {
           clearSession();
@@ -162,6 +165,14 @@ export default function BattlemapPage() {
                 }
                 // No other players; end immediately
                 try { await endGame(gameId); } catch {}
+                // Purge all player tokens from LIVE so the game is clean for next session
+                try {
+                  const row = await getMapState(gameId, 'live').catch(() => null);
+                  const liveState = row?.state || {};
+                  const els = Array.isArray(liveState.elements) ? liveState.elements.filter(e => e?.type !== 'player') : [];
+                  const merged = { ...liveState, elements: els };
+                  await upsertMapState(gameId, 'live', merged, user.id);
+                } catch {}
                 // Broadcast end signal so any connected clients bail out
                 try {
                   const ch = supabase.channel(`game-${gameId}-signals`);
@@ -263,6 +274,14 @@ export default function BattlemapPage() {
           <Button color="error" variant="contained" onClick={async () => {
             try {
               await endGame(gameId);
+              // Purge all player tokens from LIVE so the game is clean for next session
+              try {
+                const row = await getMapState(gameId, 'live').catch(() => null);
+                const liveState = row?.state || {};
+                const els = Array.isArray(liveState.elements) ? liveState.elements.filter(e => e?.type !== 'player') : [];
+                const merged = { ...liveState, elements: els };
+                await upsertMapState(gameId, 'live', merged, user?.id);
+              } catch {}
               // Broadcast end signal; use a transient channel to send
               try {
                 const ch = supabase.channel(`game-${gameId}-signals`);

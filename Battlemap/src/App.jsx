@@ -329,6 +329,41 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
     return () => { liveSignalRef.current = null; supabase.removeChannel(sig); };
   }, [gameId]);
 
+  // When a participant leaves, remove their token from our local state; host also persists removal to LIVE
+  useEffect(() => {
+    const handler = async (e) => {
+      try {
+        const row = e?.detail;
+        if (!row || !row.user_id) return;
+        const userId = row.user_id;
+        // Update local state immediately
+        setState(prev => ({
+          ...prev,
+          elements: (prev.elements || []).filter(el => !(el?.type === 'player' && el.participantUserId === userId)),
+        }));
+        // If host, also remove from LIVE state and notify others
+        if (isHost && gameId && user) {
+          try {
+            const liveRow = await getMapState(gameId, 'live').catch(() => null);
+            const liveState = liveRow?.state || {};
+            const nextEls = Array.isArray(liveState.elements)
+              ? liveState.elements.filter(el => !(el?.type === 'player' && el.participantUserId === userId))
+              : [];
+            const merged = { ...liveState, elements: nextEls };
+            try { lastLiveUpdatedAtRef.current = Date.now(); } catch {}
+            await upsertMapState(gameId, 'live', merged, user.id);
+            lastLiveUpdatedAtRef.current = Date.now();
+            if (liveSignalRef.current) {
+              try { await liveSignalRef.current.send({ type: 'broadcast', event: 'live-updated', payload: { by: user.id, t: Date.now() } }); } catch {}
+            }
+          } catch {}
+        }
+      } catch {}
+    };
+    window.addEventListener('participant-left', handler);
+    return () => window.removeEventListener('participant-left', handler);
+  }, [isHost, gameId, user?.id]);
+
   // On local turn change, broadcast exact data and persist to live if allowed
   useEffect(() => {
     const handler = async (e) => {
