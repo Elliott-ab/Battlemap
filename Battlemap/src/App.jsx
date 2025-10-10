@@ -578,9 +578,9 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
       try {
         if (!gameId || !user) return;
         // Only host writes draft; players may write live only after confirmed as participant
-        if (!isHost && channel !== 'live') return; // players never write draft
-        if (!isHost && channel === 'live' && !canWriteLive) return; // wait until participant check
-        if (isHost === false && channel === 'draft') return; // redundant safety
+  // Only the host performs autosave; players rely on realtime broadcasts (and targeted writes for turns)
+  if (!isHost) return;
+  if (isHost === false && channel === 'draft') return; // redundant safety
   // Avoid writing before first load completes on this channel (prevents wipe on refresh)
   if (!initialLoadedRef.current[channel]) return;
         // Save full state to avoid wiping shared fields on refresh
@@ -1080,8 +1080,8 @@ function usePersistOnHide(gameId, user, channel, latestStateRef, isHost, canWrit
       try {
         const payload = latestStateRef.current || {};
         // Guard writes according to role/channel to avoid RLS 403s
-        if (!isHost && channel !== 'live') return; // players never write draft
-        if (!isHost && channel === 'live' && !canWriteLive) return; // wait until participant row exists
+  // Only the host saves on hide/unmount to avoid write loops from viewers
+  if (!isHost) return;
         // Fire and forget; we don't block navigation
         upsertMapState(gameId, channel, payload, user.id).catch(() => {});
       } catch {}
