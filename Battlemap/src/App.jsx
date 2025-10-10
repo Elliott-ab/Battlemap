@@ -649,6 +649,40 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
     updateElementPosition(id, x, y);
   };
 
+  // Non-host: persist my player token to LIVE so the host and other players see it
+  const syncMyTokenToLive = async (playerEl) => {
+    try {
+      if (!gameId || !user) return;
+      if (isHost) return; // host edits draft; players own their live token
+      // Merge my token into current live state without touching other fields
+      const liveRow = await getMapState(gameId, 'live').catch(() => null);
+      const liveState = liveRow?.state || {};
+      const liveEls = Array.isArray(liveState.elements) ? liveState.elements.slice() : [];
+      const byIdNum = (arr) => arr.reduce((m, e) => {
+        const n = typeof e.id === 'number' ? e.id : parseInt(e.id, 10);
+        return Number.isFinite(n) ? Math.max(m, n) : m;
+      }, 0);
+      const idx = liveEls.findIndex(el => el && el.type === 'player' && el.participantUserId === user.id);
+      if (idx >= 0) {
+        const existing = liveEls[idx];
+        liveEls[idx] = { ...existing, ...playerEl, id: existing.id, type: 'player', participantUserId: user.id };
+      } else {
+        const maxId = byIdNum(liveEls);
+        const newId = maxId + 1;
+        const newEl = { ...playerEl, id: newId, type: 'player', participantUserId: user.id };
+        liveEls.push(newEl);
+      }
+      const merged = { ...liveState, elements: liveEls };
+      // Optimistic ts so we don't apply stale payloads
+      try { lastLiveUpdatedAtRef.current = Date.now(); } catch {}
+      await upsertMapState(gameId, 'live', merged, user.id);
+      lastLiveUpdatedAtRef.current = Date.now();
+      if (liveSignalRef.current) {
+        try { await liveSignalRef.current.send({ type: 'broadcast', event: 'live-updated', payload: { by: user.id, t: Date.now() } }); } catch {}
+      }
+    } catch (_) { /* ignore */ }
+  };
+
   // Host-only: Open save modal for named draft
   const handleSaveMap = async () => {
     if (!isHost) {
@@ -726,6 +760,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
   // Apply selected character to the local user's player token
   const applyCharacterToToken = (character) => {
     if (!character || !user) return;
+    let nextTokenForSync = null;
     setState(prev => {
       // Find or create player's token within the same state transition to avoid stale reads
       let token = (prev.elements || []).find(el => el.type === 'player' && el.participantUserId === user.id);
@@ -746,7 +781,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
           currentHp: 10,
           movement: 30,
         };
-        return {
+        const created = {
           ...prev,
           elements: [...(prev.elements || []), {
             ...token,
@@ -758,6 +793,8 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
             characterIconUrl: character.icon_url || null,
           }],
         };
+        nextTokenForSync = created.elements.find(el => el.type === 'player' && el.participantUserId === user.id) || null;
+        return created;
       }
       const updates = {
         name: character.name || token.name,
@@ -767,11 +804,18 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
         characterId: character.id || token.characterId,
         characterIconUrl: character.icon_url || token.characterIconUrl || null,
       };
-      return {
+      const updated = {
         ...prev,
         elements: (prev.elements || []).map(el => el.id === token.id ? { ...el, ...updates } : el),
       };
+      nextTokenForSync = { ...token, ...updates };
+      return updated;
     });
+    // Persist to LIVE so host/others see the player's token quickly
+    if (!isHost && gameId && user) {
+      // Fire and forget; errors are safe to ignore as we still have local state
+      syncMyTokenToLive(nextTokenForSync).catch(() => {});
+    }
   };
 
   // Detect return from character sheet and refresh the player's token
