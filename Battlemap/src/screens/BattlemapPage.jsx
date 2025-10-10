@@ -99,6 +99,21 @@ export default function BattlemapPage() {
         if (iAmHost) {
           // Best-effort: remove all players then remove host participant
           try { await endGame(gameId); } catch {}
+          // Purge player tokens from LIVE
+          try {
+            const row = await getMapState(gameId, 'live').catch(() => null);
+            const liveState = row?.state || {};
+            const els = Array.isArray(liveState.elements) ? liveState.elements.filter(e => e?.type !== 'player') : [];
+            const merged = { ...liveState, elements: els };
+            await upsertMapState(gameId, 'live', merged, user.id);
+            // Best-effort broadcast
+            try {
+              const ch = supabase.channel(`game-${gameId}-signals`);
+              await ch.subscribe();
+              await ch.send({ type: 'broadcast', event: 'live-updated', payload: { by: user.id, t: Date.now() } });
+              supabase.removeChannel(ch);
+            } catch {}
+          } catch {}
           try { await leaveGame(gameId, user.id); } catch {}
           // Try to broadcast game-ended; may be dropped on unload, but we attempt
           try {
@@ -108,6 +123,23 @@ export default function BattlemapPage() {
             supabase.removeChannel(ch);
           } catch {}
         } else {
+          // Remove my token from LIVE before leaving
+          try {
+            const row = await getMapState(gameId, 'live').catch(() => null);
+            const liveState = row?.state || {};
+            const els = Array.isArray(liveState.elements)
+              ? liveState.elements.filter(e => !(e?.type === 'player' && e.participantUserId === user.id))
+              : [];
+            const merged = { ...liveState, elements: els };
+            await upsertMapState(gameId, 'live', merged, user.id);
+            // Best-effort broadcast
+            try {
+              const ch = supabase.channel(`game-${gameId}-signals`);
+              await ch.subscribe();
+              await ch.send({ type: 'broadcast', event: 'live-updated', payload: { by: user.id, t: Date.now() } });
+              supabase.removeChannel(ch);
+            } catch {}
+          } catch {}
           try { await leaveGame(gameId, user.id); } catch {}
         }
         // Sign out locally when the tab is closing; sessionStorage will be cleared too
@@ -184,6 +216,23 @@ export default function BattlemapPage() {
                 navigate('/home');
               } else {
                 // Non-host leaves: remove themselves from participants
+                // Remove my token from LIVE first
+                try {
+                  const row = await getMapState(gameId, 'live').catch(() => null);
+                  const liveState = row?.state || {};
+                  const els = Array.isArray(liveState.elements)
+                    ? liveState.elements.filter(e => !(e?.type === 'player' && e.participantUserId === user.id))
+                    : [];
+                  const merged = { ...liveState, elements: els };
+                  await upsertMapState(gameId, 'live', merged, user.id);
+                  // Broadcast change so others update promptly
+                  try {
+                    const ch = supabase.channel(`game-${gameId}-signals`);
+                    await ch.subscribe();
+                    await ch.send({ type: 'broadcast', event: 'live-updated', payload: { by: user.id, t: Date.now() } });
+                    supabase.removeChannel(ch);
+                  } catch {}
+                } catch {}
                 try { await leaveGame(gameId, user.id); } catch {}
                 clearSession();
                 navigate('/home');
