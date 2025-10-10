@@ -213,7 +213,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
         .select('role')
         .eq('game_id', gameId)
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
       if (!active) return;
   const hostFromParticipants = !error && data?.role === 'host';
       const hostFromSession = !!sessionGame && sessionGame.id === gameId && (sessionGame.role === 'host' || sessionGame.host_id === user.id);
@@ -226,20 +226,23 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
         setChannel(host ? 'draft' : 'live');
         channelInitializedRef.current = true;
       }
-      // If a player (not host) and session requests a prompt OR no character on token, prompt selection once
-      if (!host) {
-        const shouldPrompt = !!sessionGame?.promptCharacter;
-        const myToken = (state.elements || []).find(el => el.type === 'player' && el.participantUserId === user.id);
-        const hasCharacter = !!myToken?.characterId;
-        const guard = sessionStorage.getItem('bm-character-prompt-shown');
-        if (!guard && (shouldPrompt || !hasCharacter)) {
-          setModalState(prev => ({ ...prev, selectCharacter: true }));
-          try { sessionStorage.setItem('bm-character-prompt-shown', '1'); } catch {}
-        }
-      }
     })();
     return () => { active = false; };
-  }, [gameId, user?.id, sessionGame?.id, sessionGame?.role, sessionGame?.host_id, sessionGame?.promptCharacter, state.elements]);
+  }, [gameId, user?.id, sessionGame?.id, sessionGame?.role, sessionGame?.host_id, sessionGame?.promptCharacter]);
+
+  // Separate prompt effect so we don't re-query participants on every elements change
+  useEffect(() => {
+    if (!user || !gameId) return;
+    if (isHost) return;
+    const shouldPrompt = !!sessionGame?.promptCharacter;
+    const myToken = (state.elements || []).find(el => el.type === 'player' && el.participantUserId === user.id);
+    const hasCharacter = !!myToken?.characterId;
+    const guard = sessionStorage.getItem('bm-character-prompt-shown');
+    if (!guard && (shouldPrompt || !hasCharacter)) {
+      setModalState(prev => ({ ...prev, selectCharacter: true }));
+      try { sessionStorage.setItem('bm-character-prompt-shown', '1'); } catch {}
+    }
+  }, [isHost, state.elements, user?.id, gameId, sessionGame?.promptCharacter]);
 
   // Reset channel initialization when game changes and clear loaded flags
   useEffect(() => { channelInitializedRef.current = false; initialLoadedRef.current = { live: false, draft: false }; }, [gameId]);
@@ -253,13 +256,19 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
     if (!gameId) return;
     const sig = supabase
       .channel(`game-${gameId}-signals`)
-      .on('broadcast', { event: 'live-updated' }, async () => {
-        const current = channelRef.current;
-        if (current !== 'live') return; // only refresh when viewing live
+      .on('broadcast', { event: 'live-updated' }, async (payload) => {
         try {
+          const actor = payload?.payload?.by || null;
+          // Don't react to our own nudges; we'll already have the local state
+          if (actor && userIdRef.current && actor === userIdRef.current) return;
+          const current = channelRef.current;
+          if (current !== 'live') return; // only refresh when viewing live
+          // Small delay to let the writer finish the upsert before we fetch
+          await new Promise(res => setTimeout(res, 120));
           const row = await getMapState(gameId, 'live');
           const ts = row?.updated_at ? Date.parse(row.updated_at) : Date.now();
-          if (Number.isFinite(ts) && ts < lastLiveUpdatedAtRef.current) return;
+          // Ignore stale or equal timestamps we've already applied
+          if (Number.isFinite(ts) && ts <= lastLiveUpdatedAtRef.current) return;
           if (row?.state) {
             setState(prev => {
               const next = { ...prev, ...row.state };
@@ -298,6 +307,8 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
           const data = payload?.payload;
           const moves = Array.isArray(data?.moves) ? data.moves : [];
           if (!moves.length) return;
+          const actor = data?.by || null;
+          if (actor && userIdRef.current && actor === userIdRef.current) return;
           const current = channelRef.current;
           const hostNow = isHostRef.current;
           // Apply directly in both live viewers and host viewing draft
@@ -328,8 +339,8 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
         const order = Array.isArray(detail.order) ? detail.order : undefined;
         const sig = liveSignalRef.current;
         if (sig) {
-          await sig.send({ type: 'broadcast', event: 'turn-changed', payload: { index: idx, order, t: Date.now() } });
-          await sig.send({ type: 'broadcast', event: 'live-updated', payload: { t: Date.now() } });
+          await sig.send({ type: 'broadcast', event: 'turn-changed', payload: { index: idx, order, t: Date.now(), by: user?.id || null } });
+          await sig.send({ type: 'broadcast', event: 'live-updated', payload: { t: Date.now(), by: user?.id || null } });
         }
         // Persist to live immediately when in live and permitted, after initial load
         const current = channelRef.current;
@@ -385,9 +396,9 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
             if (!gameId) return;
             const sig = liveSignalRef.current;
             if (!sig) return;
-            await sig.send({ type: 'broadcast', event: 'move-batch', payload: { moves: batch, t: Date.now() } });
+            await sig.send({ type: 'broadcast', event: 'move-batch', payload: { moves: batch, t: Date.now(), by: user?.id || null } });
             // Optional: also send a live-updated nudge
-            await sig.send({ type: 'broadcast', event: 'live-updated', payload: { t: Date.now() } });
+            await sig.send({ type: 'broadcast', event: 'live-updated', payload: { t: Date.now(), by: user?.id || null } });
           } catch {}
         }, 120);
       } catch {}
@@ -530,7 +541,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
         // Prevent applying our own writes and ignore stale updates (helps avoid snap-back after click-to-move)
         if (row.updated_by && userIdRef.current && row.updated_by === userIdRef.current) return;
         const ts = row.updated_at ? Date.parse(row.updated_at) : Date.now();
-        if (Number.isFinite(ts) && ts < lastLiveUpdatedAtRef.current) return;
+        if (Number.isFinite(ts) && ts <= lastLiveUpdatedAtRef.current) return;
         const currentChannel = channelRef.current;
         const hostNow = isHostRef.current;
         if (currentChannel === 'live') {
@@ -581,6 +592,8 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
           initiativeScores: state.initiativeScores,
           currentTurnIndex: state.currentTurnIndex,
         };
+        // Optimistically bump last live ts to avoid applying stale payloads while this write is in flight
+        if (channel === 'live') { try { lastLiveUpdatedAtRef.current = Date.now(); } catch {} }
         await upsertMapState(gameId, channel, saveState, user.id);
         if (channel === 'live') {
           lastLiveUpdatedAtRef.current = Date.now();
@@ -615,6 +628,8 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
           currentTurnIndex: Number.isFinite(state.currentTurnIndex) ? state.currentTurnIndex : (liveState.currentTurnIndex || 0),
           globalModifiers: Array.isArray(state.globalModifiers) ? state.globalModifiers : (liveState.globalModifiers || []),
         };
+        // Optimistically bump last live ts to avoid applying stale payloads while this write is in flight
+        try { lastLiveUpdatedAtRef.current = Date.now(); } catch {}
         await upsertMapState(gameId, 'live', merged, user.id);
         lastLiveUpdatedAtRef.current = Date.now();
         if (liveSignalRef.current) {
