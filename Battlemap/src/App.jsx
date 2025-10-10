@@ -442,54 +442,60 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
     return () => window.removeEventListener('bm-element-moved', onMoved);
   }, [gameId, canWriteLive]);
 
-  // Merge helper: ensure all actors (players+enemies) from live are present in base elements (used when host views draft)
+  // Merge helper: in host draft, reflect LIVE presence
+  // - Remove any player tokens not present in LIVE
+  // - Keep enemies as-is
+  // - Add any missing players/enemies from LIVE, preserving draft positions for matches
   const mergeActorsIntoElements = (baseElements = [], liveElements = []) => {
-    const result = [...(baseElements || [])];
+    const base = Array.isArray(baseElements) ? baseElements : [];
+    const live = Array.isArray(liveElements) ? liveElements : [];
+    const keyFor = (e) => {
+      if (!e) return null;
+      if (e.type === 'player') {
+        return e.participantUserId ? `p:u:${e.participantUserId}` : (e.characterId ? `p:c:${e.characterId}` : `p:n:${e.name || ''}`);
+      }
+      const hasId = e.id !== undefined && e.id !== null && `${e.id}` !== '';
+      return e.type === 'enemy' ? (hasId ? `e:id:${e.id}` : `e:n:${e.name || ''}|s:${e.size ?? ''}`) : null;
+    };
+    // Build sets/maps for quick lookups
+    const liveByKey = new Map(live.filter(e => e && (e.type === 'player' || e.type === 'enemy')).map(e => [keyFor(e), e]));
+    const livePlayerKeys = new Set(
+      live.filter(e => e && e.type === 'player').map(e => keyFor(e))
+    );
+    // Start with base elements, but drop players not present in live
+    const pruned = base.filter(e => {
+      if (!e || e.type !== 'player') return true;
+      const k = keyFor(e);
+      return k && livePlayerKeys.has(k);
+    });
+    // Index current result and compute id space
+    const result = [...pruned];
     const existingIds = new Set(result.map(e => e.id));
     const maxId = result.reduce((m, e) => {
       const n = typeof e.id === 'number' ? e.id : parseInt(e.id, 10);
       return Number.isFinite(n) ? Math.max(m, n) : m;
     }, 0);
     let nextId = maxId + 1;
-    // Index base actors:
-    // - players by participantUserId, then characterId, then name
-    // - enemies by stable id if present, else name+size
-    const baseActorsByKey = new Map(
+    const resultByKey = new Map(
       result
         .filter(e => e && (e.type === 'player' || e.type === 'enemy'))
-        .map(e => {
-          let key;
-          if (e.type === 'player') {
-            key = e.participantUserId ? `p:u:${e.participantUserId}` : (e.characterId ? `p:c:${e.characterId}` : `p:n:${e.name || ''}`);
-          } else {
-            const hasId = e.id !== undefined && e.id !== null && `${e.id}` !== '';
-            key = hasId ? `e:id:${e.id}` : `e:n:${e.name || ''}|s:${e.size ?? ''}`;
-          }
-          return [key, e];
-        })
+        .map(e => [keyFor(e), e])
     );
-    for (const el of (liveElements || [])) {
+    // Add any missing actors from live
+    for (const el of live) {
       if (!el || (el.type !== 'player' && el.type !== 'enemy')) continue;
-      let key;
-      if (el.type === 'player') {
-        key = el.participantUserId ? `p:u:${el.participantUserId}` : (el.characterId ? `p:c:${el.characterId}` : `p:n:${el.name || ''}`);
-      } else {
-        const hasId = el.id !== undefined && el.id !== null && `${el.id}` !== '';
-        key = hasId ? `e:id:${el.id}` : `e:n:${el.name || ''}|s:${el.size ?? ''}`;
-      }
-      if (baseActorsByKey.has(key)) {
-        // Already present in draft; keep draft's position so host edits persist
-        continue;
-      }
-      // Add a copy of the live actor into draft, ensuring a unique id
+      const k = keyFor(el);
+      if (!k || resultByKey.has(k)) continue;
+      // Ensure unique id when adding
       let newId = el.id;
       const numeric = typeof newId === 'number' ? newId : parseInt(newId, 10);
       if (!Number.isFinite(numeric) || existingIds.has(newId)) {
         newId = nextId++;
       }
-      result.push({ ...el, id: newId });
+      const copy = { ...el, id: newId };
+      result.push(copy);
       existingIds.add(newId);
-      baseActorsByKey.set(key, el);
+      resultByKey.set(k, copy);
     }
     return result;
   };
