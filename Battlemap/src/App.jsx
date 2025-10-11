@@ -723,6 +723,50 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
   // Sync isDrawingCover and coverBlocks into state for grid rendering
   const mergedState = { ...state, isDrawingCover, coverBlocks };
 
+  // Host-in-draft: mirror enemies to LIVE so players retain enemy context across refreshes.
+  // - Keep existing LIVE players and any non-enemy elements intact
+  // - Replace LIVE enemies with the host's current draft enemies
+  // - Debounced and change-guarded to limit churn
+  useEffect(() => {
+    const debounce = setTimeout(async () => {
+      try {
+        if (!gameId || !user) return;
+        if (!isHost) return;
+        if (channel !== 'draft') return;
+        if (!initialLoadedRef.current.draft) return;
+        const draftEnemies = (state.elements || []).filter(e => e && e.type === 'enemy');
+        // If no enemies in draft, still propagate removal to LIVE (clears enemies)
+        const liveRow = await getMapState(gameId, 'live').catch(() => null);
+        const liveState = liveRow?.state || {};
+        const liveEls = Array.isArray(liveState.elements) ? liveState.elements : [];
+        const keep = liveEls.filter(e => e && e.type !== 'enemy');
+        // Ensure unique ids when adding draft enemies
+        const existingIds = new Set(keep.map(e => e.id));
+        const maxId = keep.reduce((m, e) => {
+          const n = typeof e.id === 'number' ? e.id : parseInt(e.id, 10);
+          return Number.isFinite(n) ? Math.max(m, n) : m;
+        }, 0);
+        let nextId = maxId + 1;
+        const addEnemies = draftEnemies.map(en => {
+          let newId = en.id;
+          if (existingIds.has(newId)) { newId = nextId++; }
+          existingIds.add(newId);
+          return { ...en, id: newId };
+        });
+        const nextEls = [...keep, ...addEnemies];
+        const sig = (arr) => JSON.stringify((arr || []).filter(e => e && e.type === 'enemy').map(e => ({ id: e.id, name: e.name, size: e.size, x: e.position?.x, y: e.position?.y })).sort((a, b) => (a.id > b.id ? 1 : -1)));
+        if (sig(liveEls) === sig(nextEls)) return;
+        try { lastLiveUpdatedAtRef.current = Date.now(); } catch {}
+        await upsertMapState(gameId, 'live', { ...liveState, elements: nextEls }, user.id);
+        lastLiveUpdatedAtRef.current = Date.now();
+        if (liveSignalRef.current) {
+          try { await liveSignalRef.current.send({ type: 'broadcast', event: 'live-updated', payload: { by: user.id, t: Date.now() } }); } catch {}
+        }
+      } catch (_) { /* ignore */ }
+    }, 800);
+    return () => clearTimeout(debounce);
+  }, [state.elements, gameId, user?.id, isHost, channel]);
+
   // Wrap position updates to record a short-lived pending move marker per element
   const safeUpdateElementPosition = (id, x, y) => {
     try { pendingMovesRef.current.set(Number(id), Date.now()); } catch {}
