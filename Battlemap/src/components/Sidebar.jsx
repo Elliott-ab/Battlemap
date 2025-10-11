@@ -468,17 +468,16 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
                         )}
                       </div>
                       {el.participantUserId === currentUserId && (
-                        <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                        <div className="hp-rest-controls" style={{ marginTop: 4 }}>
                           <button
-                            className="btn btn-xs"
+                            className="btn btn-xs hp-rest-button"
                             title="Short Rest"
                             onClick={(e) => { e.stopPropagation(); /* No-op for now */ }}
-                            style={{ padding: '2px 6px' }}
                           >
                             Short Rest
                           </button>
                           <button
-                            className="btn btn-xs"
+                            className="btn btn-xs hp-rest-button"
                             title="Long Rest"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -489,7 +488,6 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
                               }));
                               try { window.dispatchEvent(new CustomEvent('bm-player-token-updated', { detail: { id: el.id, currentHp: toMax } })); } catch {}
                             }}
-                            style={{ padding: '2px 6px' }}
                           >
                             Long Rest
                           </button>

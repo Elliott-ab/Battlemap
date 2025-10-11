@@ -157,6 +157,32 @@
     display: inline-block;
 }
 
+/* Rest controls under HP: two buttons share full width and match HP height */
+.hp-rest-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+.hp-rest-button {
+    line-height: 1; /* compact text */
+    padding: 0; /* height controlled by min-height */
+    min-height: calc(1em + 0.5rem); /* approximate hp-display height */
+    height: calc(1em + 0.5rem);
+    font-size: 0.75rem;
+    border-radius: 3px;
+    background: transparent;
+    color: #fff;
+    border: 1px solid #fff;
+    box-shadow: none;
+}
+.btn.hp-rest-button,
+button.hp-rest-button {
+    background: transparent !important;
+    color: #fff !important;
+    border: 1px solid #fff !important;
+    box-shadow: none !important;
+}
+
 .hp-display.healthy {
     color: #4CAF50;
     background-color: rgba(76, 175, 80, 0.2);
