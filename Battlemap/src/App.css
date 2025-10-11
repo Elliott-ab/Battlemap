@@ -572,6 +572,16 @@ body {
     border-radius: 6px;
 }
 
+/* Tight overrides for HP rest buttons: match .hp-display height exactly */
+.btn.hp-rest-button {
+    padding: 0.25rem 0.5rem !important;
+    min-height: 0 !important;
+    height: auto !important;
+    line-height: 1 !important;
+    font-size: 0.85rem !important;
+    border-radius: 3px !important;
+}
+
 .main-content {
     display: flex;
     flex: 1;
