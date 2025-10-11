@@ -164,11 +164,11 @@
     gap: 6px;
 }
 .hp-rest-button {
-    line-height: 1; /* compact text */
-    padding: 0; /* height controlled by min-height */
-    min-height: calc(1em + 0.5rem); /* approximate hp-display height */
-    height: calc(1em + 0.5rem);
-    font-size: 0.75rem;
+    /* Match .hp-display sizing exactly */
+    font-size: 0.85rem;
+    font-weight: 600;
+    line-height: 1;
+    padding: 0.25rem 0.5rem;
     border-radius: 3px;
     background: transparent;
     color: #fff;

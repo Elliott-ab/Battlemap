@@ -74,7 +74,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
   const { game: sessionGame, updateSession, clearSession } = useGameSession();
   const initialChannel = (!sessionGame
     ? 'live' // default to live until role is known to avoid draft reads for players
-    : ((sessionGame.role === 'host' || sessionGame.host_id === user?.id) ? 'draft' : 'live'));
+    : ((sessionGame.role === 'host' || sessionGame.host_id === user?.id) ? 'live' : 'live'));
   const [channel, setChannel] = useState(initialChannel); // 'live' or 'draft'
   const channelInitializedRef = useRef(false);
   // Keep refs of current channel/role for realtime handlers
@@ -223,7 +223,8 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
   if (!host && !error && data?.role) setCanWriteLive(true);
       // Initialize channel once per game based on role; don't override manual toggles
       if (!channelInitializedRef.current) {
-        setChannel(host ? 'draft' : 'live');
+        // Default host to LIVE on load/return; players also LIVE
+        setChannel('live');
         channelInitializedRef.current = true;
       }
     })();
