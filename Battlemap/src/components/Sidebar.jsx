@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import IconButton from './common/IconButton.jsx';
+import ShortRestModal from './Modals/ShortRestModal.jsx';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSkull, faWandSparkles, faChevronRight, faAnglesLeft, faAnglesRight, faAnglesUp, faAnglesDown } from '@fortawesome/free-solid-svg-icons';
 import {
@@ -197,6 +198,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
 
   // Inline damage entry for players (subtract HP) and enemies (accumulate Damage)
   const [damageEdit, setDamageEdit] = useState({ targetId: null, targetType: null, value: '' });
+  const [shortRest, setShortRest] = useState({ open: false, id: null });
   const openDamageEdit = (targetId, targetType) => {
     clearMovementAndSelection(battleMapRef, setState);
     setDamageEdit({ targetId, targetType, value: '' });
@@ -472,7 +474,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
                           <button
                             className="btn btn-xs hp-rest-button"
                             title="Short Rest"
-                            onClick={(e) => { e.stopPropagation(); /* No-op for now */ }}
+                            onClick={(e) => { e.stopPropagation(); setShortRest({ open: true, id: el.id }); }}
                           >
                             Short Rest
                           </button>
@@ -534,6 +536,33 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
           ))}
         </div>
       </div>
+
+      {/* Short Rest Modal */}
+      {shortRest.open && (() => {
+        const target = (state.elements || []).find(x => x.id === shortRest.id && x.type === 'player');
+        if (!target) return null;
+        const maxHp = target.maxHp || 0;
+        const currentHp = target.currentHp || 0;
+        const name = target.name || 'You';
+        return (
+          <ShortRestModal
+            open={shortRest.open}
+            onClose={() => setShortRest({ open: false, id: null })}
+            maxHp={maxHp}
+            currentHp={currentHp}
+            name={name}
+            onConfirm={(heal) => {
+              const newHp = Math.min(maxHp, currentHp + (Number.isFinite(heal) ? heal : 0));
+              setState(prev => ({
+                ...prev,
+                elements: (prev.elements || []).map(x => x.id === target.id ? { ...x, currentHp: newHp } : x),
+              }));
+              try { window.dispatchEvent(new CustomEvent('bm-player-token-updated', { detail: { id: target.id, currentHp: newHp } })); } catch {}
+              setShortRest({ open: false, id: null });
+            }}
+          />
+        );
+      })()}
 
       {/* Inline damage entry handled within the HP bar; no popover */}
 
