@@ -403,6 +403,39 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
     return () => window.removeEventListener('bm-initiative-updated', handler);
   }, [gameId, user?.id, canWriteLive]);
 
+  // Persist player self-updates (e.g., HP changes) to LIVE for non-hosts so everyone sees it
+  useEffect(() => {
+    const handler = async (e) => {
+      try {
+        const detail = e?.detail || {};
+        const elId = detail.id;
+        if (!gameId || !user || !elId) return;
+        // Only allow the owner (or host) to persist
+        const owner = (state.elements || []).find(x => x.id === elId && x.type === 'player');
+        if (!owner) return;
+        const isOwner = owner.participantUserId === user.id;
+        if (!(isHost || isOwner)) return;
+        const liveRow = await getMapState(gameId, 'live').catch(() => null);
+        const liveState = liveRow?.state || {};
+        const nextEls = (Array.isArray(liveState.elements) ? liveState.elements : []).map(x => {
+          if (x && x.type === 'player' && x.id === elId) {
+            return { ...x, ...detail };
+          }
+          return x;
+        });
+        const merged = { ...liveState, elements: nextEls };
+        try { lastLiveUpdatedAtRef.current = Date.now(); } catch {}
+        await upsertMapState(gameId, 'live', merged, user.id);
+        lastLiveUpdatedAtRef.current = Date.now();
+        if (liveSignalRef.current) {
+          try { await liveSignalRef.current.send({ type: 'broadcast', event: 'live-updated', payload: { by: user.id, t: Date.now() } }); } catch {}
+        }
+      } catch {}
+    };
+    window.addEventListener('bm-player-token-updated', handler);
+    return () => window.removeEventListener('bm-player-token-updated', handler);
+  }, [gameId, user?.id, isHost, state.elements]);
+
   // On local turn change, broadcast exact data and persist to live if allowed
   useEffect(() => {
     const handler = async (e) => {

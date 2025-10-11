@@ -442,11 +442,23 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
                           borderColor: damageEdit.targetId === el.id && damageEdit.targetType === 'player' ? '#f44336' : undefined,
                         }}
                       >
-                        {isHost && damageEdit.targetId === el.id && damageEdit.targetType === 'player' ? (
+                        {(damageEdit.targetId === el.id && damageEdit.targetType === 'player' && (isHost || el.participantUserId === currentUserId)) ? (
                           <InlineNumberEditor
                             value={damageEdit.value}
                             onChange={(v) => setDamageEdit(p => ({ ...p, value: v }))}
-                            onConfirm={applyDamageEdit}
+                            onConfirm={() => {
+                              // Apply locally, then signal App to persist to LIVE for players
+                              const dmg = parseInt((damageEdit.value || '').toString().trim(), 10);
+                              if (!Number.isFinite(dmg) || dmg <= 0) { cancelDamageEdit(); return; }
+                              const newHp = Math.max(0, (el.currentHp || 0) - dmg);
+                              setState(prev => ({
+                                ...prev,
+                                elements: (prev.elements || []).map(x => x.id === el.id ? { ...x, currentHp: newHp } : x),
+                              }));
+                              // Notify App so non-host player persists to LIVE
+                              try { window.dispatchEvent(new CustomEvent('bm-player-token-updated', { detail: { id: el.id, currentHp: newHp } })); } catch {}
+                              cancelDamageEdit();
+                            }}
                             onCancel={cancelDamageEdit}
                             title="Damage dealt:"
                             okLabel="OK"
@@ -455,6 +467,34 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
                           <>HP: {effectiveHp}/{el.maxHp}</>
                         )}
                       </div>
+                      {el.participantUserId === currentUserId && (
+                        <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                          <button
+                            className="btn btn-xs"
+                            title="Short Rest"
+                            onClick={(e) => { e.stopPropagation(); /* No-op for now */ }}
+                            style={{ padding: '2px 6px' }}
+                          >
+                            Short Rest
+                          </button>
+                          <button
+                            className="btn btn-xs"
+                            title="Long Rest"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const toMax = el.maxHp || 0;
+                              setState(prev => ({
+                                ...prev,
+                                elements: (prev.elements || []).map(x => x.id === el.id ? { ...x, currentHp: toMax } : x),
+                              }));
+                              try { window.dispatchEvent(new CustomEvent('bm-player-token-updated', { detail: { id: el.id, currentHp: toMax } })); } catch {}
+                            }}
+                            style={{ padding: '2px 6px' }}
+                          >
+                            Long Rest
+                          </button>
+                        </div>
+                      )}
                     </div>
                   );
                 })()
