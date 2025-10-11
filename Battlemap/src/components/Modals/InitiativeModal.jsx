@@ -2,13 +2,14 @@ import React, { useMemo, useState, useEffect } from 'react';
 
 const InitiativeModal = ({ isOpen, state, setState, onClose }) => {
   const combatants = useMemo(() => (state.elements || []).filter(el => el.type === 'player' || el.type === 'enemy'), [state.elements]);
+  // Store as strings so inputs can be empty while typing; coerce on save
   const [scores, setScores] = useState({});
 
   useEffect(() => {
     const initial = {};
     for (const c of combatants) {
-      const prev = state.initiativeScores?.[c.id] ?? 0;
-      initial[c.id] = prev;
+      const prev = state.initiativeScores?.[c.id];
+      initial[c.id] = (prev === undefined || prev === null || Number.isNaN(prev)) ? '' : String(prev);
     }
     setScores(initial);
   }, [combatants, state.initiativeScores]);
@@ -16,13 +17,13 @@ const InitiativeModal = ({ isOpen, state, setState, onClose }) => {
   if (!isOpen) return null;
 
   const handleChange = (id, value) => {
-    const num = parseInt(value || '0', 10);
-    setScores(prev => ({ ...prev, [id]: isNaN(num) ? 0 : num }));
+    // Allow empty string while typing
+    setScores(prev => ({ ...prev, [id]: value }));
   };
 
   const handleReset = () => {
     const reset = {};
-    for (const c of combatants) reset[c.id] = 0;
+    for (const c of combatants) reset[c.id] = '0';
     setScores(reset);
   };
 
@@ -30,32 +31,41 @@ const InitiativeModal = ({ isOpen, state, setState, onClose }) => {
     const rolled = {};
     for (const c of combatants) {
       const roll = Math.floor(Math.random() * 20) + 1; // 1-20
-      rolled[c.id] = roll;
+      rolled[c.id] = String(roll);
     }
     setScores(rolled);
   };
 
   const handleSave = () => {
+    const toNum = (v) => {
+      const n = parseInt(v, 10);
+      return Number.isFinite(n) ? n : 0;
+    };
     // Determine if all scores are zero; if so, clear order to show "Set Initiative"
-    const allZero = combatants.every(c => (scores[c.id] ?? 0) === 0);
+    const allZero = combatants.every(c => toNum(scores[c.id]) === 0);
     let order = [];
     if (!allZero) {
       order = [...combatants]
         .sort((a, b) => {
-          const sa = scores[a.id] ?? 0;
-          const sb = scores[b.id] ?? 0;
+          const sa = toNum(scores[a.id]);
+          const sb = toNum(scores[b.id]);
           if (sb !== sa) return sb - sa;
           return a.name.localeCompare(b.name);
         })
         .map(c => c.id);
     }
-
+    const numericScores = Object.fromEntries(
+      combatants.map(c => [c.id, toNum(scores[c.id])])
+    );
     setState(prev => ({
       ...prev,
-      initiativeScores: { ...scores },
+      initiativeScores: numericScores,
       initiativeOrder: order,
       currentTurnIndex: 0,
     }));
+    try {
+      window.dispatchEvent(new CustomEvent('bm-initiative-updated', { detail: { order, scores: numericScores, index: 0 } }));
+    } catch {}
     onClose();
   };
 
@@ -74,8 +84,12 @@ const InitiativeModal = ({ isOpen, state, setState, onClose }) => {
             <div className="initiative-form">
             {[...combatants]
               .sort((a, b) => {
-                const sa = scores[a.id] ?? 0;
-                const sb = scores[b.id] ?? 0;
+                const toNum = (v) => {
+                  const n = parseInt(v, 10);
+                  return Number.isFinite(n) ? n : 0;
+                };
+                const sa = toNum(scores[a.id]);
+                const sb = toNum(scores[b.id]);
                 if (sb !== sa) return sb - sa;
                 return a.name.localeCompare(b.name);
               })
@@ -98,7 +112,7 @@ const InitiativeModal = ({ isOpen, state, setState, onClose }) => {
                 <input
                   type="number"
                   min="0"
-                  value={scores[c.id] ?? 0}
+                  value={scores[c.id] ?? ''}
                   onChange={(e) => handleChange(c.id, e.target.value)}
                   style={{ width: '80px', marginLeft: 'auto', textAlign: 'right' }}
                 />

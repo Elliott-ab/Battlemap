@@ -364,6 +364,45 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
     return () => window.removeEventListener('participant-left', handler);
   }, [isHost, gameId, user?.id]);
 
+  // Persist initiative updates from any client to LIVE and broadcast to all
+  useEffect(() => {
+    const handler = async (e) => {
+      try {
+        const detail = e?.detail || {};
+        const order = Array.isArray(detail.order) ? detail.order : (state.initiativeOrder || []);
+        const scores = detail.scores || state.initiativeScores || {};
+        const index = Number.isFinite(detail.index) ? detail.index : 0;
+        if (!gameId || !user) return;
+        // If we're in LIVE and allowed to write (host, or confirmed participant), persist directly
+        const current = channelRef.current;
+        const hostNow = isHostRef.current;
+        const canWrite = hostNow || canWriteLive;
+        if (current === 'live' && canWrite) {
+          const liveRow = await getMapState(gameId, 'live').catch(() => null);
+          const liveState = liveRow?.state || {};
+          const merged = {
+            ...liveState,
+            initiativeOrder: order,
+            initiativeScores: scores,
+            currentTurnIndex: Number.isFinite(index) ? index : (liveState.currentTurnIndex || 0),
+          };
+          try { lastLiveUpdatedAtRef.current = Date.now(); } catch {}
+          await upsertMapState(gameId, 'live', merged, user.id);
+          lastLiveUpdatedAtRef.current = Date.now();
+          const sig = liveSignalRef.current;
+          if (sig) {
+            try {
+              await sig.send({ type: 'broadcast', event: 'turn-changed', payload: { index, order, t: Date.now(), by: user.id } });
+              await sig.send({ type: 'broadcast', event: 'live-updated', payload: { t: Date.now(), by: user.id } });
+            } catch {}
+          }
+        }
+      } catch {}
+    };
+    window.addEventListener('bm-initiative-updated', handler);
+    return () => window.removeEventListener('bm-initiative-updated', handler);
+  }, [gameId, user?.id, canWriteLive]);
+
   // On local turn change, broadcast exact data and persist to live if allowed
   useEffect(() => {
     const handler = async (e) => {
