@@ -1050,6 +1050,36 @@ body {
     pointer-events: none;
 }
 
+/* Incapacitated token styling: always greyed out and non-interactive */
+.element.incapacitated {
+    opacity: 0.55;
+    filter: grayscale(1);
+    cursor: not-allowed;
+}
+/* Skull overlay centered on token; large, semi-opaque, non-interactive */
+.element .skull-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 70%;
+    height: 70%;
+    pointer-events: none;
+    z-index: 30;
+    opacity: 0.9;
+    /* Use an inline SVG mask for a skull shape via CSS fallback using emoji */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.7);
+}
+.element .skull-overlay::before {
+    content: "\01F480"; /* skull emoji U+1F480 */
+    font-size: calc(var(--cell-px) * 0.6);
+    line-height: 1;
+}
+
 .grid-wrapper {
     display: flex;
     flex-direction: column;

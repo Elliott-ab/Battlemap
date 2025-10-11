@@ -143,7 +143,7 @@ export const useGrid = (state) => {
         }
       }
     }
-    state.elements.forEach((el) => {
+  state.elements.forEach((el) => {
       // Guard: skip elements with no valid position (can happen during join or partial loads)
       if (!el || !el.position || typeof el.position.x !== 'number' || typeof el.position.y !== 'number') {
         console.warn('Skipping element without valid position', el);
@@ -154,6 +154,14 @@ export const useGrid = (state) => {
       // Grey out players and enemies during drawing mode
       if (state.isDrawingCover && (el.type === 'player' || el.type === 'enemy')) {
         elDiv.classList.add('greyed-out');
+      }
+      // Incapacitated tokens: greyed out and with a skull overlay
+      if ((el.type === 'player' || el.type === 'enemy') && el.incapacitated) {
+        elDiv.classList.add('incapacitated');
+        // Append a skull overlay element; CSS will handle the icon appearance
+        const skull = document.createElement('div');
+        skull.classList.add('skull-overlay');
+        elDiv.appendChild(skull);
       }
       if (el.type === 'cover') {
         elDiv.classList.add('custom-cover', el.coverType);

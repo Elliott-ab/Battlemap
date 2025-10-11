@@ -402,6 +402,8 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
                           ...prev,
                           elements: prev.elements.map(x => x.id === el.id ? { ...x, incapacitated: false } : x)
                         }));
+                        // Persist to LIVE so players see the change
+                        try { window.dispatchEvent(new CustomEvent('bm-player-token-updated', { detail: { id: el.id, participantUserId: el.participantUserId, incapacitated: false } })); } catch {}
                       }}
                     />
                   ) : (
@@ -418,6 +420,8 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
                           elements: prev.elements.map(x => x.id === el.id ? { ...x, incapacitated: true } : x),
                           highlightedElementId: prev.highlightedElementId === el.id ? null : prev.highlightedElementId,
                         }));
+                        // Persist to LIVE so players see the change
+                        try { window.dispatchEvent(new CustomEvent('bm-player-token-updated', { detail: { id: el.id, participantUserId: el.participantUserId, incapacitated: true } })); } catch {}
                       }}
                     />
                   )}
