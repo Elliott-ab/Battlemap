@@ -3,23 +3,33 @@ import { Box, Paper, Typography } from '@mui/material';
 
 export default function ProgressStepper({ steps, activeStep, onStepClick, cardSx }) {
   const cols = steps.length * 2 - 1; // odd columns for icons/labels, even for connectors
+  const colsXs = `repeat(${cols}, 1fr)`;
+  const colsMd = steps.map((_, i) => (i < steps.length - 1 ? 'minmax(120px,1fr) minmax(28px,0.5fr)' : 'minmax(120px,1fr)')).join(' ');
   return (
   <Paper elevation={3} sx={{ ...cardSx, mb: 2, width: '100%', overflow: 'hidden' }}>
       {/* Icon + connectors grid */}
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: `repeat(${cols}, 1fr)`,
+          gridTemplateColumns: { xs: colsXs, md: colsMd },
           alignItems: 'center',
           columnGap: 0.5,
           minWidth: 0,
+          position: 'relative',
         }}
       >
         {/* Connectors in even columns */}
         {steps.slice(0, -1).map((_, idx) => (
           <Box
             key={`conn-${idx}`}
-            sx={{ gridColumn: (idx + 1) * 2, height: 2, bgcolor: 'rgba(255,255,255,0.25)' }}
+            sx={{
+              gridColumn: (idx + 1) * 2,
+              gridRow: 1,
+              alignSelf: 'center',
+              height: 2,
+              bgcolor: 'rgba(255,255,255,0.25)',
+              borderRadius: 1,
+            }}
           />
         ))}
 
@@ -29,7 +39,7 @@ export default function ProgressStepper({ steps, activeStep, onStepClick, cardSx
           const isCompleted = idx < activeStep;
           return (
             <Box key={`icon-${s.label}`}
-              sx={{ gridColumn: idx * 2 + 1, justifySelf: 'center', minWidth: 0 }}
+              sx={{ gridColumn: idx * 2 + 1, gridRow: 1, justifySelf: 'center', minWidth: 0, zIndex: 1 }}
             >
               <Box
                 role="button"
@@ -62,7 +72,7 @@ export default function ProgressStepper({ steps, activeStep, onStepClick, cardSx
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: `repeat(${cols}, 1fr)`,
+          gridTemplateColumns: { xs: colsXs, md: colsMd },
           alignItems: 'start',
           mt: 1,
           minWidth: 0,
@@ -74,16 +84,18 @@ export default function ProgressStepper({ steps, activeStep, onStepClick, cardSx
               variant="body2"
               sx={{
                 width: '100%',
-                whiteSpace: 'pre-line', // respect \n from split, don't preserve extra spaces
                 textAlign: 'center',
-                lineHeight: 1.15,
-                wordBreak: 'normal',
+                lineHeight: 1.2,
+                whiteSpace: 'normal',
+                wordBreak: 'keep-all',
                 overflowWrap: 'normal',
+                display: '-webkit-box',
+                WebkitBoxOrient: 'vertical',
+                WebkitLineClamp: 3, // allow up to 3 lines before truncation
                 overflow: 'hidden',
-                textOverflow: 'ellipsis',
               }}
             >
-              {s.label.split(' ').join('\n')}
+              {s.label}
             </Typography>
           </Box>
         ))}

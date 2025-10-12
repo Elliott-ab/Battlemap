@@ -8,6 +8,7 @@ import Dashboard from '../screens/Dashboard.jsx';
 import BattlemapPage from '../screens/BattlemapPage.jsx';
 import Characters from '../screens/Characters.jsx';
 import CharacterBuilder from '../screens/CharacterBuilder.jsx';
+import CharacterBuilderWizard from '../screens/CharacterBuilderWizard.jsx';
 import Library from '../screens/Library.jsx';
 
 function RequireAuth({ children }) {
@@ -68,6 +69,14 @@ export default function AppRouter() {
             element={(
               <RequireAuth>
                 <CharacterBuilder />
+              </RequireAuth>
+            )}
+          />
+          <Route
+            path="/characters/new/guided"
+            element={(
+              <RequireAuth>
+                <CharacterBuilderWizard />
               </RequireAuth>
             )}
           />
