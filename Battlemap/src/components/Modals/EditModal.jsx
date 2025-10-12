@@ -47,6 +47,12 @@ const EditModal = ({ isOpen, elementId, state, updateElement, deleteElement, pus
       size: parseInt(formData.size) || 1,
     });
     pushUndo();
+    // If editing a player, persist color change to LIVE so all clients see it (host or owner can persist)
+    try {
+      if (formData.type === 'player' && formData.color) {
+        window.dispatchEvent(new CustomEvent('bm-player-token-updated', { detail: { id: elementId, color: formData.color } }));
+      }
+    } catch {}
     onClose();
   };
 

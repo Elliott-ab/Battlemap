@@ -317,6 +317,12 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
                 // Players can only select their own player card
                 if (!isHost) {
                   if (el.type !== 'player' || (el.participantUserId && el.participantUserId !== currentUserId)) return;
+                  // If initiative is set, only allow highlight on your own turn
+                  const order = state.initiativeOrder || [];
+                  if (order.length) {
+                    const currentId = order[(state.currentTurnIndex || 0) % order.length];
+                    if (currentId !== el.id) return;
+                  }
                 }
                 toggleMovementHighlight(el.id, battleMapRef);
               }}
@@ -477,10 +483,10 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
                         <div className="hp-rest-controls" style={{ marginTop: 4 }}>
                           <button
                             className="btn btn-xs hp-rest-button"
-                            title="Short Rest"
+                            title="Recover HP"
                             onClick={(e) => { e.stopPropagation(); setShortRest({ open: true, id: el.id }); }}
                           >
-                            Short Rest
+                            Recover HP
                           </button>
                           <button
                             className="btn btn-xs hp-rest-button"

@@ -19,7 +19,7 @@ export default function ShortRestModal({ open, onClose, onConfirm, maxHp = 0, cu
     <div className="modal" style={{ display: 'block' }}>
       <div className="modal-content" style={{ maxWidth: 360 }}>
         <span className="close" onClick={onClose}>&times;</span>
-        <h3>Short Rest</h3>
+  <h3>Recover HP</h3>
         <div style={{ color: '#ccc', marginBottom: '0.75rem' }}>
           {name} regains HP equal to the number rolled + constitution modifier (up to max HP).
         </div>

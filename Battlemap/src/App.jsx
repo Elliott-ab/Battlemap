@@ -235,6 +235,12 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
   useEffect(() => {
     if (!user || !gameId) return;
     if (isHost) return;
+    // Only evaluate after initial map state has loaded for the current channel
+    try {
+      const current = channelRef.current || 'live';
+      const loaded = initialLoadedRef.current?.[current];
+      if (!loaded) return;
+    } catch {}
     const shouldPrompt = !!sessionGame?.promptCharacter;
     const myToken = (state.elements || []).find(el => el.type === 'player' && el.participantUserId === user.id);
     const hasCharacter = !!myToken?.characterId;
@@ -1131,19 +1137,16 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
         onClose={() => {
           setModalState(prev => ({ ...prev, selectCharacter: false }));
           if (sessionGame?.promptCharacter) updateSession({ promptCharacter: false });
-          try { sessionStorage.removeItem('bm-character-prompt-shown'); } catch {}
         }}
         onSelect={(c) => {
           applyCharacterToToken(c);
           setModalState(prev => ({ ...prev, selectCharacter: false }));
           if (sessionGame?.promptCharacter) updateSession({ promptCharacter: false });
-          try { sessionStorage.removeItem('bm-character-prompt-shown'); } catch {}
         }}
         onBuildNew={() => {
           setModalState(prev => ({ ...prev, selectCharacter: false }));
           if (sessionGame?.promptCharacter) updateSession({ promptCharacter: false });
           navigate('/characters/new');
-          try { sessionStorage.removeItem('bm-character-prompt-shown'); } catch {}
         }}
       />
       <GridModal

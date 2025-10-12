@@ -239,7 +239,11 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
       if (element.type === 'player' || element.type === 'enemy') {
           // Players may only move their own player token; hosts can move any
           if (!isHost) {
-            if (element.type !== 'player' || (element.participantUserId && element.participantUserId !== currentUserId)) {
+            const notOwn = (element.type !== 'player' || (element.participantUserId && element.participantUserId !== currentUserId));
+            // If initiative is set, also require it to be this player's turn
+            const order = state.initiativeOrder || [];
+            const notTurn = order.length ? (order[(state.currentTurnIndex || 0) % order.length] !== element.id) : false;
+            if (notOwn || notTurn) {
               // Not allowed to move
               try {
                 if (container && container.dataset) delete container.dataset.highlightedId;
@@ -380,7 +384,23 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
       const id = parseInt(targetDiv.dataset.id);
       const el = state.elements.find(e => e.id === id);
       if (el && (el.type === 'player' || el.type === 'enemy') && el.incapacitated) {
+        // cancel selection/drag
+        try { currentDragElement.current.classList.remove('selected'); currentDragElement.current.style.removeProperty('z-index'); } catch {}
+        currentDragElement.current = null;
         return; // safety double-check
+      }
+      // If a non-host is trying to drag a player and initiative is set, only allow on their turn
+      if (!isHost && el && el.type === 'player' && el.participantUserId === currentUserId) {
+        const order = state.initiativeOrder || [];
+        if (order.length) {
+          const currentId = order[(state.currentTurnIndex || 0) % order.length];
+          if (currentId !== el.id) {
+            // cancel selection/drag when it's not your turn
+            try { currentDragElement.current.classList.remove('selected'); currentDragElement.current.style.removeProperty('z-index'); } catch {}
+            currentDragElement.current = null;
+            return;
+          }
+        }
       }
       // If a cover group was previously selected, clear it when dragging a non-cover token
       if (el && el.type !== 'cover' && state.highlightedElementId) {
