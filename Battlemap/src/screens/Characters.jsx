@@ -23,6 +23,7 @@ export default function Characters() {
   const [hostError, setHostError] = useState('');
   const [joinOpen, setJoinOpen] = useState(false);
   const [joinCode, setJoinCode] = useState('');
+  const [newCharacterOpen, setNewCharacterOpen] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -85,7 +86,7 @@ export default function Characters() {
         <Box sx={{ flex: 1, p: 2, overflow: 'auto' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h5" sx={{ color: '#d32f2f', fontWeight: 800 }}>Characters</Typography>
-            <Button variant="contained" onClick={() => navigate('/characters/new')}>Build New Character</Button>
+            <Button variant="contained" onClick={() => setNewCharacterOpen(true)}>Build New Character</Button>
           </Box>
           {error && <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>}
           {loading ? (
@@ -93,7 +94,7 @@ export default function Characters() {
           ) : characters.length === 0 ? (
             <Paper sx={{ p: 3, bgcolor: '#2f2f2f' }}>
               <Typography color="text.secondary" sx={{ mb: 1 }}>No characters yet.</Typography>
-              <Button variant="outlined" onClick={() => navigate('/characters/new')}>Create your first character</Button>
+              {/* Removed duplicate CTA: 'Create your first character' */}
             </Paper>
           ) : (
             <Grid container spacing={2}>
@@ -222,6 +223,33 @@ export default function Characters() {
               setError(e.message);
             }
           }}>Join</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* New Character creation options */}
+      <Dialog open={newCharacterOpen} onClose={() => setNewCharacterOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Create Character</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            How would you like to create your character?
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            <Button
+              variant="contained"
+              onClick={() => {
+                setNewCharacterOpen(false);
+                navigate('/characters/new');
+              }}
+            >
+              Build from scratch
+            </Button>
+            <Button variant="outlined" disabled>
+              Use template (coming soon)
+            </Button>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setNewCharacterOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
     </Box>
