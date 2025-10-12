@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Box, Dialog, DialogTitle, DialogContent, DialogActions, TextField, IconButton, InputAdornment, Button, Typography, Alert } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCopy } from '@fortawesome/free-regular-svg-icons';
+import CopyToClipboardButton from '../components/ui/buttons/CopyToClipboardButton.jsx';
 import App from '../App.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
 import { hostGame, joinGameByCode, endGame, leaveGame } from '../Utils/gameService.js';
@@ -26,10 +26,6 @@ export default function BattlemapPage() {
   const [playersInGame, setPlayersInGame] = useState(0);
   const didEndOrLeaveRef = useRef(false);
 
-  const copyCode = async () => {
-    if (!hostResult?.code) return;
-    try { await navigator.clipboard.writeText(hostResult.code); } catch {}
-  };
 
   // Resolve game id for this code once on mount (so we can subscribe to participants)
   useEffect(() => {
@@ -264,9 +260,7 @@ export default function BattlemapPage() {
                   readOnly: true,
                   endAdornment: (
                     <InputAdornment position="end">
-                      <IconButton onClick={copyCode}>
-                        <FontAwesomeIcon icon={faCopy} />
-                      </IconButton>
+                      <CopyToClipboardButton value={hostResult.code} />
                     </InputAdornment>
                   ),
                 }}

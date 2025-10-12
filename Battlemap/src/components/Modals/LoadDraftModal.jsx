@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Checkbox } from '@mui/material';
+import ModalShell from '../ui/modal/ModalShell.jsx';
 
 const LoadDraftModal = ({
   isOpen,
@@ -22,12 +23,8 @@ const LoadDraftModal = ({
 
   if (!isOpen) return null;
   return (
-    <div className="modal" style={{ display: 'block' }}>
-      <div className="modal-content small" style={{ width: 640, maxWidth: '95vw' }}>
-        <span className="close" onClick={onClose}>&times;</span>
-        <h3>{title}</h3>
-
-        {!selectable ? (
+    <ModalShell open={isOpen} title={title} onClose={onClose} size="small">
+      {!selectable ? (
           <div className="form-group" style={{ maxHeight: 260, overflow: 'auto', border: '1px solid #333', borderRadius: 6 }}>
             {drafts.length === 0 && (
               <div style={{ padding: 12, color: '#aaa' }}>{emptyText}</div>
@@ -103,35 +100,33 @@ const LoadDraftModal = ({
             )}
           </div>
         )}
-
-        <div className="form-actions" style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
-          {secondaryAction && (
-            <button
-              className="btn btn-secondary"
-              onClick={secondaryAction}
-            >
-              {secondaryLabel || 'Secondary'}
-            </button>
-          )}
-          {selectable && (
-            <button
-              className="btn btn-primary"
-              disabled={!allowEmptySelection && !selectedDraft}
-              onClick={() => {
-                if (!selectedDraft && allowEmptySelection) {
-                  onConfirmEmpty && onConfirmEmpty();
-                } else if (selectedDraft) {
-                  onConfirm && onConfirm(selectedDraft);
-                }
-              }}
-            >
-              {selectedDraft ? confirmLabel : (allowEmptySelection ? (emptyConfirmLabel || confirmLabel) : confirmLabel)}
-            </button>
-          )}
-          <button className="btn btn-secondary" onClick={onClose}>{selectable ? 'Cancel' : 'Close'}</button>
-        </div>
+      <div className="form-actions" style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
+        {secondaryAction && (
+          <button
+            className="btn btn-secondary"
+            onClick={secondaryAction}
+          >
+            {secondaryLabel || 'Secondary'}
+          </button>
+        )}
+        {selectable && (
+          <button
+            className="btn btn-primary"
+            disabled={!allowEmptySelection && !selectedDraft}
+            onClick={() => {
+              if (!selectedDraft && allowEmptySelection) {
+                onConfirmEmpty && onConfirmEmpty();
+              } else if (selectedDraft) {
+                onConfirm && onConfirm(selectedDraft);
+              }
+            }}
+          >
+            {selectedDraft ? confirmLabel : (allowEmptySelection ? (emptyConfirmLabel || confirmLabel) : confirmLabel)}
+          </button>
+        )}
+        <button className="btn btn-secondary" onClick={onClose}>{selectable ? 'Cancel' : 'Close'}</button>
       </div>
-    </div>
+    </ModalShell>
   );
 };
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ModalShell from '../ui/modal/ModalShell.jsx';
 
 const AddCharacterModal = ({ isOpen, onClose, onAdd, initialType = 'player', initialQuantity = 1 }) => {
   const [characterType, setCharacterType] = useState(initialType);
@@ -33,43 +34,39 @@ const AddCharacterModal = ({ isOpen, onClose, onAdd, initialType = 'player', ini
   if (!isOpen) return null;
 
   return (
-    <div className="modal" style={{ display: 'block' }}>
-      <div className="modal-content small">
-        <span className="close" onClick={onClose}>&times;</span>
-        <h3>Add Character Elements</h3>
-        <div className="form-group">
-          <label>Type:</label>
-          <select value={characterType} onChange={e => setCharacterType(e.target.value)}>
-            <option value="player">Player</option>
-            <option value="enemy">Enemy</option>
-          </select>
-        </div>
-        <div className="form-group">
-          <label>Quantity:</label>
-          <input
-            type="number"
-            min={1}
-            max={20}
-            value={quantity}
-            onChange={handleQuantityChange}
-            onBlur={handleQuantityBlur}
-          />
-        </div>
-        <div className="form-actions">
-          <button
-            className="btn btn-primary"
-            onClick={() => {
-              const n = parseInt(quantity, 10);
-              const safe = isNaN(n) ? 1 : Math.max(1, Math.min(20, n));
-              onAdd(characterType, safe);
-            }}
-          >
-            Add
-          </button>
-          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-        </div>
+    <ModalShell open={isOpen} title="Add Character Elements" onClose={onClose} size="small">
+      <div className="form-group">
+        <label>Type:</label>
+        <select value={characterType} onChange={e => setCharacterType(e.target.value)}>
+          <option value="player">Player</option>
+          <option value="enemy">Enemy</option>
+        </select>
       </div>
-    </div>
+      <div className="form-group">
+        <label>Quantity:</label>
+        <input
+          type="number"
+          min={1}
+          max={20}
+          value={quantity}
+          onChange={handleQuantityChange}
+          onBlur={handleQuantityBlur}
+        />
+      </div>
+      <div className="form-actions">
+        <button
+          className="btn btn-primary"
+          onClick={() => {
+            const n = parseInt(quantity, 10);
+            const safe = isNaN(n) ? 1 : Math.max(1, Math.min(20, n));
+            onAdd(characterType, safe);
+          }}
+        >
+          Add
+        </button>
+        <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+      </div>
+    </ModalShell>
   );
 };
 

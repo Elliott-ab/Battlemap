@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Button, Paper, TextField, Typography, Alert, IconButton, InputAdornment, Dialog, DialogTitle, DialogContent, DialogActions, Divider } from '@mui/material';
+import { Box, Button, Paper, TextField, Typography, Alert, InputAdornment, Dialog, DialogTitle, DialogContent, DialogActions, Divider } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCopy, faTrashCan } from '@fortawesome/free-regular-svg-icons';
+import { faTrashCan } from '@fortawesome/free-regular-svg-icons';
+import CopyToClipboardButton from '../components/ui/buttons/CopyToClipboardButton.jsx';
+import IconButton from '../components/common/IconButton.jsx';
 import { faCirclePlus } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../auth/AuthContext.jsx';
@@ -38,10 +40,8 @@ export default function Dashboard() {
 
   // Creation happens via the Campaign modal (when selectedCampaign has no id)
 
-  const copyAnyCode = async (code) => {
-    if (!code) return;
-    try { await navigator.clipboard.writeText(code); setMessage('Copied invite code'); setTimeout(() => setMessage(''), 1200); } catch {}
-  };
+  // Copy handled via CopyToClipboardButton; show a brief toast when copied.
+  const handleCopied = () => { setMessage('Copied invite code'); setTimeout(() => setMessage(''), 1200); };
 
   const deleteCampaign = async (campaign) => {
     if (!campaign) return;
@@ -247,9 +247,7 @@ export default function Dashboard() {
                 </Box>
                 <Box sx={{ display: { xs: 'none', sm: 'inline-flex' }, alignItems: 'center', gap: 0.75 }}>
                   <Button size="small" variant="contained" onClick={(e) => { e.stopPropagation(); setSession({ id: g.id, code: g.code, name: g.name || null, role: 'host', host_id: g.host_id || user.id }); navigate(`/battlemap/${g.code}`); }}>Start campaign</Button>
-                  <IconButton title="Copy code" onClick={(e) => { e.stopPropagation(); copyAnyCode(g.code); }}>
-                    <FontAwesomeIcon icon={faCopy} style={{ color: '#fff' }} />
-                  </IconButton>
+                  <CopyToClipboardButton title="Copy code" onClick={(e) => e.stopPropagation()} value={g.code} onCopied={handleCopied} />
                   <IconButton title="Delete campaign" onClick={(e) => { e.stopPropagation(); deleteCampaign(g); }}>
                     <FontAwesomeIcon icon={faTrashCan} style={{ color: '#f44336' }} />
                   </IconButton>
@@ -313,9 +311,7 @@ export default function Dashboard() {
                     readOnly: true,
                     endAdornment: (
                       <InputAdornment position="end">
-                        <IconButton onClick={() => copyAnyCode(selectedCampaign.code)}>
-                          <FontAwesomeIcon icon={faCopy} style={{ color: '#fff' }} />
-                        </IconButton>
+                        <CopyToClipboardButton value={selectedCampaign.code} onCopied={handleCopied} />
                       </InputAdornment>
                     ),
                   }}
@@ -428,9 +424,7 @@ export default function Dashboard() {
                   readOnly: true,
                   endAdornment: (
                     <InputAdornment position="end">
-                      <IconButton onClick={() => copyAnyCode(hostResult.code)}>
-                        <FontAwesomeIcon icon={faCopy} />
-                      </IconButton>
+                      <CopyToClipboardButton value={hostResult.code} onCopied={handleCopied} />
                     </InputAdornment>
                   ),
                 }}

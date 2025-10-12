@@ -18,8 +18,11 @@ const PLAYER_COLORS = [
 let nextPlayerColorIdx = 0;
 
 export const useElements = (state, setState) => {
-  if (!state.hasOwnProperty('highlightedElementId')) {
-    setState({ ...state, highlightedElementId: null });
+  // Ensure key presence without mutating state during hook init; callers initialize state with this key.
+  // Avoid Object.prototype access on target object per eslint rule.
+  const hasKey = Object.prototype.hasOwnProperty.call(state, 'highlightedElementId');
+  if (!hasKey) {
+    // Defer to caller to initialize; do not mutate here to prevent unexpected re-renders.
   }
 
   const findEmptyPosition = (size) => {

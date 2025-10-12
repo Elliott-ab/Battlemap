@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import ModalShell from '../ui/modal/ModalShell.jsx';
 
 const InitiativeModal = ({ isOpen, state, setState, onClose }) => {
   const combatants = useMemo(() => (state.elements || []).filter(el => el.type === 'player' || el.type === 'enemy'), [state.elements]);
@@ -70,65 +71,61 @@ const InitiativeModal = ({ isOpen, state, setState, onClose }) => {
   };
 
   return (
-    <div className="modal" style={{ display: 'block' }}>
-      <div className="modal-content">
-        <span className="close" onClick={onClose}>&times;</span>
-        <h3>Set Initiative</h3>
-        {combatants.length === 0 ? (
-          <div style={{ color: '#aaa' }}>Add characters to set initiative</div>
-        ) : (
-          <>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem' }}>
-              <button className="btn btn-outline btn-sm" onClick={handleRoll}>Roll</button>
-            </div>
-            <div className="initiative-form">
-            {[...combatants]
-              .sort((a, b) => {
-                const toNum = (v) => {
-                  const n = parseInt(v, 10);
-                  return Number.isFinite(n) ? n : 0;
-                };
-                const sa = toNum(scores[a.id]);
-                const sb = toNum(scores[b.id]);
-                if (sb !== sa) return sb - sa;
-                return a.name.localeCompare(b.name);
-              })
-              .map(c => (
-              <div
-                className="form-group"
-                key={c.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.4rem',
-                  marginBottom: '0.4rem',
-                  border: '1px solid #555',
-                  borderRadius: '6px',
-                  padding: '0.35rem 0.6rem',
-                  backgroundColor: '#383838'
-                }}
-              >
-                <label style={{ minWidth: 120, flex: 1 }}>{c.name}</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={scores[c.id] ?? ''}
-                  onChange={(e) => handleChange(c.id, e.target.value)}
-                  style={{ width: '80px', marginLeft: 'auto', textAlign: 'right' }}
-                />
-              </div>
-            ))}
-            </div>
-          </>
-        )}
-        {combatants.length > 0 && (
-          <div className="form-actions" style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
-            <button className="btn btn-secondary" onClick={handleReset}>Reset</button>
-            <button className="btn btn-primary" onClick={handleSave}>Save</button>
+    <ModalShell open={isOpen} title="Set Initiative" onClose={onClose}>
+      {combatants.length === 0 ? (
+        <div style={{ color: '#aaa' }}>Add characters to set initiative</div>
+      ) : (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem' }}>
+            <button className="btn btn-outline btn-sm" onClick={handleRoll}>Roll</button>
           </div>
-        )}
-      </div>
-    </div>
+          <div className="initiative-form">
+          {[...combatants]
+            .sort((a, b) => {
+              const toNum = (v) => {
+                const n = parseInt(v, 10);
+                return Number.isFinite(n) ? n : 0;
+              };
+              const sa = toNum(scores[a.id]);
+              const sb = toNum(scores[b.id]);
+              if (sb !== sa) return sb - sa;
+              return a.name.localeCompare(b.name);
+            })
+            .map(c => (
+            <div
+              className="form-group"
+              key={c.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                marginBottom: '0.4rem',
+                border: '1px solid #555',
+                borderRadius: '6px',
+                padding: '0.35rem 0.6rem',
+                backgroundColor: '#383838'
+              }}
+            >
+              <label style={{ minWidth: 120, flex: 1 }}>{c.name}</label>
+              <input
+                type="number"
+                min="0"
+                value={scores[c.id] ?? ''}
+                onChange={(e) => handleChange(c.id, e.target.value)}
+                style={{ width: '80px', marginLeft: 'auto', textAlign: 'right' }}
+              />
+            </div>
+          ))}
+          </div>
+        </>
+      )}
+      {combatants.length > 0 && (
+        <div className="form-actions" style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+          <button className="btn btn-secondary" onClick={handleReset}>Reset</button>
+          <button className="btn btn-primary" onClick={handleSave}>Save</button>
+        </div>
+      )}
+    </ModalShell>
   );
 };
 

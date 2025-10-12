@@ -1302,7 +1302,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
             const payload = { elements: filteredElements, grid: state.grid, globalModifiers: state.globalModifiers || [] };
             await upsertLibraryMap(user.id, entry.name, payload);
             setModalState(prev => ({ ...prev, saveLibraryPicker: false }));
-            setToast({ open: true, severity: 'success', message: `Overwrote \"${entry.name}\" in library.` });
+            setToast({ open: true, severity: 'success', message: `Overwrote "${entry.name}" in library.` });
           } catch (e) {
             console.error('Overwrite library failed:', e);
             setToast({ open: true, severity: 'error', message: 'Failed to save map to library.' });

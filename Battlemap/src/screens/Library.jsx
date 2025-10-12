@@ -6,8 +6,7 @@ import { useAuth } from '../auth/AuthContext.jsx';
 import { listLibraryMaps, getLibraryMap } from '../Utils/mapService.js';
 import { hostGame, joinGameByCode } from '../Utils/gameService.js';
 import { useGameSession } from '../Utils/GameSessionContext.jsx';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCopy } from '@fortawesome/free-regular-svg-icons';
+import CopyToClipboardButton from '../components/ui/buttons/CopyToClipboardButton.jsx';
 
 export default function Library() {
   const navigate = useNavigate();
@@ -121,9 +120,7 @@ export default function Library() {
                   readOnly: true,
                   endAdornment: (
                     <InputAdornment position="end">
-                      <IconButton onClick={() => navigator.clipboard.writeText(hostResult.code)}>
-                        <FontAwesomeIcon icon={faCopy} />
-                      </IconButton>
+                      <CopyToClipboardButton value={hostResult.code} />
                     </InputAdornment>
                   ),
                 }}

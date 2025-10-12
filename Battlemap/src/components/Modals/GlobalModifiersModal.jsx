@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrashCan } from '@fortawesome/free-solid-svg-icons';
+import ModalShell from '../ui/modal/ModalShell.jsx';
 
 const EFFECT_OPTIONS = [
   { id: 'movement', label: 'Movement' },
@@ -89,10 +90,8 @@ const GlobalModifiersModal = ({ isOpen, state, setState, onClose, isHost = false
   };
 
   return (
-    <div className="modal" style={{ display: 'block' }}>
-  <div className="modal-content wide" onClick={() => setOpenMenuId(null)}>
-        <span className="close" onClick={onClose}>&times;</span>
-        <h3>Global Modifiers{!isHost ? ' (view only)' : ''}</h3>
+    <ModalShell open={isOpen} title={`Global Modifiers${!isHost ? ' (view only)' : ''}`} onClose={onClose} size="wide">
+      <div onClick={() => setOpenMenuId(null)}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {mods.map((m) => (
             <React.Fragment key={m.id}>
@@ -380,7 +379,7 @@ const GlobalModifiersModal = ({ isOpen, state, setState, onClose, isHost = false
           <button className="btn btn-primary" onClick={handleSave} disabled={!isHost}>Save</button>
         </div>
       </div>
-    </div>
+    </ModalShell>
   );
 };
 

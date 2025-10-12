@@ -29,7 +29,7 @@ import { useAuth } from '../auth/AuthContext.jsx';
 import { getCharacter, upsertCharacter, deleteCharacter, uploadCharacterIcon, deleteCharacterIcon, getSignedCharacterIconUrl } from '../Utils/characterService.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCirclePlus, faTrashCan } from '@fortawesome/free-solid-svg-icons';
-import { faCopy } from '@fortawesome/free-regular-svg-icons';
+import CopyToClipboardButton from '../components/ui/buttons/CopyToClipboardButton.jsx';
 import { hostGame, joinGameByCode } from '../Utils/gameService.js';
 import { useGameSession } from '../Utils/GameSessionContext.jsx';
 
@@ -911,9 +911,7 @@ export default function CharacterBuilder() {
                   readOnly: true,
                   endAdornment: (
                     <InputAdornment position="end">
-                      <IconButton onClick={() => navigator.clipboard.writeText(hostResult.code)}>
-                        <FontAwesomeIcon icon={faCopy} />
-                      </IconButton>
+                      <CopyToClipboardButton value={hostResult.code} />
                     </InputAdornment>
                   ),
                 }}
