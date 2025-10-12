@@ -437,6 +437,53 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
     return () => window.removeEventListener('bm-player-token-updated', handler);
   }, [gameId, user?.id, isHost, state.elements]);
 
+  // Catch up after inactivity: when the tab/window becomes visible, focused, or comes back online,
+  // fetch the latest LIVE state and apply it if it's newer than what we have. This ensures updates
+  // that happened while the browser was throttled (e.g., phone screen off) are reflected immediately.
+  useEffect(() => {
+    if (!gameId) return;
+    let timer = null;
+    const requestRefresh = () => {
+      if (timer) return;
+      timer = setTimeout(async () => {
+        timer = null;
+        try {
+          const current = channelRef.current;
+          if (current !== 'live') return; // only catch up when viewing LIVE
+          const row = await getMapState(gameId, 'live').catch(() => null);
+          if (!row || !row.state) return;
+          const ts = row?.updated_at ? Date.parse(row.updated_at) : Date.now();
+          if (Number.isFinite(ts) && ts <= (lastLiveUpdatedAtRef.current || 0)) return;
+          setState(prev => {
+            const next = { ...prev, ...row.state };
+            if (Array.isArray(row.state?.elements)) {
+              next.elements = mergeIncomingWithPending(row.state.elements, prev.elements || []);
+            }
+            return next;
+          });
+          if (Number.isFinite(ts)) lastLiveUpdatedAtRef.current = ts;
+        } catch {}
+      }, 160);
+    };
+    const onVisChange = () => {
+      if (document.visibilityState === 'visible') requestRefresh();
+    };
+    const onFocus = () => requestRefresh();
+    const onPageShow = () => requestRefresh();
+    const onOnline = () => requestRefresh();
+    window.addEventListener('visibilitychange', onVisChange);
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('pageshow', onPageShow);
+    window.addEventListener('online', onOnline);
+    return () => {
+      window.removeEventListener('visibilitychange', onVisChange);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('pageshow', onPageShow);
+      window.removeEventListener('online', onOnline);
+      if (timer) clearTimeout(timer);
+    };
+  }, [gameId]);
+
   // On local turn change, broadcast exact data and persist to live if allowed
   useEffect(() => {
     const handler = async (e) => {
