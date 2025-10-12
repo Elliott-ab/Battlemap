@@ -22,8 +22,7 @@ async function deleteAllInBucketPrefix(bucketName, prefix) {
         any = true;
         const { error: rmErr } = await bucket.remove(paths);
         if (rmErr) {
-          // if some fail (e.g., not found), continue best-effort
-          // console.warn('bucket.remove error', rmErr);
+          // If some fail (e.g., not found), continue best-effort
         }
       }
       if (items.length < pageSize) break;

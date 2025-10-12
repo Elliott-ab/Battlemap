@@ -23,7 +23,6 @@ import InlineNumberEditor from './common/InlineNumberEditor.jsx';
 
 const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup, showEditModal, battleMapRef, isDrawingCover, toggleDrawingMode, openAddCharacterModal, openInitiativeModal, drawEnvType, setDrawEnvType, onOpenMyCharacterSheet, currentUserId, isHost = false }) => {
   const navigate = useNavigate();
-  console.log('Sidebar received battleMapRef:', battleMapRef);
 
   // Collapsible sections state
   const [creaturesOpen, setCreaturesOpen] = useState(true);

@@ -123,43 +123,32 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
 
   // Log when battleMapRef.current changes
   useEffect(() => {
-    console.log('BattleMap: localBattleMapRef.current changed:', localBattleMapRef.current);
     if (localBattleMapRef.current) {
       // Update the passed battleMapRef if provided
       if (battleMapRef && battleMapRef.current !== localBattleMapRef.current) {
         battleMapRef.current = localBattleMapRef.current;
-        console.log('BattleMap: Updated passed battleMapRef.current:', battleMapRef.current);
       }
     }
   }, [localBattleMapRef, battleMapRef]);
 
   // Render grid when state or ref is ready
   useEffect(() => {
-    console.log('BattleMap useEffect triggered, localBattleMapRef:', localBattleMapRef.current);
     if (localBattleMapRef.current) {
-      console.log('Rendering grid with localBattleMapRef:', localBattleMapRef.current);
   renderGrid(localBattleMapRef, rotationIndex);
-      console.log('Grid rendering complete, cells should be available');
       // Fit to screen by default if user hasn't zoomed
       if (!userZoomedRef.current) {
         scheduleFitToScreen();
       }
     } else {
-      console.warn('localBattleMapRef not ready, scheduling retry');
       const timer = setTimeout(() => {
         if (localBattleMapRef.current) {
-          console.log('Retry: Rendering grid with localBattleMapRef:', localBattleMapRef.current);
           renderGrid(localBattleMapRef, rotationIndex);
-          console.log('Retry: Grid rendering complete, cells should be available');
           if (battleMapRef && battleMapRef.current !== localBattleMapRef.current) {
             battleMapRef.current = localBattleMapRef.current;
-            console.log('Retry: Updated passed battleMapRef.current:', battleMapRef.current);
           }
           if (!userZoomedRef.current) {
             scheduleFitToScreen();
           }
-        } else {
-          console.warn('localBattleMapRef still not ready after retry');
         }
       }, 500);
       return () => clearTimeout(timer);
@@ -376,7 +365,6 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
           }
         }
       }
-      console.log('Started dragging element:', targetDiv.dataset.id);
       currentDragElement.current = targetDiv;
       targetDiv.classList.add('selected');
       targetDiv.style.zIndex = '20';
@@ -422,7 +410,6 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
       const x = parseInt(cell.dataset.x);
       const y = parseInt(cell.dataset.y);
       const id = parseInt(currentDragElement.current.dataset.id);
-      console.log('Dragging to cell:', { x, y, id });
       didDragRef.current = true; // mark that a drag occurred
       updateElementPosition(id, x, y);
     }
@@ -430,7 +417,6 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
 
   const handlePointerUp = () => {
     if (currentDragElement.current) {
-      console.log('Finished dragging element:', currentDragElement.current.dataset.id);
       currentDragElement.current.classList.remove('selected');
       // Remove inline z-index so CSS controls stacking (players/enemies above cover)
       currentDragElement.current.style.removeProperty('z-index');

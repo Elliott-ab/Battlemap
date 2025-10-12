@@ -57,17 +57,12 @@ function applyIconToPlayerToken(battleMap, elementId, characterId, fallbackUrl) 
 
 export const useGrid = (state) => {
   const renderGrid = (battleMapRef, rotationIndex = 0) => {
-    console.log('renderGrid called with battleMapRef:', battleMapRef, 'battleMapRef.current:', battleMapRef?.current);
     const battleMap = battleMapRef.current;
-    if (!battleMap) {
-      console.warn('Battle map element not found, skipping render');
-      return;
-    }
+    if (!battleMap) return;
 
     const w = state.grid.width;
     const h = state.grid.height;
     const rot = ((rotationIndex || 0) % 4 + 4) % 4; // normalize
-    console.log('Rendering grid (world):', w, h, 'rotationIndex:', rot);
     battleMap.style.setProperty('--grid-width', w);
     battleMap.style.setProperty('--grid-height', h);
     // Display dimensions swap for 90/270
@@ -145,10 +140,7 @@ export const useGrid = (state) => {
     }
   state.elements.forEach((el) => {
       // Guard: skip elements with no valid position (can happen during join or partial loads)
-      if (!el || !el.position || typeof el.position.x !== 'number' || typeof el.position.y !== 'number') {
-        console.warn('Skipping element without valid position', el);
-        return;
-      }
+      if (!el || !el.position || typeof el.position.x !== 'number' || typeof el.position.y !== 'number') return;
       const elDiv = document.createElement('div');
       elDiv.classList.add('element', el.type);
       // Grey out players and enemies during drawing mode
@@ -168,7 +160,6 @@ export const useGrid = (state) => {
         // Highlight all blocks in the selected group
         if ((selectedCoverGroupId && el.groupId === selectedCoverGroupId) || (selectedSingleCoverId && el.id === selectedSingleCoverId)) {
           elDiv.classList.add('cover-block-highlight');
-          console.log('Highlighting cover block', el.id, el.position);
         }
       } else {
         elDiv.style.backgroundColor = el.color;
