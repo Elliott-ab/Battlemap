@@ -53,7 +53,7 @@ export default function StepSummary({ character, onBack }) {
           <Typography variant="body2">Level {character.level || 1} {character.race?.name} {character.class?.name}</Typography>
         </Grid>
         <Grid item xs={12} md={6}>
-          <Typography variant="body2" sx={{ opacity:0.8 }}>Core Stats</Typography>
+          <Typography variant="body2" sx={{ color:'#d32f2f', fontWeight:700 }}>Core Stats</Typography>
           <Typography variant="body2">
             <Box component="span" sx={{ fontWeight: 700 }}>HP:</Box>{' '}
             <Box component="span">{character.max_hp || derived.hp}</Box>

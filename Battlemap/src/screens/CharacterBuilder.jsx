@@ -345,7 +345,6 @@ export default function CharacterBuilder() {
       const payload = { ...form, user_id: user.id, hit_dice: hitDice };
       const saved = await upsertCharacter(payload);
       setForm((f) => ({ ...f, id: saved.id }));
-      if (isNew) navigate(`/characters/${saved.id}`);
       // If this builder was opened from a battlemap double-click, return back after save
       try {
         const returnPath = sessionStorage.getItem('bm-return-path');
@@ -359,6 +358,8 @@ export default function CharacterBuilder() {
           return;
         }
       } catch (_) {}
+      // Default: return to characters list after saving
+      navigate('/characters');
     } catch (e) {
       setError(e.message || String(e));
     } finally {

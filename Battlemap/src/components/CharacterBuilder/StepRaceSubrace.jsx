@@ -60,7 +60,9 @@ export default function StepRaceSubrace({ character, setCharacter, onNext, onBac
 
   const canContinue = !!raceIndex; // subrace optional
 
-  const applyAndNext = () => {
+  // Live-sync race/subrace impacts for real-time core stats
+  useEffect(() => {
+    if (!raceIndex) return;
     setCharacter(c => ({
       ...c,
       race: raceDetail ? { index: raceIndex, name: raceDetail.name } : { index: raceIndex },
@@ -73,8 +75,10 @@ export default function StepRaceSubrace({ character, setCharacter, onNext, onBac
       racial_proficiencies: profChips,
       racial_languages: languageChips,
     }));
-    onNext();
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [raceIndex, subraceIndex, raceDetail, subraceDetail, JSON.stringify(bonuses)]);
+
+  const applyAndNext = () => { onNext(); };
 
   const subraceOptions = raceDetail?.subraces || [];
 

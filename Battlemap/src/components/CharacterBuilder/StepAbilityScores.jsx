@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Box, Button, Grid, TextField, Typography, ToggleButtonGroup, ToggleButton, Tooltip } from '@mui/material';
+import { Box, Button, Grid, TextField, Typography, ToggleButtonGroup, ToggleButton, Tooltip, MenuItem } from '@mui/material';
 import { abilityMod } from './api.js';
 
 const abilities = ['str','dex','con','int','wis','cha'];
@@ -57,6 +57,18 @@ export default function StepAbilityScores({ character, setCharacter, onNext, onB
 		setScores(s => ({ ...s, [k]: value }));
 	};
 
+	// Live-sync to shared character so Core Stats update in real time
+	useEffect(() => {
+		const updated = abilities.reduce((acc,k)=>({ ...acc, [k]: scores[k] }), {});
+		setCharacter(c => ({
+			...c,
+			...updated,
+			ability_method: method,
+			finalAbilityScores: finalScores,
+			ability_mods: mods,
+		}));
+	}, [scores, finalScores, mods, method, setCharacter]);
+
 	const renderControls = () => {
 		if (method === 'manual') {
 			return abilities.map(k => (
@@ -68,8 +80,18 @@ export default function StepAbilityScores({ character, setCharacter, onNext, onB
 		if (method === 'point-buy') {
 			return abilities.map(k => (
 				<Grid key={k} item xs={6} sm={4} md={2}>
-					<TextField type="number" label={`${k.toUpperCase()}`} value={scores[k]} inputProps={{ min:8, max:15 }} onChange={(e)=>updatePointBuy(k,e.target.value)} fullWidth 
-						helperText={<span style={{ color:'#d32f2f' }}>Mod {mods[k]>=0?'+':''}{mods[k]}</span>} />
+					<TextField
+						select
+						label={`${k.toUpperCase()}`}
+						value={scores[k]}
+						onChange={(e)=>updatePointBuy(k,e.target.value)}
+						fullWidth
+						helperText={<span style={{ color:'#d32f2f' }}>Mod {mods[k]>=0?'+':''}{mods[k]}</span>}
+					>
+						{Object.keys(POINT_BUY_COST).map(v => (
+							<MenuItem key={v} value={Number(v)}>{v}</MenuItem>
+						))}
+					</TextField>
 				</Grid>
 			));
 		}

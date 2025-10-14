@@ -5,18 +5,18 @@ import StepBasics from './CharacterBuilder/StepBasics.jsx';
 import StepRaceSubrace from './CharacterBuilder/StepRaceSubrace.jsx';
 import StepClass from './CharacterBuilder/StepClass.jsx';
 import StepAbilityScores from './CharacterBuilder/StepAbilityScores.jsx';
-import StepDerivedStats from './CharacterBuilder/StepDerivedStats.jsx';
+// Removed Derived Stats step; we'll show core stats persistently below the stepper
 import StepProficienciesLanguages from './CharacterBuilder/StepProficienciesLanguages.jsx';
 import StepStartingEquipment from './CharacterBuilder/StepStartingEquipment.jsx';
 import StepSpellcasting from './CharacterBuilder/StepSpellcasting.jsx';
 import StepSummary from './CharacterBuilder/StepSummary.jsx';
+import CoreStatsInline from './CharacterBuilder/CoreStatsInline.jsx';
 
 const steps = [
 	{ label: 'Basics', component: StepBasics },
 	{ label: 'Race & Subrace', component: StepRaceSubrace },
 	{ label: 'Class', component: StepClass },
 	{ label: 'Ability Scores', component: StepAbilityScores },
-	{ label: 'Derived Stats', component: StepDerivedStats },
 	{ label: 'Proficiencies & Languages', component: StepProficienciesLanguages },
 	{ label: 'Starting Equipment', component: StepStartingEquipment },
 	{ label: 'Spellcasting', component: StepSpellcasting },
@@ -63,7 +63,21 @@ export default function CharacterBuilder() {
 
 			<ProgressStepper steps={steps} activeStep={activeStep} onStepClick={setActiveStep} cardSx={cardSx} />
 
-			<Paper elevation={3} sx={cardSx}>
+			{/* Persistent Core Stats below the stepper on all steps except the Summary to avoid duplication */}
+			{activeStep !== steps.length - 1 && (
+				<Paper elevation={3} sx={{ ...cardSx, mb: 2 }}>
+					<CoreStatsInline character={character} />
+				</Paper>
+			)}
+
+			<Paper
+				elevation={3}
+				sx={{
+					...cardSx,
+					// Add extra bottom padding on mobile to avoid overlap with device UI/footer
+					pb: { xs: 'calc(64px + env(safe-area-inset-bottom, 0px))', md: 2 },
+				}}
+			>
 				<CurrentStep
 					character={character}
 					setCharacter={setCharacter}

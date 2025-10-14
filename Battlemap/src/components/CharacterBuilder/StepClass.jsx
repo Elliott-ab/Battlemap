@@ -37,14 +37,23 @@ export default function StepClass({ character, setCharacter, onNext, onBack }) {
 
   const canContinue = classIndex && (maxSkillChoices === 0 || selectedSkills.length === maxSkillChoices);
 
-  const applyAndNext = () => {
+  // Live-sync core class impact to character so Core Stats update in real time
+  useEffect(() => {
+    if (!clsDetail) return;
     setCharacter(c => ({
       ...c,
-  class: clsDetail ? { index: classIndex, name: clsDetail.name } : { index: classIndex },
-  classDetail: clsDetail,
+      class: { index: classIndex, name: clsDetail.name },
+      classDetail: clsDetail,
       hit_die: hitDie,
       saving_throw_proficiencies: savingThrows,
       class_proficiencies: profs,
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classIndex, clsDetail, hitDie]);
+
+  const applyAndNext = () => {
+    setCharacter(c => ({
+      ...c,
       class_skill_choices: selectedSkills,
       skill_proficiencies: [...new Set([...(c.skill_proficiencies||[]), ...selectedSkills])],
     }));

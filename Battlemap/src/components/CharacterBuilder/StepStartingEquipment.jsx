@@ -38,7 +38,7 @@ export default function StepStartingEquipment({ character, setCharacter, onNext,
       <Typography variant="subtitle1" sx={{ color:'#d32f2f', fontWeight:700, mb:2 }}>Starting Equipment</Typography>
       {error && <Typography color="error" sx={{ mb:2 }}>{error}</Typography>}
       <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={6} order={{ xs: 2, md: 1 }}>
           <Typography variant="body2" sx={{ opacity:0.8, mb:1 }}>Select Items</Typography>
           <Box sx={{ maxHeight:320, overflow:'auto', pr:1 }}>
             {allEquip.map(e => (
@@ -50,7 +50,7 @@ export default function StepStartingEquipment({ character, setCharacter, onNext,
             ))}
           </Box>
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={6} order={{ xs: 1, md: 2 }}>
           <Typography variant="body2" sx={{ opacity:0.8, mb:1 }}>Current Selection</Typography>
           <Box sx={{ display:'flex', flexWrap:'wrap', gap:1, mb:2 }}>
             {selected.map(s => <Box key={s} sx={{ px:1, py:0.5, fontSize:12, bgcolor:'rgba(255,255,255,0.1)', borderRadius:1 }}>{s}</Box>)}
