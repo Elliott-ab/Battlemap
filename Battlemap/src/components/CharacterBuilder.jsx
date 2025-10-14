@@ -1,25 +1,31 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Paper, Typography, TextField } from '@mui/material';
 import ProgressStepper from './CharacterBuilder/ProgressStepper.jsx';
-import StepOrigins from './CharacterBuilder/StepOrigins.jsx';
+import StepBasics from './CharacterBuilder/StepBasics.jsx';
+import StepRaceSubrace from './CharacterBuilder/StepRaceSubrace.jsx';
+import StepClass from './CharacterBuilder/StepClass.jsx';
 import StepAbilityScores from './CharacterBuilder/StepAbilityScores.jsx';
-import StepProficiencies from './CharacterBuilder/StepProficiencies.jsx';
-import StepEquipment from './CharacterBuilder/StepEquipment.jsx';
-import StepSpells from './CharacterBuilder/StepSpells.jsx';
-import StepReview from './CharacterBuilder/StepReview.jsx';
+import StepDerivedStats from './CharacterBuilder/StepDerivedStats.jsx';
+import StepProficienciesLanguages from './CharacterBuilder/StepProficienciesLanguages.jsx';
+import StepStartingEquipment from './CharacterBuilder/StepStartingEquipment.jsx';
+import StepSpellcasting from './CharacterBuilder/StepSpellcasting.jsx';
+import StepSummary from './CharacterBuilder/StepSummary.jsx';
 
 const steps = [
-	{ label: 'Origins', component: StepOrigins },
+	{ label: 'Basics', component: StepBasics },
+	{ label: 'Race & Subrace', component: StepRaceSubrace },
+	{ label: 'Class', component: StepClass },
 	{ label: 'Ability Scores', component: StepAbilityScores },
-	{ label: 'Proficiencies', component: StepProficiencies },
-	{ label: 'Equipment', component: StepEquipment },
-	{ label: 'Spells', component: StepSpells },
-	{ label: 'Review', component: StepReview },
+	{ label: 'Derived Stats', component: StepDerivedStats },
+	{ label: 'Proficiencies & Languages', component: StepProficienciesLanguages },
+	{ label: 'Starting Equipment', component: StepStartingEquipment },
+	{ label: 'Spellcasting', component: StepSpellcasting },
+	{ label: 'Summary', component: StepSummary },
 ];
 
 export default function CharacterBuilder() {
 	const [activeStep, setActiveStep] = useState(0);
-	const [character, setCharacter] = useState({ name: '' });
+	const [character, setCharacter] = useState({ name: '', level:1 });
 
 	// Prefill from any temporary wizard data (if present)
 	useEffect(() => {
@@ -58,14 +64,6 @@ export default function CharacterBuilder() {
 			<ProgressStepper steps={steps} activeStep={activeStep} onStepClick={setActiveStep} cardSx={cardSx} />
 
 			<Paper elevation={3} sx={cardSx}>
-				<Box sx={{ mb: 2 }}>
-					<TextField
-						label="Character Name"
-						value={character.name || ''}
-						onChange={(e) => setCharacter({ ...character, name: e.target.value })}
-						fullWidth
-					/>
-				</Box>
 				<CurrentStep
 					character={character}
 					setCharacter={setCharacter}

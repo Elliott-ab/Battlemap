@@ -3,35 +3,34 @@ import { Box, Paper, Typography } from '@mui/material';
 
 export default function ProgressStepper({ steps, activeStep, onStepClick, cardSx }) {
   const cols = steps.length * 2 - 1; // odd columns for icons/labels, even for connectors
-  const colsXs = `repeat(${cols}, 1fr)`;
-  const colsMd = steps.map((_, i) => (i < steps.length - 1 ? 'minmax(120px,1fr) minmax(28px,0.5fr)' : 'minmax(120px,1fr)')).join(' ');
+  const colsTemplate = `repeat(${cols}, minmax(0, 1fr))`;
   return (
   <Paper elevation={3} sx={{ ...cardSx, mb: 2, width: '100%', overflow: 'hidden' }}>
       {/* Icon + connectors grid */}
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: colsXs, md: colsMd },
+          gridTemplateColumns: colsTemplate,
           alignItems: 'center',
-          columnGap: 0.5,
+          justifyItems: 'center',
           minWidth: 0,
           position: 'relative',
         }}
       >
         {/* Connectors in even columns */}
-        {steps.slice(0, -1).map((_, idx) => (
-          <Box
-            key={`conn-${idx}`}
-            sx={{
-              gridColumn: (idx + 1) * 2,
-              gridRow: 1,
-              alignSelf: 'center',
-              height: 2,
-              bgcolor: 'rgba(255,255,255,0.25)',
-              borderRadius: 1,
-            }}
-          />
-        ))}
+          {steps.slice(0, -1).map((_, idx) => (
+            <Box
+              key={`conn-${idx}`}
+              sx={{
+                gridColumn: (idx + 1) * 2,
+                gridRow: 1,
+                alignSelf: 'center',
+                justifySelf: 'stretch',
+                height: 0,
+                borderTop: '2px solid rgba(255,255,255,0.25)',
+              }}
+            />
+          ))}
 
         {/* Icons in odd columns */}
         {steps.map((s, idx) => {
@@ -46,14 +45,16 @@ export default function ProgressStepper({ steps, activeStep, onStepClick, cardSx
                 tabIndex={0}
                 onClick={() => onStepClick?.(idx)}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onStepClick?.(idx); }}
+                aria-label={`Step ${idx + 1}: ${s.label}`}
+                title={s.label}
                 sx={{
-                  width: 28,
-                  height: 28,
+                  width: { xs: 20, sm: 22, md: 24 },
+                  height: { xs: 20, sm: 22, md: 24 },
                   borderRadius: '50%',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: 14,
+                  fontSize: { xs: 11, sm: 12 },
                   fontWeight: 700,
                   cursor: 'pointer',
                   color: '#fff',
@@ -71,28 +72,30 @@ export default function ProgressStepper({ steps, activeStep, onStepClick, cardSx
       {/* Labels aligned precisely under icons */}
       <Box
         sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: colsXs, md: colsMd },
+          display: { xs: 'none', sm: 'grid' },
+          gridTemplateColumns: colsTemplate,
           alignItems: 'start',
-          mt: 1,
+          justifyItems: 'center',
+          mt: { xs: 0, sm: 1 },
           minWidth: 0,
         }}
       >
         {steps.map((s, idx) => (
-          <Box key={`label-${s.label}`} sx={{ gridColumn: idx * 2 + 1, justifySelf: 'center', maxWidth: '100%', minWidth: 0 }}>
+          <Box key={`label-${s.label}`} sx={{ gridColumn: idx * 2 + 1, justifySelf: 'center', width: '100%', minWidth: 0 }}>
             <Typography
               variant="body2"
               sx={{
                 width: '100%',
                 textAlign: 'center',
-                lineHeight: 1.2,
+                lineHeight: 1.1,
+                fontSize: { xs: '0.70rem', sm: '0.75rem' },
                 whiteSpace: 'normal',
-                wordBreak: 'keep-all',
-                overflowWrap: 'normal',
-                display: '-webkit-box',
+                wordBreak: { xs: 'break-word', sm: 'keep-all' },
+                overflowWrap: { xs: 'anywhere', sm: 'normal' },
+                display: { xs: 'block', sm: '-webkit-box' },
                 WebkitBoxOrient: 'vertical',
-                WebkitLineClamp: 3, // allow up to 3 lines before truncation
-                overflow: 'hidden',
+                WebkitLineClamp: { xs: 'unset', sm: 3 }, // no clamp on mobile; clamp to 3 lines on sm+
+                overflow: { xs: 'visible', sm: 'hidden' },
               }}
             >
               {s.label}
