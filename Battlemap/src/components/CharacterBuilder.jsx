@@ -11,6 +11,7 @@ import StepStartingEquipment from './CharacterBuilder/StepStartingEquipment.jsx'
 import StepSpellcasting from './CharacterBuilder/StepSpellcasting.jsx';
 import StepSummary from './CharacterBuilder/StepSummary.jsx';
 import CoreStatsInline from './CharacterBuilder/CoreStatsInline.jsx';
+import { getFeatureDetailsUpToLevel, getTraitDetails, extractTraitsFromRaceDetail, extractTraitsFromSubraceDetail, getClassFeatures, getSubclassFeatures } from './CharacterBuilder/api.js';
 
 const steps = [
 	{ label: 'Basics', component: StepBasics },
@@ -40,6 +41,60 @@ export default function CharacterBuilder() {
 	}, []);
 
 	const CurrentStep = steps[activeStep].component;
+
+		// Aggregate racial traits and (sub)class features up to current level whenever core selections change
+		useEffect(() => {
+			let cancelled = false;
+			(async () => {
+				const raceIdx = character.race?.index;
+				const subraceIdx = character.subrace?.index;
+				const classIdx = character.class?.index;
+				const subclassIdx = character.subclass?.index;
+				const level = Number(character.level || 1);
+				if (!raceIdx && !classIdx) return; // nothing to do yet
+				try {
+					// Traits from race + subrace
+					const traitRefs = [
+						...extractTraitsFromRaceDetail(character.raceDetail || {}),
+						...extractTraitsFromSubraceDetail(character.subraceDetail || {}),
+					];
+					const traits = await getTraitDetails(traitRefs);
+
+					// Class features
+					let classFeatureRefs = [];
+					if (classIdx) {
+						try { classFeatureRefs = await getClassFeatures(classIdx); } catch (_) { classFeatureRefs = []; }
+					}
+					const classFeatures = await getFeatureDetailsUpToLevel(classFeatureRefs, level);
+
+					// Subclass features
+					let subclassFeatures = [];
+					if (subclassIdx) {
+						try {
+							const refs = await getSubclassFeatures(subclassIdx);
+							subclassFeatures = await getFeatureDetailsUpToLevel(refs, level);
+						} catch (_) { /* ignore */ }
+					}
+
+					if (cancelled) return;
+					setCharacter((prev) => ({
+						...prev,
+						aggregated_traits: traits, // array of {index,name,desc}
+						aggregated_class_features: classFeatures, // array of {index,name,level,desc}
+						aggregated_subclass_features: subclassFeatures,
+						// Also keep plain text for sheet compatibility
+						racial_traits: traits.map(t => `• ${t.name}\n${t.desc}`).join('\n\n'),
+						class_features: [
+							...classFeatures.map(f => `• [Lv ${f.level}] ${f.name}\n${f.desc}`),
+							...subclassFeatures.map(f => `• [Lv ${f.level}] ${f.name}\n${f.desc}`),
+						].join('\n\n'),
+					}));
+				} catch (_) {
+					// Non-fatal; keep existing values
+				}
+			})();
+			return () => { cancelled = true; };
+		}, [character.race?.index, character.subrace?.index, character.class?.index, character.subclass?.index, character.level, character.raceDetail, character.subraceDetail]);
 
 	const cardSx = {
 		p: 2,

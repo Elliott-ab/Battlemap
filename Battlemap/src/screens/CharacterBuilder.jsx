@@ -29,6 +29,7 @@ import { useAuth } from '../auth/AuthContext.jsx';
 import { getCharacter, upsertCharacter, deleteCharacter, uploadCharacterIcon, deleteCharacterIcon, getSignedCharacterIconUrl } from '../Utils/characterService.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCirclePlus, faTrashCan } from '@fortawesome/free-solid-svg-icons';
+import { faCircleQuestion } from '@fortawesome/free-regular-svg-icons';
 import CopyToClipboardButton from '../components/ui/buttons/CopyToClipboardButton.jsx';
 import { hostGame, joinGameByCode } from '../Utils/gameService.js';
 import { useGameSession } from '../Utils/GameSessionContext.jsx';
@@ -275,6 +276,71 @@ export default function CharacterBuilder() {
   const [deathFailures, setDeathFailures] = useState(0);
   const [iconLoadError, setIconLoadError] = useState(false);
   const [resolvedIconUrl, setResolvedIconUrl] = useState('');
+  const [ftDialogOpen, setFtDialogOpen] = useState(false);
+  const [ftDialogContent, setFtDialogContent] = useState({ title: '', body: '' });
+
+  // Parse bullet-formatted features/traits text into items
+  const parseFeatureBlocks = (text) => {
+    const t = String(text || '').trim();
+    if (!t) return [];
+    // Split on lines that start with a bullet "• "; keep compatibility if bullets are missing
+    const parts = t.includes('•') ? t.replace(/^\s*•\s+/,'').split(/\n\s*•\s+/) : [t];
+    return parts.map((block) => {
+      const [firstLine, ...rest] = String(block).split('\n');
+      const title = (firstLine || '').trim();
+      const body = rest.join('\n').trim();
+      return { title: title || 'Feature', body };
+    }).filter(Boolean);
+  };
+
+  // Ensure values are always controlled-safe (no nulls) when loading from DB
+  const sanitizeCharacter = (obj) => {
+    const ALIGN_SET = new Set(ALIGNMENTS);
+    const o = { ...(obj || {}) };
+    // Strings
+    o.name = o.name ?? '';
+    o.class = o.class ?? '';
+    o.race = o.race ?? '';
+    o.background = o.background ?? '';
+    o.alignment = ALIGN_SET.has(o.alignment) ? o.alignment : '';
+    o.hit_dice = o.hit_dice ?? defaultForm.hit_dice;
+    o.equipment = o.equipment ?? '';
+    o.class_features = o.class_features ?? '';
+    o.racial_traits = o.racial_traits ?? '';
+    o.feats = o.feats ?? '';
+    o.icon_url = o.icon_url ?? '';
+    // Numbers
+    const num = (v, d) => (v ?? d);
+    o.level = num(o.level, defaultForm.level);
+    o.xp = num(o.xp, defaultForm.xp);
+    o.str = num(o.str, defaultForm.str);
+    o.dex = num(o.dex, defaultForm.dex);
+    o.con = num(o.con, defaultForm.con);
+    o.int = num(o.int, defaultForm.int);
+    o.wis = num(o.wis, defaultForm.wis);
+    o.cha = num(o.cha, defaultForm.cha);
+    o.ac = num(o.ac, defaultForm.ac);
+    o.speed = num(o.speed, defaultForm.speed);
+    o.max_hp = num(o.max_hp, defaultForm.max_hp);
+    o.current_hp = num(o.current_hp, defaultForm.current_hp);
+    o.hp_temp = num(o.hp_temp, defaultForm.hp_temp);
+    o.inspiration = num(o.inspiration, defaultForm.inspiration);
+    // Collections / nested
+    o.saving_throws = o.saving_throws || {};
+    o.skills = o.skills || {};
+    o.attacks = Array.isArray(o.attacks) ? o.attacks : [];
+    o.spellcasting = {
+      ability: o.spellcasting?.ability ?? 'int',
+      slots: o.spellcasting?.slots || {},
+    };
+    o.spells = o.spells || {};
+    o.currency = {
+      gp: o.currency?.gp ?? 0,
+      sp: o.currency?.sp ?? 0,
+      cp: o.currency?.cp ?? 0,
+    };
+    return o;
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -295,8 +361,9 @@ export default function CharacterBuilder() {
             spells: row?.spells || {},
             currency: row?.currency || { gp: 0, sp: 0, cp: 0 },
           };
-          setForm(merged);
-          setHitDice(row?.hit_dice || defaultForm.hit_dice);
+          const fixed = sanitizeCharacter(merged);
+          setForm(fixed);
+          setHitDice(fixed.hit_dice || defaultForm.hit_dice);
         } catch (e) {
           if (mounted) setError(e.message || String(e));
         } finally {
@@ -724,24 +791,32 @@ export default function CharacterBuilder() {
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12} md={6}>
               <SectionCard title="Saving Throws">
-                {['str','dex','con','int','wis','cha'].map((key) => (
-                  <Box key={key} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 14 }}>
-                    <FormControlLabel control={<Checkbox size="small" checked={!!form.saving_throws?.[key]} onChange={(e)=> setForm(f=>({ ...f, saving_throws: { ...(f.saving_throws||{}), [key]: e.target.checked } }))} />} label={key.toUpperCase()} />
-                    <Typography sx={{ ml: 1 }}>{withSign(skillBonus(key, !!form.saving_throws?.[key]))}</Typography>
-                  </Box>
-                ))}
+                {(() => {
+                  const unchecked = <Box sx={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.6)' }} />;
+                  const checked = <Box sx={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid #d32f2f', backgroundColor: '#d32f2f' }} />;
+                  return ['str','dex','con','int','wis','cha'].map((key) => (
+                    <Box key={key} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 14 }}>
+                      <FormControlLabel control={<Checkbox size="small" icon={unchecked} checkedIcon={checked} checked={!!form.saving_throws?.[key]} onChange={(e)=> setForm(f=>({ ...f, saving_throws: { ...(f.saving_throws||{}), [key]: e.target.checked } }))} />} label={key.toUpperCase()} />
+                      <Typography sx={{ ml: 1 }}>{withSign(skillBonus(key, !!form.saving_throws?.[key]))}</Typography>
+                    </Box>
+                  ));
+                })()}
               </SectionCard>
             </Grid>
             <Grid item xs={12} md={6}>
               <SectionCard title="Skills">
                 <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', rowGap: 0.5, columnGap: 1 }}>
-                  {SKILLS.map(([label, sk, key]) => (
-                    <React.Fragment key={sk}>
-                      <Checkbox size="small" sx={{ alignSelf: 'center' }} checked={!!form.skills?.[sk]?.prof} onChange={(e)=> setForm(f=>({ ...f, skills: { ...(f.skills||{}), [sk]: { prof: e.target.checked } } })) } />
-                      <Typography sx={{ opacity: 0.9 }}>{label}</Typography>
-                      <Typography sx={{ textAlign: 'right' }}>{withSign(skillBonus(key, !!form.skills?.[sk]?.prof))}</Typography>
-                    </React.Fragment>
-                  ))}
+                  {(() => {
+                    const unchecked = <Box sx={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.6)' }} />;
+                    const checked = <Box sx={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid #d32f2f', backgroundColor: '#d32f2f' }} />;
+                    return SKILLS.map(([label, sk, key]) => (
+                      <React.Fragment key={sk}>
+                        <Checkbox size="small" sx={{ alignSelf: 'center' }} icon={unchecked} checkedIcon={checked} checked={!!form.skills?.[sk]?.prof} onChange={(e)=> setForm(f=>({ ...f, skills: { ...(f.skills||{}), [sk]: { prof: e.target.checked } } })) } />
+                        <Typography sx={{ opacity: 0.9 }}>{label}</Typography>
+                        <Typography sx={{ textAlign: 'right' }}>{withSign(skillBonus(key, !!form.skills?.[sk]?.prof))}</Typography>
+                      </React.Fragment>
+                    ));
+                  })()}
                 </Box>
               </SectionCard>
             </Grid>
@@ -857,8 +932,60 @@ export default function CharacterBuilder() {
                   <Grid item xs={12}>
                     <TextField label="Feats" value={form.feats} onChange={update('feats')} fullWidth multiline minRows={6} />
                   </Grid>
+                  {/* Preview with clickable descriptions */}
+                  {(form.class_features || form.racial_traits) && (
+                    <Grid item xs={12}>
+                      <Divider sx={{ my: 1.5, borderColor: 'rgba(255,255,255,0.15)' }} />
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} md={6}>
+                          <Typography variant="subtitle2" sx={{ color:'#d32f2f', fontWeight:700, mb:1 }}>Class Features</Typography>
+                          <Box sx={{ display:'flex', flexDirection:'column', gap:1 }}>
+                            {parseFeatureBlocks(form.class_features).map((f, idx) => (
+                              <Box key={`cf-${idx}`} sx={{ display:'flex', alignItems:'center', gap:0.5, flexWrap:'wrap' }}>
+                                <Typography variant="body2" sx={{ fontWeight:700 }}>{f.title}</Typography>
+                                <IconButton size="small" title="Show description" onClick={() => { setFtDialogContent({ title: f.title, body: f.body }); setFtDialogOpen(true); }} sx={{ p:0.25 }}>
+                                  <FontAwesomeIcon icon={faCircleQuestion} style={{ color:'#d32f2f', opacity:0.7 }} />
+                                </IconButton>
+                              </Box>
+                            ))}
+                            {parseFeatureBlocks(form.class_features).length === 0 && (
+                              <Typography variant="body2" sx={{ opacity:0.7 }}>None</Typography>
+                            )}
+                          </Box>
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                          <Typography variant="subtitle2" sx={{ color:'#d32f2f', fontWeight:700, mb:1 }}>Racial Traits</Typography>
+                          <Box sx={{ display:'flex', flexDirection:'column', gap:1 }}>
+                            {parseFeatureBlocks(form.racial_traits).map((t, idx) => (
+                              <Box key={`rt-${idx}`} sx={{ display:'flex', alignItems:'center', gap:0.5, flexWrap:'wrap' }}>
+                                <Typography variant="body2" sx={{ fontWeight:700 }}>{t.title}</Typography>
+                                <IconButton size="small" title="Show description" onClick={() => { setFtDialogContent({ title: t.title, body: t.body }); setFtDialogOpen(true); }} sx={{ p:0.25 }}>
+                                  <FontAwesomeIcon icon={faCircleQuestion} style={{ color:'#d32f2f', opacity:0.7 }} />
+                                </IconButton>
+                              </Box>
+                            ))}
+                            {parseFeatureBlocks(form.racial_traits).length === 0 && (
+                              <Typography variant="body2" sx={{ opacity:0.7 }}>None</Typography>
+                            )}
+                          </Box>
+                        </Grid>
+                      </Grid>
+                    </Grid>
+                  )}
                 </Grid>
               </SectionCard>
+              {/* Dialog for feature/trait descriptions */}
+              <Dialog open={ftDialogOpen} onClose={() => setFtDialogOpen(false)} fullWidth maxWidth="sm">
+                <DialogTitle>{ftDialogContent.title}</DialogTitle>
+                <DialogContent>
+                  <Typography variant="body2" sx={{ whiteSpace:'pre-wrap' }}>
+                    {ftDialogContent.body || 'No description provided.'}
+                  </Typography>
+                </DialogContent>
+                <DialogActions>
+                  <Button onClick={() => setFtDialogOpen(false)}>Close</Button>
+                </DialogActions>
+              </Dialog>
             </Box>
           )}
 

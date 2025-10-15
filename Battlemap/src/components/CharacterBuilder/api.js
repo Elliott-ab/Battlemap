@@ -32,6 +32,61 @@ export const getLanguages = () => fetchList('/api/languages');
 export const getEquipment = () => fetchList('/api/equipment');
 export const getSpells = () => fetchList('/api/spells');
 export const getClassSpells = (cls) => fetchList(`/api/classes/${cls}/spells`);
+// New: features and traits endpoints
+export const getClassFeatures = (cls) => fetchList(`/api/classes/${cls}/features`);
+export const getSubclassFeatures = (sub) => fetchList(`/api/subclasses/${sub}/features`);
+export const getFeature = (index) => fetchApi(`/api/features/${index}`);
+export const getTrait = (index) => fetchApi(`/api/traits/${index}`);
+// Race and subrace traits come via race/subrace detail; provide tiny projector
+export function extractTraitsFromRaceDetail(raceDetail) {
+	return (raceDetail?.traits || []).map(t => ({ index: t.index, name: t.name }));
+}
+export function extractTraitsFromSubraceDetail(subraceDetail) {
+	return (subraceDetail?.racial_traits || []).map(t => ({ index: t.index, name: t.name }));
+}
+
+// Fetch full feature details for a list of {index} entries and filter by level
+export async function getFeatureDetailsUpToLevel(list = [], maxLevel = 1) {
+	const results = [];
+	for (const item of list) {
+		if (!item?.index) continue;
+		try {
+			const detail = await getFeature(item.index);
+			// Some feature detail includes level; keep if <= maxLevel (default to 1 if missing)
+			const lvl = Number(detail.level || detail.prerequisites?.find(p=>p.type==='level')?.level || 1);
+			if (lvl <= (Number(maxLevel)||1)) {
+				results.push({
+					index: detail.index,
+					name: detail.name,
+					level: lvl,
+					desc: Array.isArray(detail.desc) ? detail.desc.join('\n') : (detail.desc || ''),
+				});
+			}
+		} catch (_) { /* ignore individual feature failures */ }
+	}
+	// sort by level then name for stable output
+	results.sort((a,b)=> (a.level-b.level) || a.name.localeCompare(b.name));
+	return results;
+}
+
+// Fetch full trait details for a list of {index} entries
+export async function getTraitDetails(list = []) {
+	const results = [];
+	for (const item of list) {
+		if (!item?.index) continue;
+		try {
+			const detail = await getTrait(item.index);
+			results.push({
+				index: detail.index,
+				name: detail.name,
+				desc: Array.isArray(detail.desc) ? detail.desc.join('\n') : (detail.desc || ''),
+			});
+		} catch (_) { /* ignore individual trait failures */ }
+	}
+	// stable sort
+	results.sort((a,b)=> a.name.localeCompare(b.name));
+	return results;
+}
 
 // Ability score & derived stats helpers --------------------------------------
 export function abilityMod(score) {
