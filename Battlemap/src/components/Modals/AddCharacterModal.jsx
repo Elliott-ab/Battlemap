@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ModalShell from '../ui/modal/ModalShell.jsx';
+import MonsterBrowserModal from './MonsterBrowserModal.jsx';
 
 const AddCharacterModal = ({ isOpen, onClose, onAdd, initialType = 'player', initialQuantity = 1 }) => {
   const [characterType, setCharacterType] = useState(initialType);
@@ -31,6 +32,8 @@ const AddCharacterModal = ({ isOpen, onClose, onAdd, initialType = 'player', ini
     }
   }, [isOpen, initialType]);
 
+  const [browseOpen, setBrowseOpen] = useState(false);
+
   if (!isOpen) return null;
 
   return (
@@ -53,6 +56,9 @@ const AddCharacterModal = ({ isOpen, onClose, onAdd, initialType = 'player', ini
           onBlur={handleQuantityBlur}
         />
       </div>
+      <div className="form-group">
+        <button className="btn" onClick={() => setBrowseOpen(true)}>Open Bestiary…</button>
+      </div>
       <div className="form-actions">
         <button
           className="btn btn-primary"
@@ -66,6 +72,7 @@ const AddCharacterModal = ({ isOpen, onClose, onAdd, initialType = 'player', ini
         </button>
         <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
       </div>
+      <MonsterBrowserModal open={browseOpen} onClose={() => setBrowseOpen(false)} />
     </ModalShell>
   );
 };
