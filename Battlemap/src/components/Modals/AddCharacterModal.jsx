@@ -34,9 +34,9 @@ const AddCharacterModal = ({ isOpen, onClose, onAdd, initialType = 'player', ini
   if (!isOpen) return null;
 
   return (
-    <ModalShell open={isOpen} title="Add Character Elements" onClose={onClose} size="small">
+    <ModalShell open={isOpen} title="Sumon Creature" onClose={onClose} size="small">
       <div className="form-group">
-        <label>Type:</label>
+        <label>Generic Type (quick play):</label>
         <select value={characterType} onChange={e => setCharacterType(e.target.value)}>
           <option value="player">Player</option>
           <option value="enemy">Enemy</option>
