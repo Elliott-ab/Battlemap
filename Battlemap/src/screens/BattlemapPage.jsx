@@ -9,6 +9,7 @@ import { hostGame, joinGameByCode, endGame, leaveGame } from '../Utils/gameServi
 import { getMapState, upsertMapState } from '../Utils/mapService.js';
 import { supabase } from '../supabaseClient';
 import { useGameSession } from '../Utils/GameSessionContext.jsx';
+import FellowshipModal from '../components/Modals/FellowshipModal.jsx';
 
 export default function BattlemapPage() {
   const { code } = useParams();
@@ -25,6 +26,7 @@ export default function BattlemapPage() {
   const [confirmEndOpen, setConfirmEndOpen] = useState(false);
   const [playersInGame, setPlayersInGame] = useState(0);
   const didEndOrLeaveRef = useRef(false);
+  const [fellowshipOpen, setFellowshipOpen] = useState(false);
 
 
   // Resolve game id for this code once on mount (so we can subscribe to participants)
@@ -239,6 +241,7 @@ export default function BattlemapPage() {
             }
           }}
           onJoinGame={() => { setError(''); setJoinOpen(true); }}
+          onFellowshipClick={() => setFellowshipOpen(true)}
         />
       </Box>
       <Dialog open={hostOpen} onClose={() => setHostOpen(false)} fullWidth maxWidth="xs">
@@ -277,6 +280,7 @@ export default function BattlemapPage() {
           )}
         </DialogActions>
       </Dialog>
+  <FellowshipModal open={fellowshipOpen} onClose={() => setFellowshipOpen(false)} gameId={gameId} />
       <Dialog open={joinOpen} onClose={() => setJoinOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle>Join Game</DialogTitle>
         <DialogContent>

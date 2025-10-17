@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { NavLink } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faGear, faTrashCan, faRotateLeft, faDownload, faUpload, faBars, faUserGear, faCircle } from '@fortawesome/free-solid-svg-icons';
+import { faGear, faTrashCan, faRotateLeft, faDownload, faUpload, faBars, faUserGear, faCircle, faBell } from '@fortawesome/free-solid-svg-icons';
 import IconButton from './common/IconButton.jsx';
 import { useGameSession } from '../Utils/GameSessionContext.jsx';
+import { useAuth } from '../auth/AuthContext.jsx';
+import { listNotificationsForUser, respondToFellowshipInvite, markNotificationRead } from '../Utils/notificationsService.js';
 
 // variant: 'battlemap' | 'dashboard'
 const Toolbar = ({
@@ -27,8 +29,11 @@ const Toolbar = ({
   onPushToPlayers,
   onToggleChannel,
   currentChannel,
+  onFellowshipClick,
+  onNotificationsClick,
 }) => {
   const { game } = useGameSession();
+  const { user } = useAuth();
   // Normalize Vite base URL to always end with a single '/'
   const rawBase = import.meta.env.BASE_URL || '/';
   const base = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
@@ -41,10 +46,47 @@ const Toolbar = ({
     `${base}logo.webp`,
   ];
   const [menuOpen, setMenuOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifs, setNotifs] = useState([]);
+  const [notifError, setNotifError] = useState('');
   const handleMaybe = (fn) => {
     if (isDrawingCover) return;
     fn && fn();
     setMenuOpen(false);
+  };
+
+  const loadNotifs = useCallback(async () => {
+    try {
+      setNotifError('');
+      const rows = await listNotificationsForUser(user);
+      setNotifs(rows || []);
+    } catch (e) {
+      setNotifError(e.message || 'Failed to load notifications');
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (notifOpen) loadNotifs();
+  }, [notifOpen, loadNotifs]);
+
+  const handleBellClick = () => {
+    if (onNotificationsClick) return onNotificationsClick();
+    // Toggle internal popover
+    setMenuOpen(false);
+    setNotifOpen(v => !v);
+  };
+
+  const handleNotifAction = async (n, action) => {
+    try {
+      if (n.type === 'fellowship_invite' && (action === 'accept' || action === 'decline')) {
+        await respondToFellowshipInvite(n, action, user);
+      } else if (action === 'read') {
+        await markNotificationRead(n.id);
+      }
+      await loadNotifs();
+    } catch (e) {
+      setNotifError(e.message || 'Action failed');
+    }
   };
 
   const Logo = (
@@ -158,6 +200,22 @@ const Toolbar = ({
         <IconButton className="toolbar-burger" title="Menu" size="large" onClick={() => setMenuOpen(v => !v)}>
           <FontAwesomeIcon icon={faBars} style={{ color: 'white', fontSize: 18 }} />
         </IconButton>
+        <IconButton className="toolbar-bell" title="Notifications" size="large" onClick={handleBellClick} style={{ position: 'relative' }}>
+          <FontAwesomeIcon icon={faBell} style={{ color: 'white', fontSize: 18 }} />
+          {Array.isArray(notifs) && notifs.some(n => !n.read_at) && (
+            <span
+              style={{
+                position: 'absolute',
+                top: 2,
+                right: 2,
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                backgroundColor: '#f44336',
+              }}
+            />
+          )}
+        </IconButton>
       </div>
       {/* Indicator moved up after nav */}
       {menuOpen && (
@@ -227,6 +285,11 @@ const Toolbar = ({
                 <span>Join Game</span>
               </button>
             )}
+            {onFellowshipClick && (
+              <button className="menu-item" onClick={() => { onFellowshipClick(); setMenuOpen(false); }} role="menuitem">
+                <span>Fellowship</span>
+              </button>
+            )}
             {onHostGame && (
               <button className="menu-item" onClick={() => { onHostGame(); setMenuOpen(false); }} role="menuitem">
                 <span>Host Game</span>
@@ -253,6 +316,35 @@ const Toolbar = ({
               <FontAwesomeIcon icon={faUserGear} />
               <span>User Settings</span>
             </button>
+          </div>
+        </>
+      )}
+      {notifOpen && (
+        <>
+          <div className="toolbar-menu-backdrop" onClick={() => setNotifOpen(false)} />
+          <div className="toolbar-menu" role="menu" aria-label="Notifications" style={{ maxWidth: 360 }}>
+            {notifError && (
+              <div className="menu-item" role="menuitem" style={{ color: '#ffb3b3' }}>{notifError}</div>
+            )}
+            {notifs.length === 0 && (
+              <div className="menu-item" role="menuitem">
+                <span>No notifications</span>
+              </div>
+            )}
+            {notifs.map((n) => (
+              <div key={n.id} className="menu-item" role="menuitem" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+                <span style={{ marginBottom: 4 }}>{n.message}</span>
+                <span style={{ opacity: 0.7, fontSize: 12, marginBottom: 8 }}>{new Date(n.created_at).toLocaleString()}</span>
+                {n.type === 'fellowship_invite' ? (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn btn-primary" onClick={() => handleNotifAction(n, 'accept')}>Accept</button>
+                    <button className="btn" onClick={() => handleNotifAction(n, 'decline')}>Decline</button>
+                  </div>
+                ) : (
+                  !n.read_at && <button className="btn" onClick={() => handleNotifAction(n, 'read')}>Mark read</button>
+                )}
+              </div>
+            ))}
           </div>
         </>
       )}
