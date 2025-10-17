@@ -7,6 +7,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Chip,
   Paper,
   Table,
   TableBody,
@@ -241,6 +242,7 @@ export default function FellowshipModal({ open, onClose }) {
               <TableRow>
                 <TableCell sx={{ color: '#fff' }}>Username</TableCell>
                 <TableCell sx={{ color: '#fff' }}>Email</TableCell>
+                <TableCell sx={{ color: '#fff' }}>Status</TableCell>
                 <TableCell sx={{ color: '#fff' }}>Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -249,6 +251,14 @@ export default function FellowshipModal({ open, onClose }) {
                 <TableRow key={r.key} hover sx={{ '&:hover': { backgroundColor: 'rgba(255,255,255,0.04)' } }}>
                   <TableCell sx={{ color: '#fff' }}>{r.username || '—'}</TableCell>
                   <TableCell sx={{ color: '#fff' }}>{r.invitee_email || '—'}</TableCell>
+                  <TableCell sx={{ color: '#fff' }}>
+                    {(() => {
+                      const status = (r.status || 'pending').toLowerCase();
+                      const color = status === 'accepted' ? 'success' : status === 'declined' ? 'error' : 'warning';
+                      const label = status.charAt(0).toUpperCase() + status.slice(1);
+                      return <Chip label={label} size="small" color={color} variant="filled" />;
+                    })()}
+                  </TableCell>
                   <TableCell sx={{ color: '#fff' }}>
                     {r.status === 'pending' && (
                       <Button variant="outlined" size="small" onClick={() => handleCancelInvite(r)} sx={{ color: '#fff', borderColor: '#777', '&:hover': { borderColor: '#aaa' }, mr: 1 }}>
@@ -275,7 +285,7 @@ export default function FellowshipModal({ open, onClose }) {
               ))}
               {paged.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={3}>
+                  <TableCell colSpan={4}>
                     <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>No sent fellowship invites yet.</Typography>
                   </TableCell>
                 </TableRow>
