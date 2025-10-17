@@ -26,6 +26,9 @@ export default function Dashboard() {
   const [email, setEmail] = useState(user?.email || '');
   const [password, setPassword] = useState('');
   const [showSettings, setShowSettings] = useState(false);
+  const [showSetUsernameHint, setShowSetUsernameHint] = useState('');
+  const [username, setUsernameInput] = useState('');
+  const [usernameStatus, setUsernameStatus] = useState('');
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [confirmDeleteText, setConfirmDeleteText] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -101,11 +104,55 @@ export default function Dashboard() {
     setPassword('');
   };
 
+  // Load current username when opening settings
+  React.useEffect(() => {
+    let active = true;
+    (async () => {
+      if (!showSettings || !user?.id) return;
+      try {
+        const mod = await import('../Utils/userService.js');
+        const prof = await mod.getUserProfile(user.id);
+        if (active) setUsernameInput(prof?.username || '');
+      } catch (_) { /* ignore */ }
+    })();
+    return () => { active = false; };
+  }, [showSettings, user?.id]);
+
+  const saveUsername = async () => {
+    setUsernameStatus('');
+    try {
+      const desired = (username || '').trim();
+      if (!desired) { setUsernameStatus('Please enter a username.'); return; }
+      const mod = await import('../Utils/userService.js');
+      await mod.setUsername(user.id, desired);
+      setUsernameStatus('Username updated.');
+    } catch (e) {
+      setUsernameStatus(e.message || 'Failed to update username.');
+    }
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     clearSession();
     navigate('/login');
   };
+
+  // Prompt to set a username after login if missing
+  React.useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        if (!user?.id) return;
+        const mod = await import('../Utils/userService.js');
+        const prof = await mod.getUserProfile(user.id);
+        if (mounted && (!prof || !prof.username)) {
+          setShowSetUsernameHint('Choose a unique username to use as your gamertag.');
+          setShowSettings(true);
+        }
+      } catch (_) { /* ignore */ }
+    })();
+    return () => { mounted = false; };
+  }, [user?.id]);
 
   const handleDeleteAccount = async () => {
     if (!user?.id) return;
@@ -364,6 +411,14 @@ export default function Dashboard() {
         <DialogTitle>User Settings</DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {showSetUsernameHint && (
+              <Alert severity="info">{showSetUsernameHint}</Alert>
+            )}
+            <Typography variant="subtitle1">Profile</Typography>
+            <TextField label="Username" value={username} onChange={(e) => setUsernameInput(e.target.value)} fullWidth helperText="Your public display name (must be unique)." />
+            <Button onClick={saveUsername}>Update Username</Button>
+            {usernameStatus && <Alert severity={usernameStatus.includes('updated') ? 'success' : 'error'}>{usernameStatus}</Alert>}
+            <Divider sx={{ my: 2 }} />
             <TextField label="Email" value={email} onChange={(e) => setEmail(e.target.value)} fullWidth />
             <Button onClick={updateEmail}>Update Email</Button>
             <TextField label="New password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} fullWidth />

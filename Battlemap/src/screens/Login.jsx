@@ -18,6 +18,7 @@ export default function Login() {
   const [tab, setTab] = useState(0);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [signupUsername, setSignupUsername] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -47,18 +48,40 @@ export default function Login() {
       setError('Sign up is disabled. Append ?testMode=true to enable test sign-up.');
       return;
     }
+    const desired = (signupUsername || '').trim();
+    if (!desired) {
+      setLoading(false);
+      setError('Please choose a username.');
+      return;
+    }
     // Ensure the email confirmation link redirects to the correct deployed path.
     // In production, import.meta.env.BASE_URL should be '/Battlemap/' (from vite.config base).
     // In dev, it's usually '/'.
     const redirectBase = new URL(import.meta.env.BASE_URL || '/', window.location.origin).toString();
-    const { error: err } = await supabase.auth.signUp({
+    const { data, error: err } = await supabase.auth.signUp({
       email,
       password,
       options: { emailRedirectTo: redirectBase },
     });
     setLoading(false);
     if (err) return setError(err.message);
-  navigate('/home');
+    try {
+      // If we have an active session (email confirmations disabled), try to set the username now
+      const { data: sess } = await supabase.auth.getSession();
+      const userId = sess?.session?.user?.id || data?.user?.id || null;
+      if (userId && sess?.session) {
+        // Defer import to avoid circular deps in SSR/ESM
+        const mod = await import('../Utils/userService.js');
+        await mod.setUsername(userId, desired);
+      } else {
+        // If no session yet (email confirmation flow), store pending username to apply on first login
+        try { localStorage.setItem('bm_pending_username', desired); } catch {}
+      }
+    } catch (e) {
+      // Non-fatal for signup; user can set after verifying email
+      try { localStorage.setItem('bm_pending_username', desired); } catch {}
+    }
+    navigate('/home');
   };
 
   return (
@@ -85,6 +108,15 @@ export default function Login() {
             onChange={(e) => setPassword(e.target.value)}
             fullWidth
           />
+          {tab === 1 && testModeEnabled && (
+            <TextField
+              label="Username (public)"
+              value={signupUsername}
+              onChange={(e) => setSignupUsername(e.target.value)}
+              fullWidth
+              helperText="Your display name/gamertag. Must be unique."
+            />
+          )}
           {tab === 0 || !testModeEnabled ? (
             <Button variant="contained" onClick={handleLogin} disabled={loading}>
               {loading ? 'Logging in…' : 'Login'}

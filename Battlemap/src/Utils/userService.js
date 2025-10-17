@@ -96,3 +96,55 @@ export async function deleteUserAccountData(userId) {
 //   if (error) throw error;
 //   return data;
 // }
+
+// ===== User profile / username helpers =====
+
+// Get the profile row for a user; expects a 'profiles' table with PK 'id' matching auth.users.id
+export async function getUserProfile(userId) {
+  if (!userId) throw new Error('Missing user ID');
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, username')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error && error.code !== 'PGRST116') throw error; // ignore row not found
+  return data || null;
+}
+
+// Check if a username is available (case-insensitive). Optionally ignore an existing ownerId.
+export async function isUsernameAvailable(username, ownerIdToIgnore = null) {
+  const name = (username || '').trim();
+  if (!name) return false;
+  // Case-insensitive exact match using ILIKE without wildcards
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id')
+    .ilike('username', name)
+    .limit(1);
+  if (error) throw error;
+  if (!Array.isArray(data) || data.length === 0) return true;
+  const row = data[0];
+  if (ownerIdToIgnore && row.id === ownerIdToIgnore) return true;
+  return false;
+}
+
+// Set/update username for a user; will create profile row if missing.
+// If a unique constraint exists on profiles.username, a duplicate will throw 23505.
+export async function setUsername(userId, username) {
+  const name = (username || '').trim();
+  if (!userId) throw new Error('Missing user ID');
+  if (!name) throw new Error('Username cannot be empty');
+  // First, optimistic availability check to provide fast feedback
+  const available = await isUsernameAvailable(name, userId).catch(() => true);
+  if (!available) throw new Error('That username is already taken.');
+  // Upsert profile
+  const { error } = await supabase
+    .from('profiles')
+    .upsert({ id: userId, username: name }, { onConflict: 'id' });
+  if (error) {
+    // Surface a friendly message on unique violation if backend enforces it
+    if (error.code === '23505') throw new Error('That username is already taken.');
+    throw error;
+  }
+  return { id: userId, username: name };
+}

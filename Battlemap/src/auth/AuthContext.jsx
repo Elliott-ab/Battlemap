@@ -27,6 +27,31 @@ export function AuthProvider({ children }) {
 
   const value = useMemo(() => ({ session, user: session?.user ?? null }), [session]);
 
+  // On first authenticated session, try to apply a pending username
+  useEffect(() => {
+    (async () => {
+      try {
+        const userId = session?.user?.id;
+        if (!userId) return;
+        const pending = localStorage.getItem('bm_pending_username');
+        if (!pending) return;
+        const { getUserProfile, setUsername } = await import('../Utils/userService.js');
+        const profile = await getUserProfile(userId).catch(() => null);
+        if (!profile || !profile.username) {
+          try {
+            await setUsername(userId, pending);
+            localStorage.removeItem('bm_pending_username');
+          } catch (_) {
+            // leave pending for later manual set if it fails
+          }
+        } else {
+          // Already has a username
+          localStorage.removeItem('bm_pending_username');
+        }
+      } catch (_) { /* ignore */ }
+    })();
+  }, [session?.user?.id]);
+
   if (loading) return null; // simple splash
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
