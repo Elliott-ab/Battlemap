@@ -238,7 +238,7 @@ export default function BattlemapPage() {
               navigate('/home');
             }
           }}
-          onJoinGame={() => setJoinOpen(true)}
+          onJoinGame={() => { setError(''); setJoinOpen(true); }}
         />
       </Box>
       <Dialog open={hostOpen} onClose={() => setHostOpen(false)} fullWidth maxWidth="xs">
@@ -280,6 +280,9 @@ export default function BattlemapPage() {
       <Dialog open={joinOpen} onClose={() => setJoinOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle>Join Game</DialogTitle>
         <DialogContent>
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+          )}
           <Typography variant="body2" sx={{ mb: 1 }}>
             Enter an invite code to join a game.
           </Typography>

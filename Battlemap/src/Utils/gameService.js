@@ -48,6 +48,34 @@ export async function joinGameByCode(userId, code) {
   const { data: rpcData, error: rpcErr } = await supabase.rpc('get_game_by_code', { v_code: code }).single();
   if (rpcErr || !rpcData) throw rpcErr || new Error('Game not found');
   game = rpcData;
+  // Guard: Only allow join if the host is currently present in the lobby
+  // We check whether a participants row exists with role 'host' for this game
+  try {
+    const { count, error: hostCheckErr } = await supabase
+      .from('participants')
+      .select('user_id', { count: 'exact', head: true })
+      .eq('game_id', game.id)
+      .eq('role', 'host');
+    const hostCount = typeof count === 'number' ? count : 0;
+    if (hostCheckErr) {
+      // If RLS blocks head counts, do a best-effort non-head select of 1 row
+      const { data: hostRows } = await supabase
+        .from('participants')
+        .select('user_id, role')
+        .eq('game_id', game.id)
+        .eq('role', 'host')
+        .limit(1);
+      if (!Array.isArray(hostRows) || hostRows.length === 0) {
+        throw new Error('The host is not in the lobby. You can only join when the host has opened the lobby.');
+      }
+    } else if (hostCount < 1) {
+      throw new Error('The host is not in the lobby. You can only join when the host has opened the lobby.');
+    }
+  } catch (e) {
+    // Surface friendly error; if it's not our thrown error, wrap it
+    if (e && e.message && e.message.includes('host is not in the lobby')) throw e;
+    throw new Error('Unable to verify lobby status. Please try again when the host has opened the lobby.');
+  }
   // upsert participant
   const { error: partErr } = await supabase
     .from('participants')
@@ -93,13 +121,12 @@ export async function listCampaignsByHost(userId) {
 // End the game: remove all participants and delete the game row (best-effort)
 // Must be called by the host to satisfy RLS policies.
 export async function endGame(gameId) {
-  // Remove all players (keep the host so the game persists and can be reused later)
+  // Remove all participants, including host, to close the lobby fully
   try {
     await supabase
       .from('participants')
       .delete()
-      .eq('game_id', gameId)
-      .neq('role', 'host');
+      .eq('game_id', gameId);
   } catch (_) { /* ignore; best-effort */ }
 }
 
