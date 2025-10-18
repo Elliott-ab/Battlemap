@@ -57,33 +57,32 @@ export async function joinGameByCode(userId, code) {
       .eq('game_id', game.id)
       .eq('role', 'host');
     const hostCount = typeof count === 'number' ? count : 0;
-    if (hostCheckErr) {
-      // If RLS blocks counts/selects, ping the game channel for host presence
+    const realtimeHostAck = async () => {
       const ch = supabase.channel(`game-${game.id}-signals`);
       await ch.subscribe();
       const ack = await new Promise(async (resolve) => {
         let timer;
-        const handler = (payload) => {
-          if (payload?.eventType === 'broadcast' && payload?.event === 'host-ack') {
-            clearTimeout(timer);
-            try { ch.unsubscribe(); } catch {}
-            resolve(true);
-          }
-        };
-        ch.on('broadcast', { event: 'host-ack' }, handler);
-        // Send ping
+        ch.on('broadcast', { event: 'host-ack' }, () => {
+          clearTimeout(timer);
+          try { supabase.removeChannel(ch); } catch {}
+          resolve(true);
+        });
         try { await ch.send({ type: 'broadcast', event: 'host-check', payload: { t: Date.now() } }); } catch {}
-        // Timeout after 1200ms
         timer = setTimeout(() => {
-          try { ch.unsubscribe(); } catch {}
+          try { supabase.removeChannel(ch); } catch {}
           resolve(false);
-        }, 1200);
+        }, 1500);
       });
-      if (!ack) {
-        throw new Error('The host is not in the lobby. You can only join when the host has opened the lobby.');
-      }
+      return ack;
+    };
+    if (hostCheckErr) {
+      // If RLS blocks counts/selects, ping the game channel for host presence
+      const ack = await realtimeHostAck();
+      if (!ack) throw new Error('The host is not in the lobby. You can only join when the host has opened the lobby.');
     } else if (hostCount < 1) {
-      throw new Error('The host is not in the lobby. You can only join when the host has opened the lobby.');
+      // Double-check via realtime to avoid false negatives under restrictive RLS
+      const ack = await realtimeHostAck();
+      if (!ack) throw new Error('The host is not in the lobby. You can only join when the host has opened the lobby.');
     }
   } catch (e) {
     // Surface friendly error; if it's not our thrown error, wrap it

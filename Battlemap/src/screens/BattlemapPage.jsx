@@ -50,8 +50,8 @@ export default function BattlemapPage() {
   useEffect(() => {
     if (!gameId) return;
     // Ensure we also listen for game-ended here for immediate navigation
-    const sig = supabase
-      .channel(`game-${gameId}-signals`)
+    const sig = supabase.channel(`game-${gameId}-signals`);
+    sig
       .on('broadcast', { event: 'game-ended' }, () => {
         clearSession();
         navigate('/home');
