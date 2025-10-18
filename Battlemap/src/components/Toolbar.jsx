@@ -50,7 +50,8 @@ const Toolbar = ({
   ];
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [notifs, setNotifs] = useState([]);
+  const [notifs, setNotifs] = useState([]); // merged server + ephemeral
+  const [ephemeralNotifs, setEphemeralNotifs] = useState([]); // realtime-only
   const [notifError, setNotifError] = useState('');
   const handleMaybe = (fn) => {
     if (isDrawingCover) return;
@@ -58,15 +59,33 @@ const Toolbar = ({
     setMenuOpen(false);
   };
 
+  const mergeNotifications = useCallback((serverRows, ephemeralRows) => {
+    const server = Array.isArray(serverRows) ? serverRows : [];
+    const ep = Array.isArray(ephemeralRows) ? ephemeralRows : [];
+    const out = [...server];
+    const isGameInvite = (n) => n?.type === 'game_invite' && (n?.payload?.game_code || n?.payload?.code);
+    const serverCodes = new Set(server.filter(isGameInvite).map(n => String(n.payload.game_code || n.payload.code)));
+    const serverIds = new Set(server.map(n => n.id));
+    for (const e of ep) {
+      if (e?.id && serverIds.has(e.id)) continue;
+      if (isGameInvite(e)) {
+        const code = String(e.payload.game_code || e.payload.code);
+        if (serverCodes.has(code)) continue;
+      }
+      out.unshift(e);
+    }
+    return out.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  }, []);
+
   const loadNotifs = useCallback(async () => {
     try {
       setNotifError('');
       const rows = await listNotificationsForUser(user);
-      setNotifs(rows || []);
+      setNotifs(mergeNotifications(rows || [], ephemeralNotifs));
     } catch (e) {
       setNotifError(e.message || 'Failed to load notifications');
     }
-  }, [user?.id]);
+  }, [user?.id, mergeNotifications, ephemeralNotifs]);
 
   useEffect(() => {
     if (notifOpen) loadNotifs();
@@ -89,12 +108,13 @@ const Toolbar = ({
             created_at: new Date().toISOString(),
             read_at: null,
           };
-          setNotifs((prev) => [n, ...(prev || [])]);
+          setEphemeralNotifs((prev) => [n, ...(prev || [])]);
+          setNotifs((prev) => mergeNotifications(prev || [], [n]));
         } catch (_) {}
       })
       .subscribe();
     return () => { try { supabase.removeChannel(channel); } catch {} };
-  }, [user?.id]);
+  }, [user?.id, mergeNotifications]);
 
   // Also listen on an email-based channel in case an invite is broadcasted by email
   useEffect(() => {
@@ -114,12 +134,13 @@ const Toolbar = ({
             created_at: new Date().toISOString(),
             read_at: null,
           };
-          setNotifs((prev) => [n, ...(prev || [])]);
+          setEphemeralNotifs((prev) => [n, ...(prev || [])]);
+          setNotifs((prev) => mergeNotifications(prev || [], [n]));
         } catch (_) {}
       })
       .subscribe();
     return () => { try { supabase.removeChannel(channel); } catch {} };
-  }, [user?.email]);
+  }, [user?.email, mergeNotifications]);
 
   const handleBellClick = () => {
     if (onNotificationsClick) return onNotificationsClick();
@@ -146,10 +167,14 @@ const Toolbar = ({
           // Mirror Dashboard join behavior
           setSession({ id: g.id, code: g.code, name: g.name || null, role: 'player', host_id: g.host_id, promptCharacter: true });
           await markNotificationRead(n.id).catch(() => {});
+          // Remove any matching ephemeral invites (by code)
+          setEphemeralNotifs((prev) => (prev || []).filter(e => String(e?.payload?.game_code || e?.payload?.code || '') !== String(code)));
           setNotifOpen(false);
           navigate(`/battlemap/${g.code}`);
         } else {
           await markNotificationRead(n.id);
+          // Remove from ephemeral list by id/code
+          setEphemeralNotifs((prev) => (prev || []).filter(e => e.id !== n.id));
         }
       } else if (action === 'read') {
         await markNotificationRead(n.id);
