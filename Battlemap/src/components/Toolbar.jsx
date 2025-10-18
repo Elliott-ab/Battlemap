@@ -381,11 +381,6 @@ const Toolbar = ({
                 <span>Join Game</span>
               </button>
             )}
-            {onFellowshipClick && (
-              <button className="menu-item" onClick={() => { onFellowshipClick(); setMenuOpen(false); }} role="menuitem">
-                <span>Fellowship</span>
-              </button>
-            )}
             {onHostGame && (
               <button className="menu-item" onClick={() => { onHostGame(); setMenuOpen(false); }} role="menuitem">
                 <span>Host Game</span>
@@ -406,6 +401,13 @@ const Toolbar = ({
                   <span>{currentChannel === 'draft' ? 'Switch to Live' : 'Switch to Draft'}</span>
                 </button>
               </>
+            )}
+            {/* Fellowship section (always available when handler is provided), above User Settings */}
+            <hr className="toolbar-divider-horiz" />
+            {onFellowshipClick && (
+              <button className="menu-item" onClick={() => { onFellowshipClick(); setMenuOpen(false); }} role="menuitem">
+                <span>Fellowship</span>
+              </button>
             )}
             <hr className="toolbar-divider-horiz" />
             <button className="menu-item" onClick={() => handleMaybe(onSettingsClick)} role="menuitem">
