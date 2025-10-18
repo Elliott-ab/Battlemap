@@ -58,14 +58,28 @@ export async function joinGameByCode(userId, code) {
       .eq('role', 'host');
     const hostCount = typeof count === 'number' ? count : 0;
     if (hostCheckErr) {
-      // If RLS blocks head counts, do a best-effort non-head select of 1 row
-      const { data: hostRows } = await supabase
-        .from('participants')
-        .select('user_id, role')
-        .eq('game_id', game.id)
-        .eq('role', 'host')
-        .limit(1);
-      if (!Array.isArray(hostRows) || hostRows.length === 0) {
+      // If RLS blocks counts/selects, ping the game channel for host presence
+      const ch = supabase.channel(`game-${game.id}-signals`);
+      await ch.subscribe();
+      const ack = await new Promise(async (resolve) => {
+        let timer;
+        const handler = (payload) => {
+          if (payload?.eventType === 'broadcast' && payload?.event === 'host-ack') {
+            clearTimeout(timer);
+            try { ch.unsubscribe(); } catch {}
+            resolve(true);
+          }
+        };
+        ch.on('broadcast', { event: 'host-ack' }, handler);
+        // Send ping
+        try { await ch.send({ type: 'broadcast', event: 'host-check', payload: { t: Date.now() } }); } catch {}
+        // Timeout after 1200ms
+        timer = setTimeout(() => {
+          try { ch.unsubscribe(); } catch {}
+          resolve(false);
+        }, 1200);
+      });
+      if (!ack) {
         throw new Error('The host is not in the lobby. You can only join when the host has opened the lobby.');
       }
     } else if (hostCount < 1) {

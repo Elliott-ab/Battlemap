@@ -440,14 +440,6 @@ const Toolbar = ({
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button className="btn btn-primary" onClick={() => handleNotifAction(n, 'accept')}>Accept</button>
                     <button className="btn" onClick={() => handleNotifAction(n, 'decline')}>Decline</button>
-                    {/* Fallback explicit Join CTA for ephemeral invites */}
-                    <button
-                      className="btn"
-                      onClick={() => handleNotifAction({ ...n, type: 'game_invite' }, 'accept')}
-                      title="Join game now"
-                    >
-                      Join
-                    </button>
                   </div>
                 ) : (
                   !n.read_at && <button className="btn" onClick={() => handleNotifAction(n, 'read')}>Mark read</button>

@@ -56,6 +56,13 @@ export default function BattlemapPage() {
         clearSession();
         navigate('/home');
       })
+      .on('broadcast', { event: 'host-check' }, async () => {
+        try {
+          const iAmHost = (user?.id && game?.host_id && user.id === game.host_id) || game?.role === 'host';
+          if (!iAmHost) return;
+          await sig.send({ type: 'broadcast', event: 'host-ack', payload: { t: Date.now(), host_id: user?.id } });
+        } catch (_) {}
+      })
       .subscribe();
     const channel = supabase
       .channel(`participants-${gameId}`)
