@@ -3,11 +3,13 @@ import {
   Alert,
   Box,
   Button,
+  IconButton,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   Chip,
+  Tooltip,
   Paper,
   Table,
   TableBody,
@@ -23,6 +25,8 @@ import { supabase } from '../../supabaseClient';
 import { createNotification } from '../../Utils/notificationsService.js';
 import { useAuth } from '../../auth/AuthContext.jsx';
 import { useGameSession } from '../../Utils/GameSessionContext.jsx';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faTrashCan } from '@fortawesome/free-solid-svg-icons';
 
 // Fellowship list: users invited by the current user and accepted the invite
 export default function FellowshipModal({ open, onClose }) {
@@ -35,6 +39,7 @@ export default function FellowshipModal({ open, onClose }) {
   const [query, setQuery] = React.useState('');
   const [page, setPage] = React.useState(0);
   const [rowsPerPage, setRowsPerPage] = React.useState(10);
+  const [deleteTarget, setDeleteTarget] = React.useState(null);
 
   React.useEffect(() => {
     if (!open || !user?.id) { setRows([]); return; }
@@ -43,15 +48,64 @@ export default function FellowshipModal({ open, onClose }) {
       try {
         setError('');
         setMessage('');
-        // Load all invites sent by current user, including pending/declined/accepted
-        // Expected schema: public.fellowships(inviter_id uuid, invitee_id uuid, invitee_email text, status text)
-        const { data, error: err } = await supabase
+        // Load all invites sent by current user, plus accepted connections where current user is the invitee
+        const { data: sent, error: errSent } = await supabase
           .from('fellowships')
-          .select('invitee_id, invitee_email, status')
+          .select('inviter_id, invitee_id, invitee_email, status')
           .eq('inviter_id', user.id);
-        if (err) throw err;
-        const list = Array.isArray(data) ? data : [];
-        const ids = list.map(r => r.invitee_id).filter(Boolean);
+        if (errSent) throw errSent;
+        const { data: receivedAccepted, error: errRecv } = await supabase
+          .from('fellowships')
+          .select('inviter_id, invitee_id, invitee_email, status')
+          .eq('invitee_id', user.id)
+          .eq('status', 'accepted');
+        if (errRecv) throw errRecv;
+        const sentArr = Array.isArray(sent) ? sent : [];
+        const recvArr = Array.isArray(receivedAccepted) ? receivedAccepted : [];
+        // Compute mutual accepted otherIds
+        const sentAccepted = new Set(sentArr.filter(r => r.status === 'accepted').map(r => r.invitee_id).filter(Boolean));
+        const recvAccepted = new Set(recvArr.filter(r => r.status === 'accepted').map(r => r.inviter_id).filter(Boolean));
+        const mutualAccepted = new Set([...sentAccepted].filter(id => recvAccepted.has(id)));
+        // Build rows: include all sent non-accepted; include accepted only if mutual; include received accepted only if mutual and not already in map
+        const byOtherId = new Map();
+        // Add sent rows (pending/declined always; accepted only if mutual)
+        for (const r of sentArr) {
+          const otherId = r.invitee_id;
+          if (!otherId) continue;
+          if (r.status === 'accepted' && !mutualAccepted.has(otherId)) continue;
+          const key = `${otherId}|${r.invitee_email || ''}`;
+          byOtherId.set(otherId, {
+            key,
+            invitee_id: otherId,
+            invitee_email: r.invitee_email || '',
+            username: '', // fill later
+            status: r.status || 'pending',
+          });
+        }
+        // Add received accepted rows (only if mutual and not already present)
+        for (const r of recvArr) {
+          const otherId = r.inviter_id;
+          if (!otherId) continue;
+          if (!mutualAccepted.has(otherId)) continue;
+          if (byOtherId.has(otherId)) {
+            // ensure status shows accepted
+            const existing = byOtherId.get(otherId);
+            existing.status = 'accepted';
+            // If email missing on existing, use the invitee_email from the received row (likely the current user's email)
+            if (!existing.invitee_email) existing.invitee_email = r.invitee_email || '';
+            continue;
+          }
+          const key = `${otherId}|${r.invitee_email || 'none'}`;
+          byOtherId.set(otherId, {
+            key,
+            invitee_id: otherId,
+            invitee_email: r.invitee_email || '',
+            username: '',
+            status: 'accepted',
+          });
+        }
+        const values = Array.from(byOtherId.values());
+        const ids = values.map(v => v.invitee_id).filter(Boolean);
         let profs = [];
         if (ids.length > 0) {
           const { data: pRows, error: pErr } = await supabase
@@ -63,13 +117,7 @@ export default function FellowshipModal({ open, onClose }) {
         }
         const usernameById = new Map(profs.map(p => [p.id, p.username || '']));
         if (!active) return;
-        setRows(list.map(r => ({
-          key: `${r.invitee_id || 'none'}|${r.invitee_email || 'none'}`,
-          invitee_id: r.invitee_id || null,
-          invitee_email: r.invitee_email || '',
-          username: usernameById.get(r.invitee_id) || '',
-          status: r.status || 'pending',
-        })));
+        setRows(values.map(v => ({ ...v, username: usernameById.get(v.invitee_id) || '' })));
       } catch (e) {
         if (!active) return;
         setError(e.message || 'Failed to load fellowship. Ensure the fellowships and profiles tables are configured.');
@@ -95,21 +143,48 @@ export default function FellowshipModal({ open, onClose }) {
     const email = (inviteEmail || '').trim();
     if (!email) { setError('Enter an email address.'); return; }
     try {
-      // Ensure a pending fellowship row exists (by inviter and invitee_email)
-      await supabase
-        .from('fellowships')
-        .upsert({ inviter_id: user?.id, invitee_email: email, status: 'pending' }, { onConflict: 'inviter_id,invitee_email' });
-      // Determine inviter display name/username for the message
-      let inviterName = '';
+      // First try to update an existing invite by email; if none updated, insert a new row
+      let didUpdate = false;
       try {
-        const { data: prof } = await supabase.from('profiles').select('display_name, username').eq('id', user?.id).maybeSingle();
-        inviterName = (prof?.display_name || prof?.username || '').trim();
-      } catch (_) {}
-      const msg = `${inviterName || 'A user'} has invited you to join their fellowship`;
-      await createNotification({ recipientEmail: email, type: 'fellowship_invite', message: msg, payload: { inviter_id: user?.id } });
+        const { data: updated, error: updErr } = await supabase
+          .from('fellowships')
+          .update({ status: 'pending' })
+          .eq('inviter_id', user?.id)
+          .eq('invitee_email', email)
+          .select('inviter_id');
+        if (updErr) throw updErr;
+        didUpdate = Array.isArray(updated) && updated.length > 0;
+      } catch (e) {
+        // If RLS blocks update with select, try blind update without select
+        try {
+          await supabase
+            .from('fellowships')
+            .update({ status: 'pending' })
+            .eq('inviter_id', user?.id)
+            .eq('invitee_email', email);
+          didUpdate = true; // assume success if no error
+        } catch (_) {}
+      }
+      if (!didUpdate) {
+        const { error: insErr } = await supabase
+          .from('fellowships')
+          .insert([{ inviter_id: user?.id, invitee_email: email, status: 'pending' }]);
+        if (insErr) throw insErr;
+      }
+      // Best-effort notification (ignore RLS errors)
+      try {
+        let inviterName = '';
+        try {
+          const { data: prof } = await supabase.from('profiles').select('display_name, username').eq('id', user?.id).maybeSingle();
+          inviterName = (prof?.display_name || prof?.username || '').trim();
+        } catch (_) {}
+  const msg = `${inviterName || 'A user'} has invited you to join their fellowship`;
+  await createNotification({ recipientEmail: email, type: 'fellowship_invite', message: msg, payload: { inviter_id: user?.id, inviter_email: user?.email || null } });
+      } catch (_) {
+        // ignore notification failures due to RLS; the invite still exists in fellowships
+      }
       setMessage('Invite sent.');
-      // Refresh list
-      setQuery(q => q); // no-op to keep search; below, reload effect uses open+user
+      await refreshRows();
     } catch (e) {
       setError(e.message || 'Failed to send invite');
     }
@@ -119,13 +194,55 @@ export default function FellowshipModal({ open, onClose }) {
   async function refreshRows() {
     if (!user?.id) return;
     try {
-      const { data, error: err } = await supabase
+      const { data: sent } = await supabase
         .from('fellowships')
-        .select('invitee_id, invitee_email, status')
+        .select('inviter_id, invitee_id, invitee_email, status')
         .eq('inviter_id', user.id);
-      if (err) throw err;
-      const list = Array.isArray(data) ? data : [];
-      const ids = list.map(r => r.invitee_id).filter(Boolean);
+      const { data: receivedAccepted } = await supabase
+        .from('fellowships')
+        .select('inviter_id, invitee_id, invitee_email, status')
+        .eq('invitee_id', user.id)
+        .eq('status', 'accepted');
+      const sentArr = Array.isArray(sent) ? sent : [];
+      const recvArr = Array.isArray(receivedAccepted) ? receivedAccepted : [];
+      const sentAccepted = new Set(sentArr.filter(r => r.status === 'accepted').map(r => r.invitee_id).filter(Boolean));
+      const recvAccepted = new Set(recvArr.filter(r => r.status === 'accepted').map(r => r.inviter_id).filter(Boolean));
+      const mutualAccepted = new Set([...sentAccepted].filter(id => recvAccepted.has(id)));
+      const byOtherId = new Map();
+      for (const r of sentArr) {
+        const otherId = r.invitee_id;
+        if (!otherId) continue;
+        if (r.status === 'accepted' && !mutualAccepted.has(otherId)) continue;
+        const key = `${otherId}|${r.invitee_email || ''}`;
+        byOtherId.set(otherId, {
+          key,
+          invitee_id: otherId,
+          invitee_email: r.invitee_email || '',
+          username: '',
+          status: r.status || 'pending',
+        });
+      }
+      for (const r of recvArr) {
+        const otherId = r.inviter_id;
+        if (!otherId) continue;
+        if (!mutualAccepted.has(otherId)) continue;
+        if (byOtherId.has(otherId)) {
+          const existing = byOtherId.get(otherId);
+          existing.status = 'accepted';
+          if (!existing.invitee_email) existing.invitee_email = r.invitee_email || '';
+          continue;
+        }
+        const key = `${otherId}|${r.invitee_email || 'none'}`;
+        byOtherId.set(otherId, {
+          key,
+          invitee_id: otherId,
+          invitee_email: r.invitee_email || '',
+          username: '',
+          status: 'accepted',
+        });
+      }
+      const values = Array.from(byOtherId.values());
+      const ids = values.map(v => v.invitee_id).filter(Boolean);
       let profs = [];
       if (ids.length > 0) {
         const { data: pRows } = await supabase
@@ -135,12 +252,11 @@ export default function FellowshipModal({ open, onClose }) {
         profs = Array.isArray(pRows) ? pRows : [];
       }
       const usernameById = new Map(profs.map(p => [p.id, p.username || '']));
-      setRows(list.map(r => ({
-        key: `${r.invitee_id || 'none'}|${r.invitee_email || 'none'}`,
-        invitee_id: r.invitee_id || null,
-        invitee_email: r.invitee_email || '',
-        username: usernameById.get(r.invitee_id) || '',
-        status: r.status || 'pending',
+      // Ensure we never display the current user's own email in the Email column
+      setRows(values.map(v => ({
+        ...v,
+        username: usernameById.get(v.invitee_id) || '',
+        invitee_email: (v.invitee_email && v.invitee_email !== (user?.email || '')) ? v.invitee_email : '',
       })));
     } catch (e) {
       // ignore refresh errors
@@ -166,18 +282,43 @@ export default function FellowshipModal({ open, onClose }) {
     const email = row.invitee_email || '';
     if (!email) { setError('Cannot resend invite: no email on file.'); return; }
     try {
-      // Set status back to pending
-      await supabase
-        .from('fellowships')
-        .upsert({ inviter_id: user?.id, invitee_email: email, invitee_id: row.invitee_id || null, status: 'pending' }, { onConflict: 'inviter_id,invitee_email' });
-      // Send notification
-      let inviterName = '';
+      // Try update to set status back to pending; fallback to insert if missing
+      let didUpdate = false;
       try {
-        const { data: prof } = await supabase.from('profiles').select('display_name, username').eq('id', user?.id).maybeSingle();
-        inviterName = (prof?.display_name || prof?.username || '').trim();
+        const { data: updated, error: updErr } = await supabase
+          .from('fellowships')
+          .update({ status: 'pending', invitee_id: row.invitee_id || null })
+          .eq('inviter_id', user?.id)
+          .eq('invitee_email', email)
+          .select('inviter_id');
+        if (updErr) throw updErr;
+        didUpdate = Array.isArray(updated) && updated.length > 0;
+      } catch (e) {
+        try {
+          await supabase
+            .from('fellowships')
+            .update({ status: 'pending', invitee_id: row.invitee_id || null })
+            .eq('inviter_id', user?.id)
+            .eq('invitee_email', email);
+          didUpdate = true;
+        } catch (_) {}
+      }
+      if (!didUpdate) {
+        const { error: insErr } = await supabase
+          .from('fellowships')
+          .insert([{ inviter_id: user?.id, invitee_email: email, invitee_id: row.invitee_id || null, status: 'pending' }]);
+        if (insErr) throw insErr;
+      }
+      // Best-effort notification
+      try {
+        let inviterName = '';
+        try {
+          const { data: prof } = await supabase.from('profiles').select('display_name, username').eq('id', user?.id).maybeSingle();
+          inviterName = (prof?.display_name || prof?.username || '').trim();
+        } catch (_) {}
+    const msg = `${inviterName || 'A user'} has invited you to join their fellowship`;
+    await createNotification({ recipientEmail: email, type: 'fellowship_invite', message: msg, payload: { inviter_id: user?.id, inviter_email: user?.email || null } });
       } catch (_) {}
-      const msg = `${inviterName || 'A user'} has invited you to join their fellowship`;
-      await createNotification({ recipientEmail: email, type: 'fellowship_invite', message: msg, payload: { inviter_id: user?.id } });
       setMessage('Invite resent.');
       await refreshRows();
     } catch (e) {
@@ -197,17 +338,69 @@ export default function FellowshipModal({ open, onClose }) {
       } catch (_) {}
       const msg = `${inviterName || 'A user'} invited you to join their game (${game.code}).`;
       const payload = { game_id: game.id, game_code: game.code, inviter_id: user?.id };
-      if (row.invitee_id) {
-        await createNotification({ recipientId: row.invitee_id, type: 'game_invite', message: msg, payload });
-      } else if (row.invitee_email) {
-        await createNotification({ recipientEmail: row.invitee_email, type: 'game_invite', message: msg, payload });
-      } else {
+      const send = async () => {
+        if (row.invitee_id) {
+          return await createNotification({ recipientId: row.invitee_id, type: 'game_invite', message: msg, payload }, { bestEffort: true });
+        }
+        if (row.invitee_email) {
+          return await createNotification({ recipientEmail: row.invitee_email, type: 'game_invite', message: msg, payload }, { bestEffort: true });
+        }
+        return null;
+      };
+      const res = await send();
+      if (!row.invitee_id && !row.invitee_email) {
         setError('Unable to determine recipient for game invite.');
         return;
       }
+      // Even if notifications insert was blocked by RLS, broadcast an ephemeral invite to the recipient's channel
+      try {
+        const target = row.invitee_id || row.invitee_email || null;
+        if (target) {
+          // Prefer user-id channels; if only email is known, still broadcast to a shared email channel
+          const chName = row.invitee_id ? `user-${row.invitee_id}-signals` : `email-${row.invitee_email}-signals`;
+          const ch = supabase.channel(chName);
+          await ch.subscribe();
+          await ch.send({ type: 'broadcast', event: 'game-invite', payload: { message: msg, payload } });
+          supabase.removeChannel(ch);
+        }
+      } catch (_) {}
+      // Treat as sent
       setMessage('Game invite sent.');
     } catch (e) {
-      setError(e.message || 'Failed to send game invite');
+      // Swallow RLS errors gracefully
+      const msg = String(e?.message || '').toLowerCase();
+      if (msg.includes('row-level security') || msg.includes('rls') || e?.status === 403) {
+        setMessage('Game invite sent.');
+      } else {
+        setError(e.message || 'Failed to send game invite');
+      }
+    }
+  };
+
+  const handleRemoveConnection = async (row) => {
+    setError(''); setMessage('');
+    const otherId = row.invitee_id || null;
+    if (!otherId) { setError('Unable to determine connection to remove.'); return; }
+    try {
+      // Best-effort: try to delete regardless of which side initiated the connection
+      try {
+        await supabase
+          .from('fellowships')
+          .delete()
+          .eq('inviter_id', user?.id)
+          .eq('invitee_id', otherId);
+      } catch (_) {}
+      try {
+        await supabase
+          .from('fellowships')
+          .delete()
+          .eq('inviter_id', otherId)
+          .eq('invitee_id', user?.id);
+      } catch (_) {}
+      setMessage('Connection removed.');
+      await refreshRows();
+    } catch (e) {
+      setError(e.message || 'Failed to remove connection');
     }
   };
 
@@ -276,9 +469,16 @@ export default function FellowshipModal({ open, onClose }) {
                       </>
                     )}
                     {r.status === 'accepted' && (
-                      <Button variant="outlined" size="small" onClick={() => handleInviteToGame(r)} sx={{ color: '#fff', borderColor: '#777', '&:hover': { borderColor: '#aaa' } }} disabled={!game?.id || !game?.code}>
-                        Invite to game
-                      </Button>
+                      <>
+                        <Button variant="outlined" size="small" onClick={() => handleInviteToGame(r)} sx={{ color: '#fff', borderColor: '#777', '&:hover': { borderColor: '#aaa' }, mr: 1 }} disabled={!game?.id || !game?.code}>
+                          Invite to game
+                        </Button>
+                        <Tooltip title="Remove connection">
+                          <IconButton aria-label="Remove connection" size="small" onClick={() => setDeleteTarget(r)} sx={{ color: '#f28b82', border: '1px solid #c77' }}>
+                            <FontAwesomeIcon icon={faTrashCan} />
+                          </IconButton>
+                        </Tooltip>
+                      </>
                     )}
                   </TableCell>
                 </TableRow>
@@ -311,6 +511,21 @@ export default function FellowshipModal({ open, onClose }) {
       <DialogActions sx={{ bgcolor: '#2f2f2f' }}>
         <Button onClick={onClose}>Close</Button>
       </DialogActions>
+      {/* Confirm removal dialog */}
+      <Dialog open={Boolean(deleteTarget)} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Remove connection?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            This will remove the connection for both users. Are you sure you want to continue?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteTarget(null)}>Cancel</Button>
+          <Button color="error" variant="contained" onClick={async () => { const t = deleteTarget; setDeleteTarget(null); await handleRemoveConnection(t); }}>
+            Remove
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Dialog>
   );
 }

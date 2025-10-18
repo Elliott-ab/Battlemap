@@ -7,6 +7,7 @@ import { listLibraryMaps, getLibraryMap } from '../Utils/mapService.js';
 import { hostGame, joinGameByCode } from '../Utils/gameService.js';
 import { useGameSession } from '../Utils/GameSessionContext.jsx';
 import CopyToClipboardButton from '../components/ui/buttons/CopyToClipboardButton.jsx';
+import FellowshipModal from '../components/Modals/FellowshipModal.jsx';
 
 export default function Library() {
   const navigate = useNavigate();
@@ -20,6 +21,7 @@ export default function Library() {
   const [hostError, setHostError] = useState('');
   const [joinOpen, setJoinOpen] = useState(false);
   const [joinCode, setJoinCode] = useState('');
+  const [fellowshipOpen, setFellowshipOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -39,6 +41,7 @@ export default function Library() {
     <Box className="app-container" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <Toolbar
         variant="dashboard"
+        onFellowshipClick={() => setFellowshipOpen(true)}
         onJoinGame={() => setJoinOpen(true)}
         onHostGame={async () => {
           if (!user) return;
@@ -101,6 +104,7 @@ export default function Library() {
         </Box>
       </div>
       {/* Toolbar: Host Game dialog */}
+      <FellowshipModal open={fellowshipOpen} onClose={() => setFellowshipOpen(false)} gameId={null} />
       <Dialog open={hostOpen} onClose={() => setHostOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle>Game Hosted</DialogTitle>
         <DialogContent>

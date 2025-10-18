@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGear, faTrashCan, faRotateLeft, faDownload, faUpload, faBars, faUserGear, faCircle, faBell } from '@fortawesome/free-solid-svg-icons';
 import IconButton from './common/IconButton.jsx';
 import { useGameSession } from '../Utils/GameSessionContext.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
 import { listNotificationsForUser, respondToFellowshipInvite, markNotificationRead } from '../Utils/notificationsService.js';
+import { joinGameByCode } from '../Utils/gameService.js';
+import { supabase } from '../supabaseClient';
 
 // variant: 'battlemap' | 'dashboard'
 const Toolbar = ({
@@ -32,8 +34,9 @@ const Toolbar = ({
   onFellowshipClick,
   onNotificationsClick,
 }) => {
-  const { game } = useGameSession();
+  const { game, setSession } = useGameSession();
   const { user } = useAuth();
+  const navigate = useNavigate();
   // Normalize Vite base URL to always end with a single '/'
   const rawBase = import.meta.env.BASE_URL || '/';
   const base = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
@@ -69,6 +72,55 @@ const Toolbar = ({
     if (notifOpen) loadNotifs();
   }, [notifOpen, loadNotifs]);
 
+  // Realtime: receive ephemeral game invites when notifications insert is blocked by RLS
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel(`user-${user.id}-signals`)
+      .on('broadcast', { event: 'game-invite' }, (payload) => {
+        try {
+          const p = payload?.payload || {};
+          const message = p?.message || 'You have been invited to a game';
+          const n = {
+            id: `rt:game:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,
+            type: 'game_invite',
+            message,
+            payload: p?.payload || {},
+            created_at: new Date().toISOString(),
+            read_at: null,
+          };
+          setNotifs((prev) => [n, ...(prev || [])]);
+        } catch (_) {}
+      })
+      .subscribe();
+    return () => { try { supabase.removeChannel(channel); } catch {} };
+  }, [user?.id]);
+
+  // Also listen on an email-based channel in case an invite is broadcasted by email
+  useEffect(() => {
+    const email = user?.email || null;
+    if (!email) return;
+    const channel = supabase
+      .channel(`email-${email}-signals`)
+      .on('broadcast', { event: 'game-invite' }, (payload) => {
+        try {
+          const p = payload?.payload || {};
+          const message = p?.message || 'You have been invited to a game';
+          const n = {
+            id: `rt:game:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,
+            type: 'game_invite',
+            message,
+            payload: p?.payload || {},
+            created_at: new Date().toISOString(),
+            read_at: null,
+          };
+          setNotifs((prev) => [n, ...(prev || [])]);
+        } catch (_) {}
+      })
+      .subscribe();
+    return () => { try { supabase.removeChannel(channel); } catch {} };
+  }, [user?.email]);
+
   const handleBellClick = () => {
     if (onNotificationsClick) return onNotificationsClick();
     // Toggle internal popover
@@ -80,6 +132,25 @@ const Toolbar = ({
     try {
       if (n.type === 'fellowship_invite' && (action === 'accept' || action === 'decline')) {
         await respondToFellowshipInvite(n, action, user);
+        if (action === 'accept') {
+          // Automatically open Fellowship after accepting
+          setNotifOpen(false);
+          if (onFellowshipClick) onFellowshipClick();
+        }
+      } else if (n.type === 'game_invite' && (action === 'accept' || action === 'decline')) {
+        if (action === 'accept') {
+          // Join the game like the Join Game flow using the provided code
+          const code = n?.payload?.game_code || n?.payload?.code || null;
+          if (!code) throw new Error('This invite is missing a game code.');
+          const g = await joinGameByCode(user.id, String(code).toUpperCase());
+          // Mirror Dashboard join behavior
+          setSession({ id: g.id, code: g.code, name: g.name || null, role: 'player', host_id: g.host_id, promptCharacter: true });
+          await markNotificationRead(n.id).catch(() => {});
+          setNotifOpen(false);
+          navigate(`/battlemap/${g.code}`);
+        } else {
+          await markNotificationRead(n.id);
+        }
       } else if (action === 'read') {
         await markNotificationRead(n.id);
       }
@@ -339,6 +410,19 @@ const Toolbar = ({
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button className="btn btn-primary" onClick={() => handleNotifAction(n, 'accept')}>Accept</button>
                     <button className="btn" onClick={() => handleNotifAction(n, 'decline')}>Decline</button>
+                  </div>
+                ) : n.type === 'game_invite' ? (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn btn-primary" onClick={() => handleNotifAction(n, 'accept')}>Accept</button>
+                    <button className="btn" onClick={() => handleNotifAction(n, 'decline')}>Decline</button>
+                    {/* Fallback explicit Join CTA for ephemeral invites */}
+                    <button
+                      className="btn"
+                      onClick={() => handleNotifAction({ ...n, type: 'game_invite' }, 'accept')}
+                      title="Join game now"
+                    >
+                      Join
+                    </button>
                   </div>
                 ) : (
                   !n.read_at && <button className="btn" onClick={() => handleNotifAction(n, 'read')}>Mark read</button>

@@ -8,6 +8,7 @@ import { listCharacters, getSignedCharacterIconUrl } from '../Utils/characterSer
 import { hostGame, joinGameByCode } from '../Utils/gameService.js';
 import { useGameSession } from '../Utils/GameSessionContext.jsx';
 import CopyToClipboardButton from '../components/ui/buttons/CopyToClipboardButton.jsx';
+import FellowshipModal from '../components/Modals/FellowshipModal.jsx';
 
 export default function Characters() {
   const navigate = useNavigate();
@@ -24,6 +25,7 @@ export default function Characters() {
   const [joinOpen, setJoinOpen] = useState(false);
   const [joinCode, setJoinCode] = useState('');
   const [newCharacterOpen, setNewCharacterOpen] = useState(false);
+  const [fellowshipOpen, setFellowshipOpen] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -67,6 +69,7 @@ export default function Characters() {
     <Box className="app-container" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <Toolbar
         variant="dashboard"
+        onFellowshipClick={() => setFellowshipOpen(true)}
         onJoinGame={() => setJoinOpen(true)}
         onHostGame={async () => {
           if (!user) return;
@@ -163,6 +166,7 @@ export default function Characters() {
         </Box>
       </div>
       {/* Toolbar: Host Game dialog */}
+      <FellowshipModal open={fellowshipOpen} onClose={() => setFellowshipOpen(false)} gameId={null} />
       <Dialog open={hostOpen} onClose={() => setHostOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle>Game Hosted</DialogTitle>
         <DialogContent>

@@ -33,6 +33,7 @@ import { faCircleQuestion } from '@fortawesome/free-regular-svg-icons';
 import CopyToClipboardButton from '../components/ui/buttons/CopyToClipboardButton.jsx';
 import { hostGame, joinGameByCode } from '../Utils/gameService.js';
 import { useGameSession } from '../Utils/GameSessionContext.jsx';
+import FellowshipModal from '../components/Modals/FellowshipModal.jsx';
 
 // Constants and helpers
 const ALIGNMENTS = ['LG','NG','CG','LN','N','CN','LE','NE','CE'];
@@ -270,6 +271,7 @@ export default function CharacterBuilder() {
   const [hostError, setHostError] = useState('');
   const [joinOpen, setJoinOpen] = useState(false);
   const [joinCode, setJoinCode] = useState('');
+  const [fellowshipOpen, setFellowshipOpen] = useState(false);
   const iconInputRef = useRef(null);
   const [hitDice, setHitDice] = useState(defaultForm.hit_dice);
   const [deathSuccesses, setDeathSuccesses] = useState(0);
@@ -570,6 +572,7 @@ export default function CharacterBuilder() {
     <Box className="app-container sheet" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <Toolbar
         variant="dashboard"
+        onFellowshipClick={() => setFellowshipOpen(true)}
         onJoinGame={() => setJoinOpen(true)}
         onHostGame={async () => {
           if (!user) return;
@@ -1020,6 +1023,7 @@ export default function CharacterBuilder() {
         </Box>
       </div>
       {/* Toolbar: Host Game dialog */}
+      <FellowshipModal open={fellowshipOpen} onClose={() => setFellowshipOpen(false)} gameId={null} />
       <Dialog open={hostOpen} onClose={() => setHostOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle>Game Hosted</DialogTitle>
         <DialogContent>

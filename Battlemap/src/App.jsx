@@ -22,7 +22,7 @@ import SaveDraftModal from './components/Modals/SaveDraftModal.jsx';
 import LoadDraftModal from './components/Modals/LoadDraftModal.jsx';
 import { useGameSession } from './Utils/GameSessionContext.jsx';
 
-function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, libraryLoadRequest = null }) {
+function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = null, user = null, libraryLoadRequest = null }) {
   const navigate = useNavigate();
   const [drawEnvType, setDrawEnvType] = useState('half');
   const toggleDrawingMode = () => {
@@ -1068,6 +1068,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, gameId = null, user = null, 
         onHostGame={onHostGame}
         onLeaveGame={onLeaveGame}
         onJoinGame={onJoinGame}
+        onFellowshipClick={onFellowshipClick}
         isHost={isHost}
         currentChannel={channel}
         onToggleChannel={() => setChannel((c) => (c === 'draft' ? 'live' : 'draft'))}
