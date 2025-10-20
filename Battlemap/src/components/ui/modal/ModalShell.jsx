@@ -1,12 +1,13 @@
 import React from 'react';
 
 // Minimal shell to unify in-house modal markup (non-MUI), preserving current styles.
-// Props: open, title, onClose, children, size ('small' | undefined), actions (ReactNode)
+// Props: open, title, onClose, children, size ('small' | 'wide' | undefined), actions (ReactNode)
 export default function ModalShell({ open, title, onClose, children, actions, size }) {
   if (!open) return null;
+  const sizeClass = size ? ` ${size}` : '';
   return (
     <div className="modal" style={{ display: 'block' }}>
-      <div className={`modal-content${size === 'small' ? ' small' : ''}`}>
+      <div className={`modal-content${sizeClass}`}>
         <span className="close" onClick={onClose}>&times;</span>
         {title ? <h3>{title}</h3> : null}
         {children}
