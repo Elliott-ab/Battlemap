@@ -87,7 +87,7 @@ async function fetchJSON(url, { signal } = {}) {
   return res.json();
 }
 
-export default function MonsterBrowserModal({ open, onClose }) {
+export default function MonsterBrowserModal({ open, onClose, onImport, initialIndex = null, autoOpenDescription = false }) {
   const theme = useTheme();
   const isSmall = useMediaQuery(theme.breakpoints.down('sm'));
   const [loading, setLoading] = React.useState(false);
@@ -118,6 +118,7 @@ export default function MonsterBrowserModal({ open, onClose }) {
   const [cacheVersion, setCacheVersion] = React.useState(0);
   const persistTimeoutRef = React.useRef(null);
   const persistDirtyRef = React.useRef(false);
+  const [pendingInitialIdx, setPendingInitialIdx] = React.useState(null);
 
   // Load persisted cache on first open
   React.useEffect(() => {
@@ -178,6 +179,38 @@ export default function MonsterBrowserModal({ open, onClose }) {
       });
     return () => { cancelled = true; controller.abort(); };
   }, [open]);
+
+  // Auto-open description for an initial index if provided
+  React.useEffect(() => {
+    if (!open) return;
+    if (!initialIndex) return;
+    // Defer slightly to allow base list to settle
+    setPendingInitialIdx(initialIndex);
+  }, [open, initialIndex]);
+
+  React.useEffect(() => {
+    if (!open || !pendingInitialIdx) return;
+    (async () => {
+      try {
+        setDescError(null);
+        setDescLoading(true);
+        setDescOpen(true);
+        let detail = detailsCache.get(pendingInitialIdx);
+        if (!detail) {
+          detail = await fetchJSON(`https://www.dnd5eapi.co/api/monsters/${pendingInitialIdx}`);
+          detailsCache.set(pendingInitialIdx, detail);
+          setCacheVersion((v) => v + 1);
+          persistCacheSoon();
+        }
+        setSelected(detail);
+      } catch (e) {
+        setDescError(e.message || String(e));
+      } finally {
+        setDescLoading(false);
+        setPendingInitialIdx(null);
+      }
+    })();
+  }, [open, pendingInitialIdx, persistCacheSoon]);
 
   // Parse search query to detect name vs CR search
   function parseQuery(qRaw) {
@@ -503,6 +536,53 @@ export default function MonsterBrowserModal({ open, onClose }) {
                           </TableCell>
                         )}
                         <TableCell align="right">
+                          {typeof onImport === 'function' && (
+                            <Button
+                              variant="contained"
+                              size={isSmall ? 'medium' : 'small'}
+                              onClick={async (e) => {
+                                // Ensure details, then pass back to caller
+                                try {
+                                  let d = detailsCache.get(m.index);
+                                  if (!d) {
+                                    d = await fetchJSON(`https://www.dnd5eapi.co${m.url}`);
+                                    detailsCache.set(m.index, d);
+                                    setCacheVersion((v) => v + 1);
+                                    persistCacheSoon();
+                                  }
+                                  const constructed = m.index ? `https://www.dnd5eapi.co/api/images/monsters/${m.index}.png` : undefined;
+                                  const imageUrl = d?.image ? `https://www.dnd5eapi.co${d.image}` : constructed;
+                                  const hp = Number.parseInt(d?.hit_points, 10) || undefined;
+                                  // Movement: prefer walk/ground feet; parse first integer from walk or overall speed
+                                  const speedObj = d?.speed || {};
+                                  const walkStr = typeof speedObj === 'object' ? (speedObj.walk || speedObj.land || '') : String(speedObj || '');
+                                  const mStr = walkStr || (typeof speedObj === 'string' ? speedObj : '');
+                                  const num = (mStr && /\d+/.test(mStr)) ? parseInt(mStr.match(/\d+/)[0], 10) : undefined;
+                                  const movement = Number.isFinite(num) ? num : 30;
+                                  // Size mapping
+                                  const sizeMap = { Tiny: 1, Small: 1, Medium: 1, Large: 2, Huge: 3, Gargantuan: 4 };
+                                  const gridSize = sizeMap[d?.size] || 1;
+                                  await onImport({
+                                    index: m.index,
+                                    name: m.name,
+                                    hp,
+                                    movement,
+                                    imageUrl,
+                                    size: gridSize,
+                                  }, d);
+                                } catch (_) { /* ignore */ }
+                              }}
+                              sx={{
+                                mr: 1,
+                                color: '#000',
+                                backgroundColor: '#fff',
+                                borderColor: '#777',
+                                '&:hover': { backgroundColor: '#eaeaea' },
+                              }}
+                            >
+                              Summon
+                            </Button>
+                          )}
                           <Button
                             variant="outlined"
                             size={isSmall ? 'medium' : 'small'}

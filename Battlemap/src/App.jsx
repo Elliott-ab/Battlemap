@@ -6,6 +6,8 @@ import Sidebar from './components/Sidebar.jsx';
 import BattleMap from './components/BattleMap.jsx';
 import EditModal from './components/Modals/EditModal.jsx';
 import AddCharacterModal from './components/Modals/AddCharacterModal.jsx';
+import MonsterBrowserModal from './components/Modals/MonsterBrowserModal.jsx';
+import MonsterDescriptionModal from './components/Modals/MonsterDescriptionModal.jsx';
 import CharacterSelectModal from './components/Modals/CharacterSelectModal.jsx';
 import GridModal from './components/Modals/GridModal.jsx';
 import InitiativeModal from './components/Modals/InitiativeModal.jsx';
@@ -103,6 +105,8 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
   const { showEditModal, showGridModal } = useModals(setModalState);
   const { pushUndo, undo } = useUndo(state, setState, setUndoStack);
   const [toast, setToast] = useState({ open: false, message: '', severity: 'info' });
+  const [bestiaryModal, setBestiaryModal] = useState({ open: false, initialIndex: null });
+  const [monsterDescModal, setMonsterDescModal] = useState({ open: false, index: null });
 
   useEffect(() => {
     updateGridInfo();
@@ -968,6 +972,90 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
     setModalState(prev => ({ ...prev, addCharacter: false }));
   };
 
+  // Import a monster as an enemy element (host or in editor)
+  const importMonster = async (monster) => {
+    try {
+      // Only host (or when not in a game) can summon enemies
+      if (gameId && !isHost) {
+        setToast({ open: true, severity: 'info', message: 'Only the host can summon enemies.' });
+        return;
+      }
+      const name = monster?.name || 'Enemy';
+      const hp = Number.isFinite(monster?.hp) ? monster.hp : undefined;
+  const movement = Number.isFinite(monster?.movement) ? monster.movement : 30;
+  // Force size to 1 (Small) so the enemy occupies a single cell
+  const size = 1;
+      const iconUrl = monster?.imageUrl || null;
+      // Create enemy locally
+      setState(prev => {
+        // Compute next id and place at first free cell
+        const nextId = Math.max(0, ...((prev.elements || []).map(e => {
+          const n = typeof e.id === 'number' ? e.id : parseInt(e.id, 10);
+          return Number.isFinite(n) ? n : 0;
+        }))) + 1;
+        // find empty position
+        let pos = { x: 0, y: 0 };
+        outer: for (let y = 0; y <= (prev.grid.height - size); y++) {
+          for (let x = 0; x <= (prev.grid.width - size); x++) {
+            let occ = false;
+            for (const el of (prev.elements || [])) {
+              if (!el || !el.position) continue;
+              if (x < el.position.x + el.size && x + size > el.position.x && y < el.position.y + el.size && y + size > el.position.y) {
+                occ = true; break;
+              }
+            }
+            if (!occ) { pos = { x, y }; break outer; }
+          }
+        }
+        const newEnemy = {
+          id: nextId,
+          type: 'enemy',
+          name,
+          position: pos,
+          size,
+          color: '#f44336',
+          movement,
+          damage: 0,
+          incapacitated: false,
+          enemyIconUrl: iconUrl,
+          bestiaryIndex: monster?.index || null,
+          facing: 90,
+          ...(Number.isFinite(hp) ? { maxHp: hp, currentHp: hp } : {}),
+        };
+        return { ...prev, elements: [...(prev.elements || []), newEnemy], highlightedElementId: null };
+      });
+  // If host and currently viewing LIVE, persist to LIVE immediately.
+  // When host is in draft, the draft->live mirroring effect will propagate enemies automatically.
+  if (gameId && user && isHost && (channelRef.current === 'live')) {
+        try {
+          const liveRow = await getMapState(gameId, 'live').catch(() => null);
+          const liveState = liveRow?.state || {};
+          const liveEls = Array.isArray(liveState.elements) ? liveState.elements.slice() : [];
+          // Find the enemy we just added from local state and merge by name+size at same position if possible
+          const local = latestStateRef.current || {};
+          const added = (local.elements || []).slice().sort((a,b)=>b.id-a.id).find(e => e && e.type==='enemy' && e.bestiaryIndex===monster?.index && e.enemyIconUrl===iconUrl);
+          const toAdd = added || {
+            type: 'enemy', name, position: { x: 0, y: 0 }, size, color: '#f44336', movement, damage: 0, incapacitated: false, enemyIconUrl: iconUrl, bestiaryIndex: monster?.index || null, facing: 90,
+            ...(Number.isFinite(hp) ? { maxHp: hp, currentHp: hp } : {}),
+          };
+          const maxId = liveEls.reduce((m,e)=>{ const n = typeof e.id==='number'?e.id:parseInt(e.id,10); return Number.isFinite(n)?Math.max(m,n):m; }, 0);
+          toAdd.id = maxId + 1;
+          liveEls.push(toAdd);
+          const merged = { ...liveState, elements: liveEls };
+          try { lastLiveUpdatedAtRef.current = Date.now(); } catch {}
+          await upsertMapState(gameId, 'live', merged, user.id);
+          lastLiveUpdatedAtRef.current = Date.now();
+          if (liveSignalRef.current) {
+            try { await liveSignalRef.current.send({ type: 'broadcast', event: 'live-updated', payload: { by: user.id, t: Date.now() } }); } catch {}
+          }
+        } catch (_) {}
+      }
+      setToast({ open: true, severity: 'success', message: `Summoned ${name}.` });
+    } catch (e) {
+      setToast({ open: true, severity: 'error', message: 'Failed to import monster.' });
+    }
+  };
+
   // Apply selected character to the local user's player token
   const applyCharacterToToken = (character) => {
     if (!character || !user) return;
@@ -1052,6 +1140,25 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
     return () => { active = false; };
   }, [user?.id]);
 
+  // Listen for Bestiary import and open requests from children
+  useEffect(() => {
+    const onImport = (e) => {
+      const monster = e?.detail || {};
+      importMonster(monster);
+    };
+    const onOpen = (e) => {
+      const idx = e?.detail?.index || null;
+      // Open standalone description modal instead of the Bestiary list
+      setMonsterDescModal({ open: true, index: idx });
+    };
+    window.addEventListener('bm-import-monster', onImport);
+    window.addEventListener('bm-open-bestiary', onOpen);
+    return () => {
+      window.removeEventListener('bm-import-monster', onImport);
+      window.removeEventListener('bm-open-bestiary', onOpen);
+    };
+  }, [gameId, user?.id, isHost]);
+
   return (
     <div className="app-container">
       <Toolbar
@@ -1123,6 +1230,18 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
         isOpen={modalState.addCharacter}
         onClose={() => setModalState(prev => ({ ...prev, addCharacter: false }))}
         onAdd={handleAddCharacters}
+      />
+      {/* Bestiary modal for description/import, can be opened programmatically */}
+      <MonsterBrowserModal
+        open={bestiaryModal.open}
+        initialIndex={bestiaryModal.initialIndex}
+        onClose={() => setBestiaryModal({ open: false, initialIndex: null })}
+        {...((!gameId || isHost) ? { onImport: (monster) => importMonster(monster) } : {})}
+      />
+      <MonsterDescriptionModal
+        open={monsterDescModal.open}
+        index={monsterDescModal.index}
+        onClose={() => setMonsterDescModal({ open: false, index: null })}
       />
       <EditModal
         isOpen={modalState.editModal.isOpen}

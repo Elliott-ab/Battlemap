@@ -37,7 +37,7 @@ const AddCharacterModal = ({ isOpen, onClose, onAdd, initialType = 'player', ini
   if (!isOpen) return null;
 
   return (
-    <ModalShell open={isOpen} title="Sumon Creature" onClose={onClose} size="small">
+    <ModalShell open={isOpen} title="Summon Creature" onClose={onClose} size="small">
       <div className="form-group">
         <label>Generic Type (quick play):</label>
         <select value={characterType} onChange={e => setCharacterType(e.target.value)}>
@@ -72,7 +72,21 @@ const AddCharacterModal = ({ isOpen, onClose, onAdd, initialType = 'player', ini
         </button>
         <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
       </div>
-      <MonsterBrowserModal open={browseOpen} onClose={() => setBrowseOpen(false)} />
+      <MonsterBrowserModal
+        open={browseOpen}
+        onClose={() => setBrowseOpen(false)}
+        onImport={async (monster) => {
+          // Importing from Bestiary always creates an enemy (single)
+          try {
+            // Bubble up via onAdd? onAdd handles batch; we'll add one enemy here using window event
+            const detail = monster || {};
+            const ev = new CustomEvent('bm-import-monster', { detail });
+            window.dispatchEvent(ev);
+            setBrowseOpen(false);
+            onClose?.();
+          } catch (_) {}
+        }}
+      />
     </ModalShell>
   );
 };

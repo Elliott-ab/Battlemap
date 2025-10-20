@@ -326,6 +326,15 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
                 toggleMovementHighlight(el.id, battleMapRef);
               }}
               onDoubleClick={() => {
+                // Any user: double-click enemy opens Bestiary description when available
+                if (el.type === 'enemy') {
+                  if (el.bestiaryIndex) {
+                    try { window.dispatchEvent(new CustomEvent('bm-open-bestiary', { detail: { index: el.bestiaryIndex } })); } catch {}
+                    return;
+                  }
+                  if (isHost) { showEditModal(el.id); return; }
+                }
+                // Host: other types fall back to edit modal
                 if (isHost) { showEditModal(el.id); return; }
                 // Players: double-click own player card to open character sheet
                 if (el.type === 'player' && el.participantUserId === currentUserId) {
@@ -356,9 +365,13 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
               }}
             >
               <div className="element-info">
-                {el.type === 'player' && (el.characterIconUrl || cardIconUrls[el.id]) ? (
+                {(el.type === 'player' && (el.characterIconUrl || cardIconUrls[el.id])) ? (
                   <div className="player-avatar" style={{ borderColor: el.color }}>
                     <img src={cardIconUrls[el.id] || el.characterIconUrl} alt={el.name || 'Avatar'} />
+                  </div>
+                ) : el.type === 'enemy' && el.enemyIconUrl ? (
+                  <div className="player-avatar" style={{ borderColor: el.color }}>
+                    <img src={el.enemyIconUrl} alt={el.name || 'Enemy'} />
                   </div>
                 ) : (
                   <div className="element-color" style={{ backgroundColor: el.color }}></div>
@@ -539,6 +552,31 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
                       <>Damage: {el.damage ?? 0}</>
                     )}
                   </div>
+                  {isHost && Number.isFinite(el.maxHp) && (
+                    <div className="hp-rest-controls" style={{ marginTop: 4 }}>
+                      <button
+                        className="btn btn-xs hp-rest-button"
+                        title="Recover HP"
+                        onClick={(e) => { e.stopPropagation(); setShortRest({ open: true, id: el.id }); }}
+                      >
+                        Recover HP
+                      </button>
+                      <button
+                        className="btn btn-xs hp-rest-button"
+                        title="Regenerate"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const toMax = el.maxHp || 0;
+                          setState(prev => ({
+                            ...prev,
+                            elements: (prev.elements || []).map(x => x.id === el.id ? { ...x, currentHp: toMax, damage: 0 } : x),
+                          }));
+                        }}
+                      >
+                        Regenerate
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -546,13 +584,13 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
         </div>
       </div>
 
-      {/* Short Rest Modal */}
+      {/* Short Rest Modal (players and enemies) */}
       {shortRest.open && (() => {
-        const target = (state.elements || []).find(x => x.id === shortRest.id && x.type === 'player');
+        const target = (state.elements || []).find(x => x.id === shortRest.id && (x.type === 'player' || x.type === 'enemy'));
         if (!target) return null;
         const maxHp = target.maxHp || 0;
         const currentHp = target.currentHp || 0;
-        const name = target.name || 'You';
+        const name = target.name || (target.type === 'enemy' ? 'Enemy' : 'You');
         return (
           <ShortRestModal
             open={shortRest.open}
@@ -561,12 +599,23 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
             currentHp={currentHp}
             name={name}
             onConfirm={(heal) => {
-              const newHp = Math.min(maxHp, currentHp + (Number.isFinite(heal) ? heal : 0));
+              const healed = Number.isFinite(heal) ? heal : 0;
+              const newHp = Math.min(maxHp, currentHp + Math.max(0, healed));
               setState(prev => ({
                 ...prev,
-                elements: (prev.elements || []).map(x => x.id === target.id ? { ...x, currentHp: newHp } : x),
+                elements: (prev.elements || []).map(x => {
+                  if (x.id !== target.id) return x;
+                  if (target.type === 'player') {
+                    return { ...x, currentHp: newHp };
+                  }
+                  // Enemy: also reduce damage if present
+                  const newDmg = Number.isFinite(x.damage) ? Math.max(0, (x.damage || 0) - Math.max(0, healed)) : x.damage;
+                  return { ...x, currentHp: newHp, damage: newDmg };
+                }),
               }));
-              try { window.dispatchEvent(new CustomEvent('bm-player-token-updated', { detail: { id: target.id, currentHp: newHp } })); } catch {}
+              if (target.type === 'player') {
+                try { window.dispatchEvent(new CustomEvent('bm-player-token-updated', { detail: { id: target.id, currentHp: newHp } })); } catch {}
+              }
               setShortRest({ open: false, id: null });
             }}
           />

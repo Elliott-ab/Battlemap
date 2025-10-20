@@ -55,6 +55,17 @@ function applyIconToPlayerToken(battleMap, elementId, characterId, fallbackUrl) 
   // No URL on token; cannot resolve without extra permissions
 }
 
+function applyIconToEnemyToken(battleMap, elementId, imageUrl) {
+  if (!battleMap || !elementId || !imageUrl) return;
+  const elDiv = battleMap.querySelector(`.element.enemy[data-id="${elementId}"]`);
+  if (!elDiv) return;
+  elDiv.classList.add('has-icon');
+  elDiv.style.backgroundImage = `url("${imageUrl}")`;
+  elDiv.style.backgroundSize = 'cover';
+  elDiv.style.backgroundPosition = 'center';
+  elDiv.style.backgroundRepeat = 'no-repeat';
+}
+
 export const useGrid = (state) => {
   const renderGrid = (battleMapRef, rotationIndex = 0) => {
     const battleMap = battleMapRef.current;
@@ -165,13 +176,18 @@ export const useGrid = (state) => {
         elDiv.style.backgroundColor = el.color;
       }
       if (el.type === 'enemy') {
-        // For enemies, show first letter and up to 2 digits (e.g., E12)
-        const match = el.name.match(/^([A-Za-z])[a-zA-Z]*\s*(\d+)?/);
-        if (match) {
-          let digits = match[2] ? match[2].slice(0, 2) : '';
-          elDiv.innerText = match[1].toUpperCase() + digits;
+        if (el.enemyIconUrl) {
+          // Apply icon background; keep label off for clean token
+          queueMicrotask(() => applyIconToEnemyToken(battleMap, el.id, el.enemyIconUrl));
         } else {
-          elDiv.innerText = el.name[0].toUpperCase();
+          // For enemies, show first letter and up to 2 digits (e.g., E12)
+          const match = el.name.match(/^([A-Za-z])[a-zA-Z]*\s*(\d+)?/);
+          if (match) {
+            let digits = match[2] ? match[2].slice(0, 2) : '';
+            elDiv.innerText = match[1].toUpperCase() + digits;
+          } else {
+            elDiv.innerText = el.name[0].toUpperCase();
+          }
         }
       } else if (el.type === 'player') {
         // For players, show the first letter of their name
