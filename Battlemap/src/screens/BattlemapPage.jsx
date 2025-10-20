@@ -27,6 +27,7 @@ export default function BattlemapPage() {
   const [playersInGame, setPlayersInGame] = useState(0);
   const didEndOrLeaveRef = useRef(false);
   const [fellowshipOpen, setFellowshipOpen] = useState(false);
+  const hostAbsentTimeoutRef = useRef(null);
 
 
   // Resolve game id for this code once on mount (so we can subscribe to participants)
@@ -92,6 +93,69 @@ export default function BattlemapPage() {
       .subscribe();
     return () => { supabase.removeChannel(channel); supabase.removeChannel(sig); };
   }, [gameId]);
+
+  // Presence: if the host fully disconnects (tab closed or sign out), boot everyone after a grace period
+  useEffect(() => {
+    if (!gameId || !user?.id) return;
+    const iAmHost = (user?.id && game?.host_id && user.id === game.host_id) || game?.role === 'host';
+    const presence = supabase.channel(`game-${gameId}-presence`, { config: { presence: { key: user.id } } });
+    const clearBootTimer = () => {
+      if (hostAbsentTimeoutRef.current) {
+        clearTimeout(hostAbsentTimeoutRef.current);
+        hostAbsentTimeoutRef.current = null;
+      }
+    };
+    const scheduleBoot = () => {
+      clearBootTimer();
+      hostAbsentTimeoutRef.current = setTimeout(async () => {
+        // No host presence for a bit — consider game closed and return to home
+        try {
+          // Best-effort: remove my player token from LIVE and leave participants
+          const row = await getMapState(gameId, 'live').catch(() => null);
+          const liveState = row?.state || {};
+          const els = Array.isArray(liveState.elements)
+            ? liveState.elements.filter(e => !(e?.type === 'player' && e.participantUserId === user.id))
+            : [];
+          const merged = { ...liveState, elements: els };
+          try { await upsertMapState(gameId, 'live', merged, user.id); } catch {}
+          try {
+            const ch = supabase.channel(`game-${gameId}-signals`);
+            await ch.subscribe();
+            await ch.send({ type: 'broadcast', event: 'live-updated', payload: { by: user.id, t: Date.now() } });
+            supabase.removeChannel(ch);
+          } catch {}
+        } catch {}
+        try { await leaveGame(gameId, user.id); } catch {}
+        try { clearSession(); } catch {}
+        try { navigate('/home'); } catch {}
+      }, 5000);
+    };
+    presence
+      .on('presence', { event: 'sync' }, () => {
+        try {
+          const state = presence.presenceState();
+          const hostKey = game?.host_id;
+          const hasHost = !!(hostKey && state && state[hostKey] && state[hostKey].length > 0);
+          if (hasHost) {
+            clearBootTimer();
+          } else {
+            // If I am the host and haven't tracked yet, don't boot — wait for my track call
+            if (!iAmHost) scheduleBoot();
+          }
+        } catch (_) {}
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          try {
+            await presence.track({ role: iAmHost ? 'host' : 'player', t: Date.now() });
+          } catch (_) {}
+        }
+      });
+    return () => {
+      clearBootTimer();
+      supabase.removeChannel(presence);
+    };
+  }, [gameId, user?.id, game?.host_id, game?.role]);
 
   // On tab/window close, remove participant or end game (host) similarly to explicit Leave Game
   useEffect(() => {
