@@ -62,6 +62,13 @@ export default function FellowshipModal({ open, onClose }) {
         if (errRecv) throw errRecv;
         const sentArr = Array.isArray(sent) ? sent : [];
         const recvArr = Array.isArray(receivedAccepted) ? receivedAccepted : [];
+        // Build a lookup of the other user's email from sent rows (inviter=current user)
+        const emailByOtherId = new Map();
+        for (const r of sentArr) {
+          if (r?.invitee_id && (r?.invitee_email || '').trim()) {
+            emailByOtherId.set(r.invitee_id, r.invitee_email.trim());
+          }
+        }
         // Compute mutual accepted otherIds
         const sentAccepted = new Set(sentArr.filter(r => r.status === 'accepted').map(r => r.invitee_id).filter(Boolean));
         const recvAccepted = new Set(recvArr.filter(r => r.status === 'accepted').map(r => r.inviter_id).filter(Boolean));
@@ -91,15 +98,15 @@ export default function FellowshipModal({ open, onClose }) {
             // ensure status shows accepted
             const existing = byOtherId.get(otherId);
             existing.status = 'accepted';
-            // If email missing on existing, use the invitee_email from the received row (likely the current user's email)
-            if (!existing.invitee_email) existing.invitee_email = r.invitee_email || '';
+            // Do not copy invitee_email from received row since it is likely the current user's email
             continue;
           }
-          const key = `${otherId}|${r.invitee_email || 'none'}`;
+          const key = `${otherId}|none`;
           byOtherId.set(otherId, {
             key,
             invitee_id: otherId,
-            invitee_email: r.invitee_email || '',
+            // Prefer email recorded on a sent row if available; otherwise blank
+            invitee_email: emailByOtherId.get(otherId) || '',
             username: '',
             status: 'accepted',
           });
@@ -117,7 +124,12 @@ export default function FellowshipModal({ open, onClose }) {
         }
         const usernameById = new Map(profs.map(p => [p.id, p.username || '']));
         if (!active) return;
-        setRows(values.map(v => ({ ...v, username: usernameById.get(v.invitee_id) || '' })));
+        // Ensure we never display the current user's own email in the Email column
+        setRows(values.map(v => ({
+          ...v,
+          username: usernameById.get(v.invitee_id) || '',
+          invitee_email: (v.invitee_email && v.invitee_email !== (user?.email || '')) ? v.invitee_email : '',
+        })));
       } catch (e) {
         if (!active) return;
         setError(e.message || 'Failed to load fellowship. Ensure the fellowships and profiles tables are configured.');
@@ -205,6 +217,12 @@ export default function FellowshipModal({ open, onClose }) {
         .eq('status', 'accepted');
       const sentArr = Array.isArray(sent) ? sent : [];
       const recvArr = Array.isArray(receivedAccepted) ? receivedAccepted : [];
+      const emailByOtherId = new Map();
+      for (const r of sentArr) {
+        if (r?.invitee_id && (r?.invitee_email || '').trim()) {
+          emailByOtherId.set(r.invitee_id, r.invitee_email.trim());
+        }
+      }
       const sentAccepted = new Set(sentArr.filter(r => r.status === 'accepted').map(r => r.invitee_id).filter(Boolean));
       const recvAccepted = new Set(recvArr.filter(r => r.status === 'accepted').map(r => r.inviter_id).filter(Boolean));
       const mutualAccepted = new Set([...sentAccepted].filter(id => recvAccepted.has(id)));
@@ -229,14 +247,15 @@ export default function FellowshipModal({ open, onClose }) {
         if (byOtherId.has(otherId)) {
           const existing = byOtherId.get(otherId);
           existing.status = 'accepted';
-          if (!existing.invitee_email) existing.invitee_email = r.invitee_email || '';
+          // Do not assign current user's email; keep existing or use emailByOtherId
+          if (!existing.invitee_email) existing.invitee_email = emailByOtherId.get(otherId) || '';
           continue;
         }
-        const key = `${otherId}|${r.invitee_email || 'none'}`;
+        const key = `${otherId}|none`;
         byOtherId.set(otherId, {
           key,
           invitee_id: otherId,
-          invitee_email: r.invitee_email || '',
+          invitee_email: emailByOtherId.get(otherId) || '',
           username: '',
           status: 'accepted',
         });
