@@ -19,7 +19,7 @@ async function fetchJSON(url, { signal } = {}) {
   return res.json();
 }
 
-export default function MonsterDescriptionModal({ open, onClose, index }) {
+export default function MonsterDescriptionModal({ open, onClose, index, canSummon = false, isInMap = false, onAdd, onRemove }) {
   const theme = useTheme();
   const isSmall = useMediaQuery(theme.breakpoints.down('sm'));
   const [loading, setLoading] = React.useState(false);
@@ -51,6 +51,27 @@ export default function MonsterDescriptionModal({ open, onClose, index }) {
     if (!detail) return null;
     const constructed = detail?.index ? `https://www.dnd5eapi.co/api/images/monsters/${detail.index}.png` : undefined;
     return detail?.image ? `https://www.dnd5eapi.co${detail.image}` : constructed;
+  }, [detail]);
+
+  const buildImportPayload = React.useCallback(() => {
+    if (!detail) return null;
+    // Movement: parse walk/land feet
+    const speedObj = detail?.speed || {};
+    const walkStr = typeof speedObj === 'object' ? (speedObj.walk || speedObj.land || '') : String(speedObj || '');
+    const mStr = walkStr || (typeof speedObj === 'string' ? speedObj : '');
+    const num = (mStr && /\d+/.test(mStr)) ? parseInt(mStr.match(/\d+/)[0], 10) : undefined;
+    const movement = Number.isFinite(num) ? num : 30;
+    const hp = Number.parseInt(detail?.hit_points, 10) || undefined;
+    const constructed = detail?.index ? `https://www.dnd5eapi.co/api/images/monsters/${detail.index}.png` : undefined;
+    const imageUrl = detail?.image ? `https://www.dnd5eapi.co${detail.image}` : constructed;
+    return {
+      index: detail.index,
+      name: detail.name,
+      hp,
+      movement,
+      size: 1, // force single-cell as requested
+      imageUrl,
+    };
   }, [detail]);
 
   return (
@@ -160,7 +181,32 @@ export default function MonsterDescriptionModal({ open, onClose, index }) {
         )}
       </DialogContent>
       <DialogActions sx={{ borderTop: '1px solid #444' }}>
-        <Button onClick={onClose} sx={{ color: '#fff' }}>Close</Button>
+        {canSummon && detail && (
+          isInMap ? (
+            <Button
+              onClick={() => {
+                try { onRemove && onRemove({ index: detail.index, name: detail.name }); } catch {}
+              }}
+              variant="outlined"
+              sx={{ color: '#fff', borderColor: '#777', '&:hover': { borderColor: '#aaa', backgroundColor: 'rgba(255,255,255,0.06)' } }}
+            >
+              Remove from battlemap
+            </Button>
+          ) : (
+            <Button
+              onClick={() => {
+                const payload = buildImportPayload();
+                if (!payload) return;
+                try { onAdd && onAdd(payload); } catch {}
+              }}
+              variant="contained"
+              sx={{ color: '#000', backgroundColor: '#fff', '&:hover': { backgroundColor: '#eaeaea' } }}
+            >
+              Add to battlemap
+            </Button>
+          )
+        )}
+        <Button onClick={onClose} sx={{ color: '#fff', ml: 'auto' }}>Close</Button>
       </DialogActions>
     </Dialog>
   );

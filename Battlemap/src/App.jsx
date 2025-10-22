@@ -1056,6 +1056,39 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
     }
   };
 
+  const removeMonster = async ({ index, name }) => {
+    try {
+      if (gameId && !isHost) {
+        setToast({ open: true, severity: 'info', message: 'Only the host can remove enemies.' });
+        return;
+      }
+      // Remove all enemies matching the bestiary index
+      setState(prev => ({
+        ...prev,
+        elements: (prev.elements || []).filter(e => !(e && e.type === 'enemy' && e.bestiaryIndex === index)),
+      }));
+      // Persist to LIVE immediately if host is viewing live
+      if (gameId && user && isHost && (channelRef.current === 'live')) {
+        try {
+          const liveRow = await getMapState(gameId, 'live').catch(() => null);
+          const liveState = liveRow?.state || {};
+          const liveEls = Array.isArray(liveState.elements) ? liveState.elements.slice() : [];
+          const nextEls = liveEls.filter(e => !(e && e.type === 'enemy' && e.bestiaryIndex === index));
+          const merged = { ...liveState, elements: nextEls };
+          try { lastLiveUpdatedAtRef.current = Date.now(); } catch {}
+          await upsertMapState(gameId, 'live', merged, user.id);
+          lastLiveUpdatedAtRef.current = Date.now();
+          if (liveSignalRef.current) {
+            try { await liveSignalRef.current.send({ type: 'broadcast', event: 'live-updated', payload: { by: user.id, t: Date.now() } }); } catch {}
+          }
+        } catch (_) {}
+      }
+      setToast({ open: true, severity: 'success', message: name ? `Removed ${name} from battlemap.` : 'Removed from battlemap.' });
+    } catch (e) {
+      setToast({ open: true, severity: 'error', message: 'Failed to remove from battlemap.' });
+    }
+  };
+
   // Apply selected character to the local user's player token
   const applyCharacterToToken = (character) => {
     if (!character || !user) return;
@@ -1236,12 +1269,26 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
         open={bestiaryModal.open}
         initialIndex={bestiaryModal.initialIndex}
         onClose={() => setBestiaryModal({ open: false, initialIndex: null })}
-        {...((!gameId || isHost) ? { onImport: (monster) => importMonster(monster) } : {})}
+        canSummon={!gameId || isHost}
+        isInMap={(idx) => {
+          try { return (state.elements || []).some(e => e && e.type === 'enemy' && e.bestiaryIndex === idx); } catch { return false; }
+        }}
+        {...((!gameId || isHost) ? { onImport: (monster) => importMonster(monster), onRemove: (info) => removeMonster(info) } : {})}
       />
       <MonsterDescriptionModal
         open={monsterDescModal.open}
         index={monsterDescModal.index}
         onClose={() => setMonsterDescModal({ open: false, index: null })}
+        canSummon={!gameId || isHost}
+        isInMap={(() => {
+          const idx = monsterDescModal.index;
+          if (!idx) return false;
+          try {
+            return (state.elements || []).some(e => e && e.type === 'enemy' && e.bestiaryIndex === idx);
+          } catch { return false; }
+        })()}
+        onAdd={(payload) => importMonster(payload)}
+        onRemove={(info) => removeMonster(info)}
       />
       <EditModal
         isOpen={modalState.editModal.isOpen}

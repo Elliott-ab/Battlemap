@@ -75,6 +75,7 @@ const AddCharacterModal = ({ isOpen, onClose, onAdd, initialType = 'player', ini
       <MonsterBrowserModal
         open={browseOpen}
         onClose={() => setBrowseOpen(false)}
+        canSummon
         onImport={async (monster) => {
           // Importing from Bestiary always creates an enemy (single)
           try {

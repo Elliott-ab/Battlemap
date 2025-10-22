@@ -87,7 +87,7 @@ async function fetchJSON(url, { signal } = {}) {
   return res.json();
 }
 
-export default function MonsterBrowserModal({ open, onClose, onImport, initialIndex = null, autoOpenDescription = false }) {
+export default function MonsterBrowserModal({ open, onClose, onImport, initialIndex = null, autoOpenDescription = false, canSummon = false, isInMap, onRemove }) {
   const theme = useTheme();
   const isSmall = useMediaQuery(theme.breakpoints.down('sm'));
   const [loading, setLoading] = React.useState(false);
@@ -535,66 +535,67 @@ export default function MonsterBrowserModal({ open, onClose, onImport, initialIn
                             )}
                           </TableCell>
                         )}
-                        <TableCell align="right">
-                          {typeof onImport === 'function' && (
+                        <TableCell align="center">
+                          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.75 }}>
                             <Button
-                              variant="contained"
+                              variant="outlined"
                               size={isSmall ? 'medium' : 'small'}
-                              onClick={async (e) => {
-                                // Ensure details, then pass back to caller
-                                try {
-                                  let d = detailsCache.get(m.index);
-                                  if (!d) {
-                                    d = await fetchJSON(`https://www.dnd5eapi.co${m.url}`);
-                                    detailsCache.set(m.index, d);
-                                    setCacheVersion((v) => v + 1);
-                                    persistCacheSoon();
-                                  }
-                                  const constructed = m.index ? `https://www.dnd5eapi.co/api/images/monsters/${m.index}.png` : undefined;
-                                  const imageUrl = d?.image ? `https://www.dnd5eapi.co${d.image}` : constructed;
-                                  const hp = Number.parseInt(d?.hit_points, 10) || undefined;
-                                  // Movement: prefer walk/ground feet; parse first integer from walk or overall speed
-                                  const speedObj = d?.speed || {};
-                                  const walkStr = typeof speedObj === 'object' ? (speedObj.walk || speedObj.land || '') : String(speedObj || '');
-                                  const mStr = walkStr || (typeof speedObj === 'string' ? speedObj : '');
-                                  const num = (mStr && /\d+/.test(mStr)) ? parseInt(mStr.match(/\d+/)[0], 10) : undefined;
-                                  const movement = Number.isFinite(num) ? num : 30;
-                                  // Size mapping
-                                  const sizeMap = { Tiny: 1, Small: 1, Medium: 1, Large: 2, Huge: 3, Gargantuan: 4 };
-                                  const gridSize = sizeMap[d?.size] || 1;
-                                  await onImport({
-                                    index: m.index,
-                                    name: m.name,
-                                    hp,
-                                    movement,
-                                    imageUrl,
-                                    size: gridSize,
-                                  }, d);
-                                } catch (_) { /* ignore */ }
-                              }}
+                              onClick={(e) => openDescription(e, m)}
                               sx={{
-                                mr: 1,
-                                color: '#000',
-                                backgroundColor: '#fff',
+                                color: '#fff',
                                 borderColor: '#777',
-                                '&:hover': { backgroundColor: '#eaeaea' },
+                                '&:hover': { borderColor: '#aaa', backgroundColor: 'rgba(255,255,255,0.06)' },
                               }}
                             >
-                              Summon
+                              Description
                             </Button>
-                          )}
-                          <Button
-                            variant="outlined"
-                            size={isSmall ? 'medium' : 'small'}
-                            onClick={(e) => openDescription(e, m)}
-                            sx={{
-                              color: '#fff',
-                              borderColor: '#777',
-                              '&:hover': { borderColor: '#aaa', backgroundColor: 'rgba(255,255,255,0.06)' },
-                            }}
-                          >
-                            Description
-                          </Button>
+                            {typeof onImport === 'function' && (
+                              <Button
+                                variant="contained"
+                                size={isSmall ? 'medium' : 'small'}
+                                onClick={async (e) => {
+                                  // Ensure details, then pass back to caller
+                                  try {
+                                    let d = detailsCache.get(m.index);
+                                    if (!d) {
+                                      d = await fetchJSON(`https://www.dnd5eapi.co${m.url}`);
+                                      detailsCache.set(m.index, d);
+                                      setCacheVersion((v) => v + 1);
+                                      persistCacheSoon();
+                                    }
+                                    const constructed = m.index ? `https://www.dnd5eapi.co/api/images/monsters/${m.index}.png` : undefined;
+                                    const imageUrl = d?.image ? `https://www.dnd5eapi.co${d.image}` : constructed;
+                                    const hp = Number.parseInt(d?.hit_points, 10) || undefined;
+                                    // Movement: prefer walk/ground feet; parse first integer from walk or overall speed
+                                    const speedObj = d?.speed || {};
+                                    const walkStr = typeof speedObj === 'object' ? (speedObj.walk || speedObj.land || '') : String(speedObj || '');
+                                    const mStr = walkStr || (typeof speedObj === 'string' ? speedObj : '');
+                                    const num = (mStr && /\d+/.test(mStr)) ? parseInt(mStr.match(/\d+/)[0], 10) : undefined;
+                                    const movement = Number.isFinite(num) ? num : 30;
+                                    // Size mapping (ignored by import later if forced to 1)
+                                    const sizeMap = { Tiny: 1, Small: 1, Medium: 1, Large: 2, Huge: 3, Gargantuan: 4 };
+                                    const gridSize = sizeMap[d?.size] || 1;
+                                    await onImport({
+                                      index: m.index,
+                                      name: m.name,
+                                      hp,
+                                      movement,
+                                      imageUrl,
+                                      size: gridSize,
+                                    }, d);
+                                  } catch (_) { /* ignore */ }
+                                }}
+                                sx={{
+                                  color: '#000',
+                                  backgroundColor: '#fff',
+                                  borderColor: '#777',
+                                  '&:hover': { backgroundColor: '#eaeaea' },
+                                }}
+                              >
+                                Summon
+                              </Button>
+                            )}
+                          </Box>
                         </TableCell>
                       </TableRow>
                     );
@@ -735,7 +736,49 @@ export default function MonsterBrowserModal({ open, onClose, onImport, initialIn
             )}
           </DialogContent>
           <DialogActions sx={{ borderTop: '1px solid #444' }}>
-            <Button onClick={closeDescription} sx={{ color: '#fff' }}>Close</Button>
+            {canSummon && selected && (
+              (() => {
+                const idx = selected.index;
+                const present = typeof isInMap === 'function' ? Boolean(isInMap(idx)) : false;
+                if (present && typeof onRemove === 'function') {
+                  return (
+                    <Button
+                      onClick={() => { try { onRemove({ index: selected.index, name: selected.name }); } catch {} }}
+                      variant="outlined"
+                      sx={{ color: '#fff', borderColor: '#777', '&:hover': { borderColor: '#aaa', backgroundColor: 'rgba(255,255,255,0.06)' } }}
+                    >
+                      Remove from battlemap
+                    </Button>
+                  );
+                }
+                if (typeof onImport === 'function') {
+                  return (
+                    <Button
+                      onClick={async () => {
+                        try {
+                          const d = selected;
+                          const speedObj = d?.speed || {};
+                          const walkStr = typeof speedObj === 'object' ? (speedObj.walk || speedObj.land || '') : String(speedObj || '');
+                          const mStr = walkStr || (typeof speedObj === 'string' ? speedObj : '');
+                          const num = (mStr && /\d+/.test(mStr)) ? parseInt(mStr.match(/\d+/)[0], 10) : undefined;
+                          const movement = Number.isFinite(num) ? num : 30;
+                          const hp = Number.parseInt(d?.hit_points, 10) || undefined;
+                          const constructed = d?.index ? `https://www.dnd5eapi.co/api/images/monsters/${d.index}.png` : undefined;
+                          const imageUrl = d?.image ? `https://www.dnd5eapi.co${d.image}` : constructed;
+                          await onImport({ index: d.index, name: d.name, hp, movement, size: 1, imageUrl }, d);
+                        } catch(_) {}
+                      }}
+                      variant="contained"
+                      sx={{ color: '#000', backgroundColor: '#fff', '&:hover': { backgroundColor: '#eaeaea' } }}
+                    >
+                      Add to battlemap
+                    </Button>
+                  );
+                }
+                return null;
+              })()
+            )}
+            <Button onClick={closeDescription} sx={{ color: '#fff', ml: 'auto' }}>Close</Button>
           </DialogActions>
         </Dialog>
       </DialogContent>
