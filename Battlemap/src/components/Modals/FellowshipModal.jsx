@@ -21,6 +21,8 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import { supabase } from '../../supabaseClient';
 import { createNotification } from '../../Utils/notificationsService.js';
 import { useAuth } from '../../auth/AuthContext.jsx';
@@ -32,6 +34,8 @@ import { faTrashCan } from '@fortawesome/free-solid-svg-icons';
 export default function FellowshipModal({ open, onClose }) {
   const { user } = useAuth();
   const { game } = useGameSession();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [rows, setRows] = React.useState([]); // [{ key, invitee_id, invitee_email, username, status }]
   const [error, setError] = React.useState('');
   const [message, setMessage] = React.useState('');
@@ -424,9 +428,9 @@ export default function FellowshipModal({ open, onClose }) {
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
-      <DialogTitle sx={{ bgcolor: '#2f2f2f', color: '#fff' }}>Fellowship</DialogTitle>
-      <DialogContent sx={{ bgcolor: '#2f2f2f', color: '#fff' }}>
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth={isMobile ? 'xs' : 'md'} fullScreen={isMobile}>
+      <DialogTitle sx={{ bgcolor: '#2f2f2f', color: '#fff', p: { xs: 1.5, sm: 2 } }}>Fellowship</DialogTitle>
+      <DialogContent sx={{ bgcolor: '#2f2f2f', color: '#fff', p: { xs: 1.5, sm: 2 } }}>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         {message && <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert>}
         <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
@@ -448,70 +452,126 @@ export default function FellowshipModal({ open, onClose }) {
             }}
           />
         </Box>
-        <TableContainer component={Paper} sx={{ bgcolor: '#2f2f2f' }}>
-          <Table size="small" sx={{ '& .MuiTableCell-root': { color: '#fff', borderColor: 'rgba(255,255,255,0.12)' } }}>
-            <TableHead>
-              <TableRow>
-                <TableCell sx={{ color: '#fff' }}>Username</TableCell>
-                <TableCell sx={{ color: '#fff' }}>Email</TableCell>
-                <TableCell sx={{ color: '#fff' }}>Status</TableCell>
-                <TableCell sx={{ color: '#fff' }}>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {paged.map((r) => (
-                <TableRow key={r.key} hover sx={{ '&:hover': { backgroundColor: 'rgba(255,255,255,0.04)' } }}>
-                  <TableCell sx={{ color: '#fff' }}>{r.username || '—'}</TableCell>
-                  <TableCell sx={{ color: '#fff' }}>{r.invitee_email || '—'}</TableCell>
-                  <TableCell sx={{ color: '#fff' }}>
-                    {(() => {
-                      const status = (r.status || 'pending').toLowerCase();
-                      const color = status === 'accepted' ? 'success' : status === 'declined' ? 'error' : 'warning';
-                      const label = status.charAt(0).toUpperCase() + status.slice(1);
-                      return <Chip label={label} size="small" color={color} variant="filled" />;
-                    })()}
-                  </TableCell>
-                  <TableCell sx={{ color: '#fff' }}>
-                    {r.status === 'pending' && (
-                      <Button variant="outlined" size="small" onClick={() => handleCancelInvite(r)} sx={{ color: '#fff', borderColor: '#777', '&:hover': { borderColor: '#aaa' }, mr: 1 }}>
+        {isMobile ? (
+          <Box>
+            {paged.map((r) => (
+              <Box key={r.key} sx={{ p: 1.5, mb: 1.5, border: '1px solid', borderColor: 'rgba(255,255,255,0.12)', borderRadius: 1, bgcolor: '#1f1f1f' }}>
+                <Typography variant="subtitle1" sx={{ color: '#fff', mb: 0.5 }}>{r.username || '—'}</Typography>
+                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.75)', mb: 1 }}>{r.invitee_email || '—'}</Typography>
+                <Chip
+                  label={(r.status || 'pending').charAt(0).toUpperCase() + (r.status || 'pending').slice(1)}
+                  size="small"
+                  color={(r.status || 'pending') === 'accepted' ? 'success' : (r.status || 'pending') === 'declined' ? 'error' : 'warning'}
+                  variant="filled"
+                  sx={{ mb: 1 }}
+                />
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  {r.status === 'pending' && (
+                    <Button variant="outlined" size="small" fullWidth onClick={() => handleCancelInvite(r)} sx={{ color: '#fff', borderColor: '#777', '&:hover': { borderColor: '#aaa' } }}>
+                      Cancel invite
+                    </Button>
+                  )}
+                  {r.status === 'declined' && (
+                    <>
+                      <Button variant="outlined" size="small" fullWidth onClick={() => handleResendInvite(r)} sx={{ color: '#fff', borderColor: '#777', '&:hover': { borderColor: '#aaa' } }}>
+                        Resend invite
+                      </Button>
+                      <Button variant="outlined" size="small" fullWidth onClick={() => handleCancelInvite(r)} sx={{ color: '#fff', borderColor: '#777', '&:hover': { borderColor: '#aaa' } }}>
                         Cancel invite
                       </Button>
-                    )}
-                    {r.status === 'declined' && (
-                      <>
-                        <Button variant="outlined" size="small" onClick={() => handleResendInvite(r)} sx={{ color: '#fff', borderColor: '#777', '&:hover': { borderColor: '#aaa' }, mr: 1 }}>
-                          Resend invite
-                        </Button>
-                        <Button variant="outlined" size="small" onClick={() => handleCancelInvite(r)} sx={{ color: '#fff', borderColor: '#777', '&:hover': { borderColor: '#aaa' } }}>
+                    </>
+                  )}
+                  {r.status === 'accepted' && (
+                    <>
+                      <Button variant="outlined" size="small" fullWidth onClick={() => handleInviteToGame(r)} sx={{ color: '#fff', borderColor: '#777', '&:hover': { borderColor: '#aaa' } }} disabled={!game?.id || !game?.code}>
+                        Invite to game
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        fullWidth
+                        color="error"
+                        onClick={() => setDeleteTarget(r)}
+                        startIcon={<FontAwesomeIcon icon={faTrashCan} />}
+                        sx={{ borderColor: '#c77', color: '#f28b82', '&:hover': { borderColor: '#f28b82' } }}
+                      >
+                        Remove connection
+                      </Button>
+                    </>
+                  )}
+                </Box>
+              </Box>
+            ))}
+            {paged.length === 0 && (
+              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>No sent fellowship invites yet.</Typography>
+            )}
+          </Box>
+        ) : (
+          <TableContainer component={Paper} sx={{ bgcolor: '#2f2f2f', overflowX: 'auto' }}>
+            <Table size="small" sx={{ '& .MuiTableCell-root': { color: '#fff', borderColor: 'rgba(255,255,255,0.12)' } }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ color: '#fff' }}>Username</TableCell>
+                  <TableCell sx={{ color: '#fff' }}>Email</TableCell>
+                  <TableCell sx={{ color: '#fff' }}>Status</TableCell>
+                  <TableCell sx={{ color: '#fff' }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {paged.map((r) => (
+                  <TableRow key={r.key} hover sx={{ '&:hover': { backgroundColor: 'rgba(255,255,255,0.04)' } }}>
+                    <TableCell sx={{ color: '#fff' }}>{r.username || '—'}</TableCell>
+                    <TableCell sx={{ color: '#fff' }}>{r.invitee_email || '—'}</TableCell>
+                    <TableCell sx={{ color: '#fff' }}>
+                      {(() => {
+                        const status = (r.status || 'pending').toLowerCase();
+                        const color = status === 'accepted' ? 'success' : status === 'declined' ? 'error' : 'warning';
+                        const label = status.charAt(0).toUpperCase() + status.slice(1);
+                        return <Chip label={label} size="small" color={color} variant="filled" />;
+                      })()}
+                    </TableCell>
+                    <TableCell sx={{ color: '#fff' }}>
+                      {r.status === 'pending' && (
+                        <Button variant="outlined" size="small" onClick={() => handleCancelInvite(r)} sx={{ color: '#fff', borderColor: '#777', '&:hover': { borderColor: '#aaa' }, mr: 1 }}>
                           Cancel invite
                         </Button>
-                      </>
-                    )}
-                    {r.status === 'accepted' && (
-                      <>
-                        <Button variant="outlined" size="small" onClick={() => handleInviteToGame(r)} sx={{ color: '#fff', borderColor: '#777', '&:hover': { borderColor: '#aaa' }, mr: 1 }} disabled={!game?.id || !game?.code}>
-                          Invite to game
-                        </Button>
-                        <Tooltip title="Remove connection">
-                          <IconButton aria-label="Remove connection" size="small" onClick={() => setDeleteTarget(r)} sx={{ color: '#f28b82', border: '1px solid #c77' }}>
-                            <FontAwesomeIcon icon={faTrashCan} />
-                          </IconButton>
-                        </Tooltip>
-                      </>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {paged.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={4}>
-                    <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>No sent fellowship invites yet.</Typography>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                      )}
+                      {r.status === 'declined' && (
+                        <>
+                          <Button variant="outlined" size="small" onClick={() => handleResendInvite(r)} sx={{ color: '#fff', borderColor: '#777', '&:hover': { borderColor: '#aaa' }, mr: 1 }}>
+                            Resend invite
+                          </Button>
+                          <Button variant="outlined" size="small" onClick={() => handleCancelInvite(r)} sx={{ color: '#fff', borderColor: '#777', '&:hover': { borderColor: '#aaa' } }}>
+                            Cancel invite
+                          </Button>
+                        </>
+                      )}
+                      {r.status === 'accepted' && (
+                        <>
+                          <Button variant="outlined" size="small" onClick={() => handleInviteToGame(r)} sx={{ color: '#fff', borderColor: '#777', '&:hover': { borderColor: '#aaa' }, mr: 1 }} disabled={!game?.id || !game?.code}>
+                            Invite to game
+                          </Button>
+                          <Tooltip title="Remove connection">
+                            <IconButton aria-label="Remove connection" size="small" onClick={() => setDeleteTarget(r)} sx={{ color: '#f28b82', border: '1px solid #c77' }}>
+                              <FontAwesomeIcon icon={faTrashCan} />
+                            </IconButton>
+                          </Tooltip>
+                        </>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {paged.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4}>
+                      <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>No sent fellowship invites yet.</Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
         <TablePagination
           component="div"
           count={filtered.length}
@@ -520,15 +580,20 @@ export default function FellowshipModal({ open, onClose }) {
           rowsPerPage={rowsPerPage}
           onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
           rowsPerPageOptions={[5, 10, 25]}
-          sx={{ color: '#fff', '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': { color: '#fff' }, '& .MuiSelect-select': { color: '#fff' } }}
+          sx={{
+            color: '#fff',
+            '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': { color: '#fff' },
+            '& .MuiSelect-select': { color: '#fff' },
+            '& .MuiTablePagination-toolbar': { flexWrap: 'wrap', gap: 1 },
+          }}
         />
-        <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+        <Box sx={{ mt: 2, display: 'flex', gap: 1, flexDirection: { xs: 'column', sm: 'row' } }}>
           <TextField label="Invite to fellowship (email)" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} fullWidth sx={{ '& .MuiInputBase-input': { color: '#fff' }, '& .MuiInputLabel-root': { color: '#fff' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: '#fff' } }} />
-          <Button variant="contained" onClick={handleInvite}>Send</Button>
+          <Button variant="contained" onClick={handleInvite} sx={{ width: { xs: '100%', sm: 'auto' } }}>Send</Button>
         </Box>
       </DialogContent>
-      <DialogActions sx={{ bgcolor: '#2f2f2f' }}>
-        <Button onClick={onClose}>Close</Button>
+      <DialogActions sx={{ bgcolor: '#2f2f2f', p: { xs: 1.5, sm: 2 } }}>
+        <Button onClick={onClose} fullWidth={isMobile}>Close</Button>
       </DialogActions>
       {/* Confirm removal dialog */}
       <Dialog open={Boolean(deleteTarget)} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
