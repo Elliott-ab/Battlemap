@@ -32,27 +32,28 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
   const [collapsed, setCollapsed] = useState(false);
   const [isPortraitPhone, setIsPortraitPhone] = useState(false);
 
-  // Default to collapsed on narrow screens to save space
+  // Default to collapsed on narrow screens to save space (hosts only)
   React.useEffect(() => {
     try {
+      if (!isHost) { setCollapsed(false); return; }
       if (typeof window !== 'undefined' && window.innerWidth <= 768) {
         setCollapsed(true);
       }
     } catch {}
-  }, []);
+  }, [isHost]);
 
-  // Reflect collapsed state on body so toolbar can adapt widths on desktop/landscape
+  // Reflect collapsed state on body so toolbar can adapt widths on desktop/landscape (hosts only)
   React.useEffect(() => {
     try {
       const cls = 'app--sidebar-collapsed';
-      if (collapsed) {
+      if (isHost && collapsed) {
         document.body.classList.add(cls);
       } else {
         document.body.classList.remove(cls);
       }
       return () => document.body.classList.remove(cls);
     } catch {}
-  }, [collapsed]);
+  }, [collapsed, isHost]);
 
   // Track whether we're on a portrait phone (<=768px and portrait orientation)
   React.useEffect(() => {
@@ -195,6 +196,10 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
   const order = state.initiativeOrder || [];
   const currentTurnId = order.length ? order[(state.currentTurnIndex || 0) % order.length] : null;
 
+  // Identify current user's player element (if any)
+  const myPlayers = playersList.filter(p => p.participantUserId === currentUserId);
+  const myPlayer = myPlayers.length ? myPlayers[0] : null;
+
   // Inline damage entry for players (subtract HP) and enemies (accumulate Damage)
   const [damageEdit, setDamageEdit] = useState({ targetId: null, targetType: null, value: '' });
   const [shortRest, setShortRest] = useState({ open: false, id: null });
@@ -233,13 +238,15 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
     }
   }, [isDrawingCover]);
 
+  const playerPortrait = (!isHost && isPortraitPhone);
   return (
-    <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
+    <aside className={`sidebar ${playerPortrait ? 'sidebar--player-portrait' : ''} ${collapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-body">
-        {/* Turn controls (initiative) */}
-        <div className={isDrawingCover ? 'disabled-while-drawing' : ''} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: '0.75rem', width: '100%' }}>
-        {initiativeSet && (
-          <IconButton size="small" title="Previous Turn" onClick={() => {
+        {/* Turn controls (initiative) and, on mobile portrait players, fixed "My Card" just beneath */}
+        <div className={`sidebar-sticky ${isDrawingCover ? 'disabled-while-drawing' : ''}`} style={{ width: '100%', paddingTop: (playerPortrait ? 0 : '0.5rem'), paddingBottom: (playerPortrait ? 0 : '0.5rem') }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', width: '100%' }}>
+          {initiativeSet && (
+            <IconButton size="small" title="Previous Turn" onClick={() => {
             setState(prev => {
               const len = (prev.initiativeOrder || []).length;
               if (!len) return prev;
@@ -253,26 +260,26 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
               const ev = new CustomEvent('bm-turn-changed', { detail: { dir: -1, index: prevIdx, order, t: Date.now() } });
               window.dispatchEvent(ev);
             } catch {}
-          }}>
-            <FontAwesomeIcon icon={faCircleLeftRegular} style={{ color: 'white' }} />
-          </IconButton>
-        )}
-        <div
-          className="turn-box"
-          style={{ cursor: 'pointer', flex: 1, minWidth: 0 }}
-          onClick={openInitiativeModal}
-        >
-          {(() => {
-            const order = state.initiativeOrder || [];
-            if (!order.length) return 'Set Initiative';
-            const idx = state.currentTurnIndex || 0;
-            const currentId = order[idx % order.length];
-            const el = (state.elements || []).find(e => e.id === currentId);
-            return el ? `Turn: ${el.name}` : 'Set Initiative';
-          })()}
-        </div>
-        {initiativeSet && (
-          <IconButton size="small" title="Next Turn" onClick={() => {
+            }}>
+              <FontAwesomeIcon icon={faCircleLeftRegular} style={{ color: 'white' }} />
+            </IconButton>
+          )}
+          <div
+            className="turn-box"
+            style={{ cursor: 'pointer', flex: 1, minWidth: 0 }}
+            onClick={openInitiativeModal}
+          >
+            {(() => {
+              const order = state.initiativeOrder || [];
+              if (!order.length) return 'Set Initiative';
+              const idx = state.currentTurnIndex || 0;
+              const currentId = order[idx % order.length];
+              const el = (state.elements || []).find(e => e.id === currentId);
+              return el ? `Turn: ${el.name}` : 'Set Initiative';
+            })()}
+          </div>
+          {initiativeSet && (
+            <IconButton size="small" title="Next Turn" onClick={() => {
             setState(prev => {
               const len = (prev.initiativeOrder || []).length;
               if (!len) return prev;
@@ -286,24 +293,198 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
               const ev = new CustomEvent('bm-turn-changed', { detail: { dir: 1, index: nextIdx, order, t: Date.now() } });
               window.dispatchEvent(ev);
             } catch {}
-          }}>
-            <FontAwesomeIcon icon={faCircleRightRegular} style={{ color: 'white' }} />
+            }}>
+              <FontAwesomeIcon icon={faCircleRightRegular} style={{ color: 'white' }} />
+            </IconButton>
+          )}
+          </div>
+
+          {/* On mobile portrait players: show only my player card, fixed under initiative */}
+          {(!isHost && isPortraitPhone && myPlayer) && (
+            <div style={{ marginTop: '0.5rem' }}>
+              <div
+                className="element-item"
+                data-id={myPlayer.id}
+                onClick={() => {
+                  if (myPlayer.incapacitated) return;
+                  const order = state.initiativeOrder || [];
+                  if (order.length) {
+                    const currentId = order[(state.currentTurnIndex || 0) % order.length];
+                    if (currentId !== myPlayer.id) return;
+                  }
+                  toggleMovementHighlight(myPlayer.id, battleMapRef);
+                }}
+                onDoubleClick={() => {
+                  const cid = myPlayer.characterId;
+                  if (cid) {
+                    try {
+                      sessionStorage.setItem('bm-refresh-character-id', String(cid));
+                      sessionStorage.setItem('bm-refresh-pending', '1');
+                      const hash = (typeof window !== 'undefined' && window.location && window.location.hash) ? window.location.hash : '';
+                      const path = hash.replace(/^#/, '');
+                      if (path.startsWith('/battlemap/')) {
+                        sessionStorage.setItem('bm-return-path', path);
+                      }
+                    } catch {}
+                    navigate(`/characters/${cid}`);
+                  } else {
+                    navigate(`/characters`);
+                  }
+                }}
+                style={{
+                  position: 'relative',
+                  borderColor: (currentTurnId === myPlayer.id) ? '#ffffff' : undefined,
+                  boxShadow: (currentTurnId === myPlayer.id) ? '4px 0 10px rgba(255,255,255,0.45)' : undefined,
+                  opacity: myPlayer.incapacitated ? 0.5 : 1,
+                  pointerEvents: myPlayer.incapacitated ? 'auto' : 'auto'
+                }}
+              >
+                <div className="element-info">
+                  {(myPlayer.type === 'player' && (myPlayer.characterIconUrl || cardIconUrls[myPlayer.id])) ? (
+                    <div className="player-avatar" style={{ borderColor: myPlayer.color }}>
+                      <img src={cardIconUrls[myPlayer.id] || myPlayer.characterIconUrl} alt={myPlayer.name || 'Avatar'} />
+                    </div>
+                  ) : (
+                    <div className="element-color" style={{ backgroundColor: myPlayer.color }}></div>
+                  )}
+                  <span className="element-name text-ellipsis">{myPlayer.name}</span>
+                  {/* Right-side controls (eye + skull/wand) */}
+                  <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    {(() => {
+                      const px = (myPlayer && myPlayer.position && typeof myPlayer.position.x === 'number') ? myPlayer.position.x : 0;
+                      const py = (myPlayer && myPlayer.position && typeof myPlayer.position.y === 'number') ? myPlayer.position.y : 0;
+                      let greyFrac = computeGreyFractionForCell(state, px, py);
+                      const steps = [0, 0.25, 0.5, 0.75, 1];
+                      const eps = 0.02;
+                      for (const s of steps) {
+                        if (Math.abs(greyFrac - s) < eps) { greyFrac = s; break; }
+                      }
+                      let adjustedGrey = greyFrac;
+                      if (greyFrac > 0 && greyFrac < 1) {
+                        const BIAS = 0.05; // +5% visibility
+                        adjustedGrey = Math.max(0, Math.min(1, greyFrac - BIAS));
+                      }
+                      const widthPct = adjustedGrey <= 0 ? 100 : Math.round((1 - adjustedGrey) * 100);
+                      const isFull = widthPct >= 100;
+                      return (
+                        <span style={{ position: 'relative', width: 18, height: 18, display: 'inline-block' }} title={greyFrac >= 1 ? 'Out of vision or full cover' : greyFrac > 0 ? 'Partial cover' : 'Fully visible'}>
+                          <FontAwesomeIcon icon={faEyeRegular} style={{ color: '#777', position: 'absolute', left: 0, top: 0, fontSize: 18, display: 'block' }} />
+                          {isFull ? (
+                            <FontAwesomeIcon icon={faEyeRegular} style={{ color: '#ffffff', position: 'absolute', left: 0, top: 0, fontSize: 18, display: 'block' }} />
+                          ) : (
+                            <span style={{ position: 'absolute', left: 0, top: 0, width: `${widthPct}%`, height: '100%', overflow: 'hidden' }}>
+                              <FontAwesomeIcon icon={faEyeRegular} style={{ color: '#ffffff', fontSize: 18, display: 'block' }} />
+                            </span>
+                          )}
+                        </span>
+                      );
+                    })()}
+                    {myPlayer.incapacitated ? (
+                      <FontAwesomeIcon
+                        icon={faWandSparkles}
+                        title="Revive"
+                        style={{ color: '#555', cursor: 'not-allowed' }}
+                      />
+                    ) : (
+                      <FontAwesomeIcon
+                        icon={faSkull}
+                        title="Incapacitate"
+                        style={{ color: '#555', cursor: 'not-allowed' }}
+                      />
+                    )}
+                  </span>
+                </div>
+                {(() => {
+                  const effectiveHp = applyHpModifiers(myPlayer.currentHp ?? 0, myPlayer);
+                  return (
+                    <div className="element-stats">
+                      <div
+                        className={`hp-display ${getHpClass(effectiveHp, myPlayer.maxHp)}`}
+                        onDoubleClick={(e) => { e.stopPropagation(); openDamageEdit(myPlayer.id, 'player'); }}
+                        title={
+                          damageEdit.targetId === myPlayer.id && damageEdit.targetType === 'player'
+                            ? 'Enter damage, then click OK or press Enter. Press Esc to cancel.'
+                            : 'Double-click to enter damage'
+                        }
+                        style={{
+                          userSelect: 'none',
+                          cursor: damageEdit.targetId === myPlayer.id && damageEdit.targetType === 'player' ? 'text' : 'pointer',
+                          color: damageEdit.targetId === myPlayer.id && damageEdit.targetType === 'player' ? '#f44336' : undefined,
+                          backgroundColor: damageEdit.targetId === myPlayer.id && damageEdit.targetType === 'player' ? 'rgba(244,67,54,0.2)' : undefined,
+                          borderColor: damageEdit.targetId === myPlayer.id && damageEdit.targetType === 'player' ? '#f44336' : undefined,
+                        }}
+                      >
+                        {(damageEdit.targetId === myPlayer.id && damageEdit.targetType === 'player') ? (
+                          <InlineNumberEditor
+                            value={damageEdit.value}
+                            onChange={(v) => setDamageEdit(p => ({ ...p, value: v }))}
+                            onConfirm={() => {
+                              const dmg = parseInt((damageEdit.value || '').toString().trim(), 10);
+                              if (!Number.isFinite(dmg) || dmg <= 0) { cancelDamageEdit(); return; }
+                              const newHp = Math.max(0, (myPlayer.currentHp || 0) - dmg);
+                              setState(prev => ({
+                                ...prev,
+                                elements: (prev.elements || []).map(x => x.id === myPlayer.id ? { ...x, currentHp: newHp } : x),
+                              }));
+                              try { window.dispatchEvent(new CustomEvent('bm-player-token-updated', { detail: { id: myPlayer.id, currentHp: newHp } })); } catch {}
+                              cancelDamageEdit();
+                            }}
+                            onCancel={cancelDamageEdit}
+                            title="Damage dealt:"
+                            okLabel="OK"
+                          />
+                        ) : (
+                          <>HP: {effectiveHp}/{myPlayer.maxHp}</>
+                        )}
+                      </div>
+                      <div className="hp-rest-controls" style={{ marginTop: 4 }}>
+                        <button
+                          className="btn btn-xs hp-rest-button"
+                          title="Recover HP"
+                          onClick={(e) => { e.stopPropagation(); setShortRest({ open: true, id: myPlayer.id }); }}
+                        >
+                          Recover HP
+                        </button>
+                        <button
+                          className="btn btn-xs hp-rest-button"
+                          title="Long Rest"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const toMax = myPlayer.maxHp || 0;
+                            setState(prev => ({
+                              ...prev,
+                              elements: (prev.elements || []).map(x => x.id === myPlayer.id ? { ...x, currentHp: toMax } : x),
+                            }));
+                            try { window.dispatchEvent(new CustomEvent('bm-player-token-updated', { detail: { id: myPlayer.id, currentHp: toMax } })); } catch {}
+                          }}
+                        >
+                          Long Rest
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
+        </div>
+      {/* Hide divider entirely for players on mobile portrait to remove extra spacing */}
+      {(!playerPortrait) && <hr className="sidebar-divider" />}
+      {/* Creatures Section (hidden for players on mobile portrait) */}
+      {(isHost || !isPortraitPhone) && (
+      <div className={isDrawingCover ? 'disabled-while-drawing' : ''} style={{ display: 'flex', alignItems: 'center', gap: '0.5em', position: 'relative' }}>
+          <IconButton onClick={() => setCreaturesOpen(v => !v)} size="small" title={creaturesOpen ? 'Collapse' : 'Expand'}>
+            <FontAwesomeIcon icon={faChevronRight} style={{ color: 'white', transform: creaturesOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
           </IconButton>
-        )}
-      </div>
-      <hr className="sidebar-divider" />
-      {/* Creatures Section */}
-  <div className={isDrawingCover ? 'disabled-while-drawing' : ''} style={{ display: 'flex', alignItems: 'center', gap: '0.5em', position: 'relative' }}>
-        <IconButton onClick={() => setCreaturesOpen(v => !v)} size="small" title={creaturesOpen ? 'Collapse' : 'Expand'}>
-          <FontAwesomeIcon icon={faChevronRight} style={{ color: 'white', transform: creaturesOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
-        </IconButton>
-        <h3 style={{ margin: 0, cursor: 'pointer' }} onClick={() => setCreaturesOpen(v => !v)}>Creatures</h3>
-        <IconButton onClick={openAddCharacterModal} disabled={isDrawingCover} title="Add creature" size="small">
-          <FontAwesomeIcon icon={faUserRegular} style={{ color: isDrawingCover ? 'grey' : 'white' }} />
-        </IconButton>
-        {/* Popover moved to App.jsx as AddCharacterModal */}
-      </div>
-  <div className={`collapsible ${creaturesOpen ? 'open' : ''}`}>
+          <h3 style={{ margin: 0, cursor: 'pointer' }} onClick={() => setCreaturesOpen(v => !v)}>Creatures</h3>
+          <IconButton onClick={openAddCharacterModal} disabled={isDrawingCover} title="Add creature" size="small">
+            <FontAwesomeIcon icon={faUserRegular} style={{ color: isDrawingCover ? 'grey' : 'white' }} />
+          </IconButton>
+          {/* Popover moved to App.jsx as AddCharacterModal */}
+        </div>
+      )}
+      {(isHost || !isPortraitPhone) && (
+      <div className={`collapsible ${creaturesOpen ? 'open' : ''}`}>
         <div className={`element-list ${isDrawingCover ? 'disabled-while-drawing' : ''}`}>
           {[...playersList, ...enemiesList].map((el) => (
             <div
@@ -583,6 +764,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
           ))}
         </div>
       </div>
+      )}
 
       {/* Short Rest Modal (players and enemies) */}
       {shortRest.open && (() => {
@@ -625,8 +807,9 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
       {/* Inline damage entry handled within the HP bar; no popover */}
 
       {/* Environments Section (hidden for players) */}
-      <hr className="sidebar-divider" />
       {isHost && (
+      <>
+      <hr className="sidebar-divider" />
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5em', position: 'relative' }}>
         <IconButton onClick={() => setEnvOpen(v => !v)} size="small" title={envOpen ? 'Collapse' : 'Expand'}>
           <FontAwesomeIcon icon={faChevronRight} style={{ color: 'white', transform: envOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
@@ -636,6 +819,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
           <FontAwesomeIcon icon={faPenToSquareRegular} style={{ color: isDrawingCover ? '#4CAF50' : 'white' }} />
         </IconButton>
       </div>
+      </>
       )}
       {isHost && (
   <div className={`collapsible ${envOpen ? 'open' : ''}`}>
@@ -771,17 +955,19 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
       </div>
       {/* Sidebar footer: expand/collapse control (always visible) */}
       <div className="sidebar-footer">
-        <IconButton
-          size="small"
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          onClick={() => setCollapsed(v => !v)}
-        >
-          <FontAwesomeIcon
-            icon={isPortraitPhone ? (collapsed ? faAnglesUp : faAnglesDown) : (collapsed ? faAnglesRight : faAnglesLeft)}
-            style={{ color: '#fff', fontSize: 14 }}
-          />
-        </IconButton>
+        {isHost && (
+          <IconButton
+            size="small"
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            onClick={() => isHost ? setCollapsed(v => !v) : null}
+          >
+            <FontAwesomeIcon
+              icon={isPortraitPhone ? (collapsed ? faAnglesUp : faAnglesDown) : (collapsed ? faAnglesRight : faAnglesLeft)}
+              style={{ color: '#fff', fontSize: 14 }}
+            />
+          </IconButton>
+        )}
       </div>
     </aside>
   );

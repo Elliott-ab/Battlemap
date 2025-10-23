@@ -627,6 +627,14 @@ body {
     max-height: 100%;
     flex: 1 1 auto; /* fill available space so footer stays at bottom */
 }
+.sidebar-body .sidebar-sticky {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #2c2c2c; /* match sidebar */
+    /* add subtle bottom border to separate from scrolled content */
+    border-bottom: 1px solid #444;
+}
 .sidebar.collapsed .sidebar-body {
     display: none;
 }
@@ -1439,6 +1447,19 @@ body {
         height: 200px;
         border-right: none;
         border-bottom: 1px solid #444;
+    }
+    /* Player mobile portrait: make sidebar auto-size to show initiative and my card without scrolling */
+    .sidebar.sidebar--player-portrait {
+        height: auto !important; /* expand to fit sticky content */
+    }
+    .sidebar.sidebar--player-portrait .sidebar-body {
+        overflow: visible; /* avoid internal scroll; only map scrolls */
+        max-height: none;
+        padding-top: 0; /* remove extra space above initiative */
+        padding-bottom: 0; /* remove extra space below player card */
+    }
+    .sidebar.sidebar--player-portrait .sidebar-divider {
+        display: none; /* hide extra dividers under player card */
     }
     /* Collapsed state reduces height significantly on portrait */
     .sidebar.collapsed {
