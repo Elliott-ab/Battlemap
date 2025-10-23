@@ -86,7 +86,8 @@ export default function Characters() {
         onLeaveGame={() => { clearSession(); navigate('/home'); }}
       />
       <div className="main-content">
-        <Box sx={{ flex: 1, p: 2, overflow: 'auto' }}>
+  <div className="page-container">
+  <Box className="hide-scrollbar" sx={{ flex: 1, p: 2, overflow: 'auto' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h5" sx={{ color: '#d32f2f', fontWeight: 800 }}>Characters</Typography>
             <Button variant="contained" onClick={() => setNewCharacterOpen(true)}>Build New Character</Button>
@@ -163,7 +164,8 @@ export default function Characters() {
               ))}
             </Grid>
           )}
-        </Box>
+  </Box>
+        </div>
       </div>
       {/* Toolbar: Host Game dialog */}
       <FellowshipModal open={fellowshipOpen} onClose={() => setFellowshipOpen(false)} gameId={null} />

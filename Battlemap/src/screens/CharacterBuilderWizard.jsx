@@ -8,8 +8,10 @@ export default function CharacterBuilderWizard() {
 	return (
 		<div className="app-container" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
 			<Toolbar variant="dashboard" onFellowshipClick={() => setFellowshipOpen(true)} />
-			<div className="main-content" style={{ overflow: 'auto' }}>
-				<CharacterBuilder />
+			<div className="main-content hide-scrollbar" style={{ overflow: 'auto' }}>
+				<div className="page-container">
+					<CharacterBuilder />
+				</div>
 			</div>
 			<FellowshipModal open={fellowshipOpen} onClose={() => setFellowshipOpen(false)} gameId={null} />
 		</div>

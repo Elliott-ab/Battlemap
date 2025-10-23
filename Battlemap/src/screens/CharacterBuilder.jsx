@@ -589,7 +589,8 @@ export default function CharacterBuilder() {
         onLeaveGame={() => { clearSession(); navigate('/home'); }}
       />
       <div className="main-content">
-        <Box sx={{ flex: 1, p: 2, overflow: 'auto', color: '#fff' }}>
+  <div className="page-container">
+  <Box className="hide-scrollbar" sx={{ flex: 1, p: 2, overflow: 'auto', color: '#fff' }}>
           {/* Top: Character Info */}
           <SectionCard
             title="Character Info"
@@ -1020,7 +1021,8 @@ export default function CharacterBuilder() {
               </SectionCard>
             </Box>
           )}
-        </Box>
+  </Box>
+        </div>
       </div>
       {/* Toolbar: Host Game dialog */}
       <FellowshipModal open={fellowshipOpen} onClose={() => setFellowshipOpen(false)} gameId={null} />

@@ -195,7 +195,8 @@ export default function Dashboard() {
         onLeaveGame={() => { clearSession(); navigate('/home'); }}
       />
       <div className="main-content">
-        <Box sx={{ flex: 1, p: 2, overflow: 'auto' }}>
+  <div className="page-container">
+  <Box className="hide-scrollbar" sx={{ flex: 1, p: 2, overflow: 'auto' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h5">Home</Typography>
             <Button onClick={signOut}>Sign out</Button>
@@ -526,7 +527,8 @@ export default function Dashboard() {
           }}>Join</Button>
         </DialogActions>
       </Dialog>
-        </Box>
+  </Box>
+        </div>
       </div>
     </Box>
   );

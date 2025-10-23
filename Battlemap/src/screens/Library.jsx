@@ -58,7 +58,8 @@ export default function Library() {
         onLeaveGame={() => { clearSession(); navigate('/home'); }}
       />
       <div className="main-content">
-        <Box sx={{ flex: 1, p: 2, overflow: 'auto' }}>
+  <div className="page-container">
+  <Box className="hide-scrollbar" sx={{ flex: 1, p: 2, overflow: 'auto' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h5" sx={{ color: '#d32f2f', fontWeight: 800 }}>Your Library</Typography>
             <Button variant="contained" onClick={() => navigate('/battlemap/LOCAL')}>Create Map</Button>
@@ -101,7 +102,8 @@ export default function Library() {
               ))}
             </Grid>
           )}
-        </Box>
+  </Box>
+        </div>
       </div>
       {/* Toolbar: Host Game dialog */}
       <FellowshipModal open={fellowshipOpen} onClose={() => setFellowshipOpen(false)} gameId={null} />
