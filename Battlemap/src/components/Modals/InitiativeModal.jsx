@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import ModalShell from '../ui/modal/ModalShell.jsx';
 
-const InitiativeModal = ({ isOpen, state, setState, onClose }) => {
+const InitiativeModal = ({ isOpen, state, setState, onClose, readOnly = false }) => {
   const combatants = useMemo(() => (state.elements || []).filter(el => el.type === 'player' || el.type === 'enemy'), [state.elements]);
   // Store as strings so inputs can be empty while typing; coerce on save
   const [scores, setScores] = useState({});
@@ -19,16 +19,19 @@ const InitiativeModal = ({ isOpen, state, setState, onClose }) => {
 
   const handleChange = (id, value) => {
     // Allow empty string while typing
+    if (readOnly) return;
     setScores(prev => ({ ...prev, [id]: value }));
   };
 
   const handleReset = () => {
+    if (readOnly) return;
     const reset = {};
     for (const c of combatants) reset[c.id] = '0';
     setScores(reset);
   };
 
   const handleRoll = () => {
+    if (readOnly) return;
     const rolled = {};
     for (const c of combatants) {
       const roll = Math.floor(Math.random() * 20) + 1; // 1-20
@@ -38,6 +41,7 @@ const InitiativeModal = ({ isOpen, state, setState, onClose }) => {
   };
 
   const handleSave = () => {
+    if (readOnly) return;
     const toNum = (v) => {
       const n = parseInt(v, 10);
       return Number.isFinite(n) ? n : 0;
@@ -71,14 +75,16 @@ const InitiativeModal = ({ isOpen, state, setState, onClose }) => {
   };
 
   return (
-    <ModalShell open={isOpen} title="Set Initiative" onClose={onClose}>
+    <ModalShell open={isOpen} title={readOnly ? 'Initiative' : 'Set Initiative'} onClose={onClose}>
       {combatants.length === 0 ? (
         <div style={{ color: '#aaa' }}>Add characters to set initiative</div>
       ) : (
         <>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem' }}>
-            <button className="btn btn-outline btn-sm" onClick={handleRoll}>Roll</button>
-          </div>
+          {!readOnly && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem' }}>
+              <button className="btn btn-outline btn-sm" onClick={handleRoll}>Roll</button>
+            </div>
+          )}
           <div className="initiative-form">
           {[...combatants]
             .sort((a, b) => {
@@ -107,19 +113,23 @@ const InitiativeModal = ({ isOpen, state, setState, onClose }) => {
               }}
             >
               <label style={{ minWidth: 120, flex: 1 }}>{c.name}</label>
-              <input
-                type="number"
-                min="0"
-                value={scores[c.id] ?? ''}
-                onChange={(e) => handleChange(c.id, e.target.value)}
-                style={{ width: '80px', marginLeft: 'auto', textAlign: 'right' }}
-              />
+              {readOnly ? (
+                <div style={{ width: '80px', marginLeft: 'auto', textAlign: 'right', color: '#fff' }}>{scores[c.id] ?? ''}</div>
+              ) : (
+                <input
+                  type="number"
+                  min="0"
+                  value={scores[c.id] ?? ''}
+                  onChange={(e) => handleChange(c.id, e.target.value)}
+                  style={{ width: '80px', marginLeft: 'auto', textAlign: 'right' }}
+                />
+              )}
             </div>
           ))}
           </div>
         </>
       )}
-      {combatants.length > 0 && (
+      {(!readOnly && combatants.length > 0) && (
         <div className="form-actions" style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
           <button className="btn btn-secondary" onClick={handleReset}>Reset</button>
           <button className="btn btn-primary" onClick={handleSave}>Save</button>

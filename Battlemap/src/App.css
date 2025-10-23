@@ -693,7 +693,6 @@ body {
 .element-item:active {
     background-color: #444;
     border-color: #666;
-    transform: translateX(2px);
 }
 
 .element-info {

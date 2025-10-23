@@ -245,7 +245,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
         {/* Turn controls (initiative) and, on mobile portrait players, fixed "My Card" just beneath */}
         <div className={`sidebar-sticky ${isDrawingCover ? 'disabled-while-drawing' : ''}`} style={{ width: '100%', paddingTop: (playerPortrait ? 0 : '0.5rem'), paddingBottom: (playerPortrait ? 0 : '0.5rem') }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', width: '100%' }}>
-          {initiativeSet && (
+          {isHost && initiativeSet && (
             <IconButton size="small" title="Previous Turn" onClick={() => {
             setState(prev => {
               const len = (prev.initiativeOrder || []).length;
@@ -268,17 +268,18 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
             className="turn-box"
             style={{ cursor: 'pointer', flex: 1, minWidth: 0 }}
             onClick={openInitiativeModal}
+            title={isHost ? 'Open initiative' : 'View initiative'}
           >
             {(() => {
               const order = state.initiativeOrder || [];
-              if (!order.length) return 'Set Initiative';
+              if (!order.length) return isHost ? 'Set Initiative' : 'Initiative not set';
               const idx = state.currentTurnIndex || 0;
               const currentId = order[idx % order.length];
               const el = (state.elements || []).find(e => e.id === currentId);
               return el ? `Turn: ${el.name}` : 'Set Initiative';
             })()}
           </div>
-          {initiativeSet && (
+          {isHost && initiativeSet && (
             <IconButton size="small" title="Next Turn" onClick={() => {
             setState(prev => {
               const len = (prev.initiativeOrder || []).length;

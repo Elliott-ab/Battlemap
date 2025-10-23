@@ -375,7 +375,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
     return () => window.removeEventListener('participant-left', handler);
   }, [isHost, gameId, user?.id]);
 
-  // Persist initiative updates from any client to LIVE and broadcast to all
+  // Persist initiative updates to LIVE and broadcast to all (host-only)
   useEffect(() => {
     const handler = async (e) => {
       try {
@@ -384,11 +384,11 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
         const scores = detail.scores || state.initiativeScores || {};
         const index = Number.isFinite(detail.index) ? detail.index : 0;
         if (!gameId || !user) return;
-        // If we're in LIVE and allowed to write (host, or confirmed participant), persist directly
+        // Only the host may persist/broadcast initiative updates
         const current = channelRef.current;
         const hostNow = isHostRef.current;
-        const canWrite = hostNow || canWriteLive;
-        if (current === 'live' && canWrite) {
+        if (!hostNow) return;
+        if (current === 'live') {
           const liveRow = await getMapState(gameId, 'live').catch(() => null);
           const liveState = liveRow?.state || {};
           const merged = {
@@ -412,7 +412,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
     };
     window.addEventListener('bm-initiative-updated', handler);
     return () => window.removeEventListener('bm-initiative-updated', handler);
-  }, [gameId, user?.id, canWriteLive]);
+  }, [gameId, user?.id]);
 
   // Persist player self-updates (e.g., HP changes) to LIVE for non-hosts so everyone sees it
   useEffect(() => {
@@ -494,7 +494,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
     };
   }, [gameId]);
 
-  // On local turn change, broadcast exact data and persist to live if allowed
+  // On local turn change, broadcast and persist to live (host-only)
   useEffect(() => {
     const handler = async (e) => {
       try {
@@ -502,6 +502,8 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
         const detail = e?.detail || {};
         const idx = Number(detail.index);
         const order = Array.isArray(detail.order) ? detail.order : undefined;
+        const hostNow = isHostRef.current;
+        if (!hostNow) return;
         const sig = liveSignalRef.current;
         if (sig) {
           await sig.send({ type: 'broadcast', event: 'turn-changed', payload: { index: idx, order, t: Date.now(), by: user?.id || null } });
@@ -509,8 +511,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
         }
         // Persist to live immediately when in live and permitted, after initial load
         const current = channelRef.current;
-        const hostNow = isHostRef.current;
-        if (current === 'live' && (hostNow || canWriteLive) && initialLoadedRef.current.live) {
+        if (current === 'live' && hostNow && initialLoadedRef.current.live) {
           const liveRow = await getMapState(gameId, 'live').catch(() => null);
           const liveState = liveRow?.state || {};
           const merged = {
@@ -525,7 +526,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
     };
     window.addEventListener('bm-turn-changed', handler);
     return () => window.removeEventListener('bm-turn-changed', handler);
-  }, [gameId, canWriteLive, state.initiativeOrder, state.currentTurnIndex, user?.id]);
+  }, [gameId, state.initiativeOrder, state.currentTurnIndex, user?.id]);
 
   // Listen for local element moves and broadcast them quickly to peers
   useEffect(() => {
@@ -1333,6 +1334,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
           });
         }}
         onClose={() => setModalState(prev => ({ ...prev, initiative: false }))}
+        readOnly={!isHost}
       />
       <GlobalModifiersModal
         isOpen={modalState.globalModifiers}
