@@ -89,8 +89,15 @@ export default function Characters() {
   <div className="page-container">
   <Box className="hide-scrollbar" sx={{ flex: 1, p: 2, overflow: 'auto' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h5" sx={{ color: '#d32f2f', fontWeight: 800 }}>Characters</Typography>
-            <Button variant="contained" onClick={() => setNewCharacterOpen(true)}>Build New Character</Button>
+            <Box>
+              <Typography variant="h5" sx={{ color: '#d32f2f', fontWeight: 800 }}>Characters</Typography>
+              <Typography variant="subtitle2" sx={{ color: '#ffffff', fontWeight: 800, mt: 0.25, letterSpacing: 0.2 }}>
+                Character Slots Used: {(characters || []).length}/6
+              </Typography>
+            </Box>
+            <Button variant="contained" onClick={() => setNewCharacterOpen(true)} disabled={(characters || []).length >= 6}>
+              Build New Character
+            </Button>
           </Box>
           {error && <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>}
           {loading ? (
@@ -102,7 +109,7 @@ export default function Characters() {
           ) : (
             <Grid container spacing={2}>
               {characters.map((c) => (
-                <Grid key={c.id} item xs={12} sm={6} md={4} lg={3} xl={2}>
+                <Grid key={c.id} item xs={12} sm={6} md={4} lg={4} xl={4}>
                   <Paper
                     elevation={3}
                     onClick={() => navigate(`/characters/${c.id}`)}
