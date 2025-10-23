@@ -94,7 +94,9 @@ export default function BattlemapPage() {
     return () => { supabase.removeChannel(channel); supabase.removeChannel(sig); };
   }, [gameId]);
 
-  // Presence: if the host fully disconnects (tab closed or sign out), boot everyone after a grace period
+  // Presence: observe host availability, but do NOT kick players when host is inactive/minimized.
+  // Players remain connected unless the host explicitly ends the game, signs out, closes their browser,
+  // or the host participant row is removed. Presence is informational only.
   useEffect(() => {
     if (!gameId || !user?.id) return;
     const iAmHost = (user?.id && game?.host_id && user.id === game.host_id) || game?.role === 'host';
@@ -105,43 +107,15 @@ export default function BattlemapPage() {
         hostAbsentTimeoutRef.current = null;
       }
     };
-    const scheduleBoot = () => {
-      clearBootTimer();
-      hostAbsentTimeoutRef.current = setTimeout(async () => {
-        // No host presence for a bit — consider game closed and return to home
-        try {
-          // Best-effort: remove my player token from LIVE and leave participants
-          const row = await getMapState(gameId, 'live').catch(() => null);
-          const liveState = row?.state || {};
-          const els = Array.isArray(liveState.elements)
-            ? liveState.elements.filter(e => !(e?.type === 'player' && e.participantUserId === user.id))
-            : [];
-          const merged = { ...liveState, elements: els };
-          try { await upsertMapState(gameId, 'live', merged, user.id); } catch {}
-          try {
-            const ch = supabase.channel(`game-${gameId}-signals`);
-            await ch.subscribe();
-            await ch.send({ type: 'broadcast', event: 'live-updated', payload: { by: user.id, t: Date.now() } });
-            supabase.removeChannel(ch);
-          } catch {}
-        } catch {}
-        try { await leaveGame(gameId, user.id); } catch {}
-        try { clearSession(); } catch {}
-        try { navigate('/home'); } catch {}
-      }, 5000);
-    };
     presence
       .on('presence', { event: 'sync' }, () => {
         try {
           const state = presence.presenceState();
           const hostKey = game?.host_id;
           const hasHost = !!(hostKey && state && state[hostKey] && state[hostKey].length > 0);
-          if (hasHost) {
-            clearBootTimer();
-          } else {
-            // If I am the host and haven't tracked yet, don't boot — wait for my track call
-            if (!iAmHost) scheduleBoot();
-          }
+          // We no longer auto-boot players when the host is absent (e.g., minimized or backgrounded).
+          // Keep the timer cleared whenever host is present; otherwise do nothing here.
+          if (hasHost) clearBootTimer();
         } catch (_) {}
       })
       .subscribe(async (status) => {

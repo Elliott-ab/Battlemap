@@ -507,13 +507,14 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
                 toggleMovementHighlight(el.id, battleMapRef);
               }}
               onDoubleClick={() => {
-                // Any user: double-click enemy opens Bestiary description when available
+                // Only host: double-click enemy opens Bestiary description when available
                 if (el.type === 'enemy') {
-                  if (el.bestiaryIndex) {
+                  if (isHost && el.bestiaryIndex) {
                     try { window.dispatchEvent(new CustomEvent('bm-open-bestiary', { detail: { index: el.bestiaryIndex } })); } catch {}
                     return;
                   }
                   if (isHost) { showEditModal(el.id); return; }
+                  return; // players do nothing on enemy double-click
                 }
                 // Host: other types fall back to edit modal
                 if (isHost) { showEditModal(el.id); return; }
