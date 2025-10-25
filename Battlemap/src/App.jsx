@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Snackbar, Alert } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import Toolbar from './components/Toolbar.jsx';
+import SlimToolbar from './components/SlimToolbar.jsx';
 import Sidebar from './components/Sidebar.jsx';
 import BattleMap from './components/BattleMap.jsx';
 import EditModal from './components/Modals/EditModal.jsx';
@@ -23,6 +24,7 @@ import { getMapState, upsertMapState, pushDraftToLive, listMapDrafts, upsertMapD
 import SaveDraftModal from './components/Modals/SaveDraftModal.jsx';
 import LoadDraftModal from './components/Modals/LoadDraftModal.jsx';
 import { useGameSession } from './Utils/GameSessionContext.jsx';
+import { ToolProvider } from './context/ToolContext.jsx';
 
 function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = null, user = null, libraryLoadRequest = null }) {
   const navigate = useNavigate();
@@ -1228,8 +1230,9 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
           }
         }}
       />
-      <div className="main-content">
-        <Sidebar
+      <ToolProvider>
+        <div className="main-content">
+          <Sidebar
           state={mergedState}
           setState={setState}
           toggleMovementHighlight={toggleMovementHighlight}
@@ -1244,8 +1247,10 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
           isHost={isHost}
           openAddCharacterModal={() => setModalState(prev => ({ ...prev, addCharacter: true }))}
           openInitiativeModal={() => setModalState(prev => ({ ...prev, initiative: true }))}
-        />
-        <BattleMap
+          />
+          <div className="map-pane">
+            <SlimToolbar />
+            <BattleMap
           state={mergedState}
           setState={setState}
           isDrawingCover={isDrawingCover}
@@ -1258,8 +1263,10 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
           battleMapRef={battleMapRef}
           isHost={isHost}
           currentUserId={user?.id}
-        />
-      </div>
+            />
+          </div>
+        </div>
+      </ToolProvider>
       <AddCharacterModal
         isOpen={modalState.addCharacter}
         onClose={() => setModalState(prev => ({ ...prev, addCharacter: false }))}

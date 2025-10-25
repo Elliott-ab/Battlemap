@@ -10,6 +10,7 @@ import Characters from '../screens/Characters.jsx';
 import CharacterBuilder from '../screens/CharacterBuilder.jsx';
 import CharacterBuilderWizard from '../screens/CharacterBuilderWizard.jsx';
 import Library from '../screens/Library.jsx';
+import ToolingDemo from '../screens/ToolingDemo.jsx';
 
 function RequireAuth({ children }) {
   const { user } = useAuth();
@@ -77,6 +78,14 @@ export default function AppRouter() {
             element={(
               <RequireAuth>
                 <CharacterBuilderWizard />
+              </RequireAuth>
+            )}
+          />
+          <Route
+            path="/tools"
+            element={(
+              <RequireAuth>
+                <ToolingDemo />
               </RequireAuth>
             )}
           />

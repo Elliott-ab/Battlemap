@@ -588,6 +588,15 @@ body {
     overflow: hidden;
 }
 
+/* Right-side map pane holds slim toolbar above the map */
+.map-pane {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
 /* Centered page container for non-battlemap screens */
 .page-container {
     /* Fill available vertical space inside main-content */
@@ -803,6 +812,13 @@ body {
     touch-action: none;
     position: relative;
     display: inline-block;
+}
+.tool--ruler .map-container { cursor: crosshair; }
+.tool--ruler .element { cursor: crosshair; }
+/* Grey out the entire grid and tokens while measuring; overlay stays full brightness */
+.tool--ruler .battle-map {
+    filter: grayscale(0.35) brightness(0.92);
+    transition: filter 120ms ease;
 }
 .map-container.panning {
     cursor: grab;
@@ -1779,6 +1795,12 @@ body {
 .icon-button:disabled { opacity: 0.5; cursor: not-allowed; }
 .icon-button--small { padding: 2px; }
 .icon-button--large { padding: 8px; }
+
+/* Slim tools toolbar tweaks on dark bg */
+.slim-toolbar {
+    position: relative;
+    z-index: 5; /* above content area */
+}
 
 /* Responsive swap for Global Modifiers card layouts */
 .modifier-card.only-desktop { display: flex !important; }

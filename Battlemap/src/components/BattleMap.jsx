@@ -4,6 +4,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faMinus, faPlus, faCrosshairs, faGroupArrowsRotate } from '@fortawesome/free-solid-svg-icons';
 import compassRose from '/compass-rose-n-svgrepo-com.svg';
 import { useGrid } from '../Utils/grid.js';
+import { useTool, ToolIds } from '../context/ToolContext.jsx';
+import RulerTool from './MapOverlays/RulerTool.jsx';
 
 const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlocks, drawEnvType, updateElementPosition, pushUndo, highlightCoverGroup, battleMapRef, isHost = false, currentUserId = null }) => {
   const localBattleMapRef = useRef(null);
@@ -13,6 +15,7 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
   const didDragRef = useRef(false);
   const suppressNextClickRef = useRef(false);
   const { renderGrid } = useGrid(state);
+  const { tool } = useTool();
 
   // Zoom/pan state
   const MIN_SCALE = 0.5;
@@ -174,6 +177,8 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
   };
 
   const handleClick = (e) => {
+    // Disable native map click handling while using tools like Ruler
+    if (tool === ToolIds.RULER) return;
     // Only respond to primary (left) mouse button
     if (e && typeof e === 'object') {
       const btn = (e.nativeEvent && typeof e.nativeEvent.button === 'number') ? e.nativeEvent.button : (typeof e.button === 'number' ? e.button : 0);
@@ -308,6 +313,8 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
   };
 
   const handlePointerDown = (e) => {
+    // Disable token drag/pan while using tools like Ruler
+    if (tool === ToolIds.RULER) return;
     // Only left mouse button should initiate element drag/move; ignore touch to avoid accidental drags
     if (e.pointerType === 'mouse') {
       if (e.button !== 0) return;
@@ -444,6 +451,8 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
 
   // Handle pinch-to-zoom with two pointers; keep midpoint stationary
   const onContainerPointerDown = (e) => {
+    // Disable container pan/zoom gestures while using tools like Ruler
+    if (tool === ToolIds.RULER) return;
     // Drawing mode: start painting on left mouse or single-finger touch
     if (isDrawingCover) {
       if ((e.pointerType === 'mouse' && e.button === 0) || e.pointerType === 'touch') {
@@ -522,6 +531,7 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
   };
 
   const onContainerPointerMove = (e) => {
+    if (tool === ToolIds.RULER) return;
     // Drawing mode painting
     if (isDrawingCover && paintingRef.current.active) {
       processCoverAtPoint(e.clientX, e.clientY);
@@ -591,6 +601,7 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
   };
 
   const onContainerPointerUp = (e) => {
+    if (tool === ToolIds.RULER) return;
     // Stop painting on release
     if (paintingRef.current.active) {
       paintingRef.current.active = false;
@@ -706,6 +717,17 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
         onAuxClick={(e) => { /* prevent middle/right click from acting like a click */ e.preventDefault?.(); e.stopPropagation?.(); }}
         onPointerDown={handlePointerDown}
       ></div>
+      {tool === ToolIds.RULER && (
+        <RulerTool
+          state={state}
+          battleMapRef={localBattleMapRef}
+          zoom={zoom}
+          onMeasure={({ start, end }) => {
+            // Consumers can observe measurements if needed
+            try { window.dispatchEvent(new CustomEvent('bm-ruler-measure', { detail: { start, end } })); } catch {}
+          }}
+        />
+      )}
       {/* Desktop-only zoom controls (bottom-right) */}
       <div className="zoom-controls zoom-controls--desktop">
         <IconButton size="small" aria-label="Zoom out" onClick={() => setScaleAroundViewportCenter(zoom - 0.1)}>
