@@ -32,14 +32,14 @@ export default function SlimToolbar() {
           <FontAwesomeIcon icon={faArrowPointer} />
         </IconButton>
       </Tooltip>
-      <Tooltip title="Ruler (measure)" placement="bottom">
-        <IconButton aria-label="Ruler tool" size="small" sx={btnSx(tool === ToolIds.RULER)} onClick={() => setTool(ToolIds.RULER)}>
-          <FontAwesomeIcon icon={faRulerCombined} />
-        </IconButton>
-      </Tooltip>
       <Tooltip title="Move (highlight movement)" placement="bottom">
         <IconButton aria-label="Move tool" size="small" sx={btnSx(tool === ToolIds.MOVE)} onClick={() => setTool(ToolIds.MOVE)}>
           <FontAwesomeIcon icon={faArrowsUpDownLeftRight} />
+        </IconButton>
+      </Tooltip>
+      <Tooltip title="Ruler (measure)" placement="bottom">
+        <IconButton aria-label="Ruler tool" size="small" sx={btnSx(tool === ToolIds.RULER)} onClick={() => setTool(ToolIds.RULER)}>
+          <FontAwesomeIcon icon={faRulerCombined} />
         </IconButton>
       </Tooltip>
     </Box>

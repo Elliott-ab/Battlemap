@@ -903,7 +903,7 @@ body {
 /* Slim toolbar: default (desktop) top bar in map pane */
 .slim-toolbar {
     z-index: 45; /* below zoom controls (50) and ruler (60) */
-    height: 32px;
+    height: 36px; /* slightly larger on desktop */
     border-bottom: 1px solid #444;
     background-color: #242424;
     display: flex;
