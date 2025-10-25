@@ -31,6 +31,7 @@ export default function RulerTool({
   state,
   battleMapRef,
   zoom,
+  viewTick,
   onMeasure,
 }) {
   const [start, setStart] = useState(null); // {x,y} | null
@@ -55,6 +56,8 @@ export default function RulerTool({
   }, []);
 
   const handlePointerDown = useCallback((e) => {
+    // Allow two-finger panning on touch: don't consume touch events
+    if (e.pointerType === 'touch') return;
     // Left click or touch only
     if ((e.pointerType === 'mouse') && e.button !== 0) return;
     if (typeof e.preventDefault === 'function') e.preventDefault();
@@ -82,10 +85,14 @@ export default function RulerTool({
   }, [getCellFromPoint, start, finalized, onMeasure]);
 
   const handlePointerMove = useCallback((e) => {
+    if (e.pointerType === 'touch') return; // let container handle two-finger pan
+    // Allow middle/right-drag panning to work: don't intercept when those buttons are held
+    const isMiddleOrRight = (e.buttons & 6) !== 0; // 2=right, 4=middle
+    if (isMiddleOrRight) return;
     // Follow mouse after first click, until finalized
     if (!start || finalized) return;
+    // No need to stop propagation; container only pans when its panning flag is active
     if (typeof e.preventDefault === 'function') e.preventDefault();
-    if (typeof e.stopPropagation === 'function') e.stopPropagation();
     const cell = getCellFromPoint(e.clientX, e.clientY);
     if (!cell) return;
     const x = parseInt(cell.dataset.x);
@@ -94,7 +101,9 @@ export default function RulerTool({
   }, [getCellFromPoint, start, finalized]);
 
   const handlePointerUp = useCallback((e) => {
-    if (typeof e?.stopPropagation === 'function') e.stopPropagation();
+    if (e.pointerType === 'touch') return; // let container handle two-finger pan
+    // If middle/right button, let container handle ending the pan
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
     if (draggingRef.current) {
       draggingRef.current = false;
       try { e.currentTarget?.releasePointerCapture?.(e.pointerId); } catch {}
@@ -158,7 +167,7 @@ export default function RulerTool({
     const ex = ec.left + ec.width / 2 - cr.left;
     const ey = ec.top + ec.height / 2 - cr.top;
     return { sx, sy, ex, ey, containerRect: cr };
-  }, [start, end, battleMapRef, info, zoom]);
+  }, [start, end, battleMapRef, info, zoom, viewTick]);
 
   return (
     <div

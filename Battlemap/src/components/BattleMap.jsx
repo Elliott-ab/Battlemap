@@ -26,6 +26,8 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
   const activePointersRef = useRef(new Map()); // id -> {x,y}
   const pinchStartRef = useRef(null); // {distance, mid:{x,y}, scale, tx, ty}
   const [zoom, setZoom] = useState(1);
+  // Bump this on any pan/zoom transform change so overlays can recompute positions
+  const [viewTransformTick, setViewTransformTick] = useState(0);
   const [rotationIndex, setRotationIndex] = useState(0); // 0,1,2,3 => 0°,90°,180°,270°
   // Desktop mouse panning (middle or right button)
   const mousePanningRef = useRef({ active: false, pointerId: null, startX: 0, startY: 0, startTx: 0, startTy: 0 });
@@ -73,6 +75,8 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
       el.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
     }
     setZoom(next.scale);
+    // Signal to overlays (e.g., Ruler) that the DOM positions have shifted
+    setViewTransformTick((t) => t + 1);
   };
 
   const fitToScreen = () => {
@@ -451,8 +455,6 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
 
   // Handle pinch-to-zoom with two pointers; keep midpoint stationary
   const onContainerPointerDown = (e) => {
-    // Disable container pan/zoom gestures while using tools like Ruler
-    if (tool === ToolIds.RULER) return;
     // Drawing mode: start painting on left mouse or single-finger touch
     if (isDrawingCover) {
       if ((e.pointerType === 'mouse' && e.button === 0) || e.pointerType === 'touch') {
@@ -531,7 +533,6 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
   };
 
   const onContainerPointerMove = (e) => {
-    if (tool === ToolIds.RULER) return;
     // Drawing mode painting
     if (isDrawingCover && paintingRef.current.active) {
       processCoverAtPoint(e.clientX, e.clientY);
@@ -601,7 +602,6 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
   };
 
   const onContainerPointerUp = (e) => {
-    if (tool === ToolIds.RULER) return;
     // Stop painting on release
     if (paintingRef.current.active) {
       paintingRef.current.active = false;
@@ -722,6 +722,7 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
           state={state}
           battleMapRef={localBattleMapRef}
           zoom={zoom}
+          viewTick={viewTransformTick}
           onMeasure={({ start, end }) => {
             // Consumers can observe measurements if needed
             try { window.dispatchEvent(new CustomEvent('bm-ruler-measure', { detail: { start, end } })); } catch {}
