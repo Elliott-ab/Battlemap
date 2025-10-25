@@ -336,6 +336,10 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
         }
         if (typeof toggleMovementHighlight === 'function') {
           toggleMovementHighlight(clickedId, localBattleMapRef);
+          // Suppress the immediate synthetic click that follows pointerdown
+          // (especially on mobile), which would otherwise clear the highlight
+          // because the click lands on a non-highlighted cell beneath the token.
+          suppressNextClickRef.current = true;
         }
       }
       return;
