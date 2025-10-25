@@ -56,12 +56,14 @@ export default function RulerTool({
   }, []);
 
   const handlePointerDown = useCallback((e) => {
-    // Allow two-finger panning on touch: don't consume touch events
-    if (e.pointerType === 'touch') return;
-    // Left click or touch only
-    if ((e.pointerType === 'mouse') && e.button !== 0) return;
+    // For touch: handle primary finger for tap/drag measure; allow second finger to bubble for pinch/pan
+    if (e.pointerType === 'touch' && e.isPrimary === false) {
+      return; // let container handle multi-touch gestures
+    }
+    // Mouse: only left button
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    // Prevent page scroll/text selection while interacting
     if (typeof e.preventDefault === 'function') e.preventDefault();
-    if (typeof e.stopPropagation === 'function') e.stopPropagation();
     const cell = getCellFromPoint(e.clientX, e.clientY);
     if (!cell) return;
     const x = parseInt(cell.dataset.x);
@@ -81,17 +83,19 @@ export default function RulerTool({
       }
     }
     draggingRef.current = true;
+    // Capture this pointer to keep receiving move/up, but don't interfere with second-finger events
     try { e.currentTarget?.setPointerCapture?.(e.pointerId); } catch {}
   }, [getCellFromPoint, start, finalized, onMeasure]);
 
   const handlePointerMove = useCallback((e) => {
-    if (e.pointerType === 'touch') return; // let container handle two-finger pan
-    // Allow middle/right-drag panning to work: don't intercept when those buttons are held
-    const isMiddleOrRight = (e.buttons & 6) !== 0; // 2=right, 4=middle
-    if (isMiddleOrRight) return;
+    // Allow middle/right-drag panning to work on mouse: don't intercept when those buttons are held
+    if (e.pointerType === 'mouse') {
+      const isMiddleOrRight = (e.buttons & 6) !== 0; // 2=right, 4=middle
+      if (isMiddleOrRight) return;
+    }
     // Follow mouse after first click, until finalized
     if (!start || finalized) return;
-    // No need to stop propagation; container only pans when its panning flag is active
+    // No need to stop propagation; container only pans on two-finger or middle/right mouse
     if (typeof e.preventDefault === 'function') e.preventDefault();
     const cell = getCellFromPoint(e.clientX, e.clientY);
     if (!cell) return;
@@ -101,8 +105,7 @@ export default function RulerTool({
   }, [getCellFromPoint, start, finalized]);
 
   const handlePointerUp = useCallback((e) => {
-    if (e.pointerType === 'touch') return; // let container handle two-finger pan
-    // If middle/right button, let container handle ending the pan
+    // If middle/right mouse button, let container handle ending the pan
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     if (draggingRef.current) {
       draggingRef.current = false;
