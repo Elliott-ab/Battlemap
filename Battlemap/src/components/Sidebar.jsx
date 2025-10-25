@@ -31,6 +31,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
   // Whole sidebar collapse state (affects height on mobile/portrait and width on desktop)
   const [collapsed, setCollapsed] = useState(false);
   const [isPortraitPhone, setIsPortraitPhone] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   // Default to collapsed on narrow screens to save space (hosts only)
   React.useEffect(() => {
@@ -55,12 +56,15 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
     } catch {}
   }, [collapsed, isHost]);
 
-  // Track whether we're on a portrait phone (<=768px and portrait orientation)
+  // Track whether we're on mobile (<=1024px) and a portrait phone (<=768px & portrait)
   React.useEffect(() => {
     try {
       if (typeof window === 'undefined') return;
       const mqPortrait = window.matchMedia('(orientation: portrait)');
-      const compute = () => setIsPortraitPhone(window.innerWidth <= 768 && mqPortrait.matches);
+      const compute = () => {
+        setIsPortraitPhone(window.innerWidth <= 768 && mqPortrait.matches);
+        setIsMobile(window.innerWidth <= 1024);
+      };
       compute();
       const onResize = () => compute();
       window.addEventListener('resize', onResize);
@@ -239,11 +243,12 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
   }, [isDrawingCover]);
 
   const playerPortrait = (!isHost && isPortraitPhone);
+  const disableStickyInitiative = (isHost && isMobile);
   return (
     <aside className={`sidebar ${playerPortrait ? 'sidebar--player-portrait' : ''} ${collapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-body">
         {/* Turn controls (initiative) and, on mobile portrait players, fixed "My Card" just beneath */}
-        <div className={`sidebar-sticky ${isDrawingCover ? 'disabled-while-drawing' : ''}`} style={{ width: '100%', paddingTop: (playerPortrait ? 0 : '0.5rem'), paddingBottom: (playerPortrait ? 0 : '0.5rem') }}>
+        <div className={`sidebar-sticky ${isDrawingCover ? 'disabled-while-drawing' : ''}`} style={{ width: '100%', paddingTop: (playerPortrait ? 0 : '0.5rem'), paddingBottom: (playerPortrait ? 0 : '0.5rem'), ...(disableStickyInitiative ? { position: 'static' } : {}) }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', width: '100%' }}>
           {isHost && initiativeSet && (
             <IconButton size="small" title="Previous Turn" onClick={() => {
