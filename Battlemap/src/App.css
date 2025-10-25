@@ -902,7 +902,7 @@ body {
 
 /* Slim toolbar: default (desktop) top bar in map pane */
 .slim-toolbar {
-    z-index: 45; /* below zoom controls (50) and ruler (60) */
+    z-index: 200; /* ensure always above map overlays (e.g., ruler at 60) */
     height: 36px; /* slightly larger on desktop */
     border-bottom: 1px solid #444;
     background-color: #242424;
@@ -1849,7 +1849,7 @@ body {
 @media (min-width: 1025px) {
     .slim-toolbar {
         position: relative;
-        z-index: 5; /* above content area */
+        z-index: 200; /* keep above map overlays even on desktop */
     }
 }
 

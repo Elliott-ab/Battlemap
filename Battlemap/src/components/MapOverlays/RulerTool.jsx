@@ -56,9 +56,27 @@ export default function RulerTool({
   }, []);
 
   const handlePointerDown = useCallback((e) => {
-    // For touch: handle primary finger for tap/drag measure; allow second finger to bubble for pinch/pan
-    if (e.pointerType === 'touch' && e.isPrimary === false) {
-      return; // let container handle multi-touch gestures
+    // Touch: disable drag-to-measure; support tap-to-start and tap-to-end only
+    if (e.pointerType === 'touch') {
+      if (e.isPrimary === false) return; // allow second finger for pinch/pan
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+      const cell = getCellFromPoint(e.clientX, e.clientY);
+      if (!cell) return;
+      const x = parseInt(cell.dataset.x);
+      const y = parseInt(cell.dataset.y);
+      if (!start || finalized) {
+        setStart({ x, y });
+        setEnd(null);
+        setFinalized(false);
+      } else {
+        setEnd({ x, y });
+        setFinalized(true);
+        if (onMeasure) {
+          try { onMeasure({ start: { ...start }, end: { x, y } }); } catch {}
+        }
+      }
+      // Do NOT start a drag or capture on touch
+      return;
     }
     // Mouse: only left button
     if (e.pointerType === 'mouse' && e.button !== 0) return;
@@ -88,6 +106,8 @@ export default function RulerTool({
   }, [getCellFromPoint, start, finalized, onMeasure]);
 
   const handlePointerMove = useCallback((e) => {
+    // Ignore touch move for ruler (no drag-to-measure on touch)
+    if (e.pointerType === 'touch') return;
     // Allow middle/right-drag panning to work on mouse: don't intercept when those buttons are held
     if (e.pointerType === 'mouse') {
       const isMiddleOrRight = (e.buttons & 6) !== 0; // 2=right, 4=middle
@@ -105,6 +125,8 @@ export default function RulerTool({
   }, [getCellFromPoint, start, finalized]);
 
   const handlePointerUp = useCallback((e) => {
+    // Ignore touch: we don't use drag-to-measure on touch, so no finalize-on-release
+    if (e.pointerType === 'touch') return;
     // If middle/right mouse button, let container handle ending the pan
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     if (draggingRef.current) {
