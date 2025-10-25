@@ -723,10 +723,6 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
           battleMapRef={localBattleMapRef}
           zoom={zoom}
           viewTick={viewTransformTick}
-          onMeasure={({ start, end }) => {
-            // Consumers can observe measurements if needed
-            try { window.dispatchEvent(new CustomEvent('bm-ruler-measure', { detail: { start, end } })); } catch {}
-          }}
         />
       )}
       {/* Desktop-only zoom controls (bottom-right) */}
