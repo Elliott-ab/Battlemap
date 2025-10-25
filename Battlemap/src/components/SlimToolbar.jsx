@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, IconButton, Tooltip } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faRulerCombined, faArrowPointer } from '@fortawesome/free-solid-svg-icons';
+import { faRulerCombined, faArrowPointer, faArrowsUpDownLeftRight } from '@fortawesome/free-solid-svg-icons';
 import { useTool, ToolIds } from '../context/ToolContext.jsx';
 
 export default function SlimToolbar() {
@@ -35,6 +35,11 @@ export default function SlimToolbar() {
       <Tooltip title="Ruler (measure)" placement="bottom">
         <IconButton aria-label="Ruler tool" size="small" sx={btnSx(tool === ToolIds.RULER)} onClick={() => setTool(ToolIds.RULER)}>
           <FontAwesomeIcon icon={faRulerCombined} />
+        </IconButton>
+      </Tooltip>
+      <Tooltip title="Move (highlight movement)" placement="bottom">
+        <IconButton aria-label="Move tool" size="small" sx={btnSx(tool === ToolIds.MOVE)} onClick={() => setTool(ToolIds.MOVE)}>
+          <FontAwesomeIcon icon={faArrowsUpDownLeftRight} />
         </IconButton>
       </Tooltip>
     </Box>

@@ -7,7 +7,7 @@ import { useGrid } from '../Utils/grid.js';
 import { useTool, ToolIds } from '../context/ToolContext.jsx';
 import RulerTool from './MapOverlays/RulerTool.jsx';
 
-const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlocks, drawEnvType, updateElementPosition, pushUndo, highlightCoverGroup, battleMapRef, isHost = false, currentUserId = null }) => {
+const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlocks, drawEnvType, updateElementPosition, pushUndo, highlightCoverGroup, toggleMovementHighlight, battleMapRef, isHost = false, currentUserId = null }) => {
   const localBattleMapRef = useRef(null);
   const containerRef = useRef(null);
   const currentDragElement = useRef(null);
@@ -319,6 +319,27 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
   const handlePointerDown = (e) => {
     // Disable token drag/pan while using tools like Ruler
     if (tool === ToolIds.RULER) return;
+    // Movement tool: clicking a token toggles its movement highlight; do not start drags
+    if (tool === ToolIds.MOVE) {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      const elDiv = e.target.closest('.element');
+      if (elDiv) {
+        if (typeof e.preventDefault === 'function') e.preventDefault();
+        if (typeof e.stopPropagation === 'function') e.stopPropagation();
+        const clickedId = parseInt(elDiv.dataset.id);
+        const clickedEl = state.elements.find(x => x.id === clickedId);
+        if (!clickedEl) return;
+        if (!(clickedEl.type === 'player' || clickedEl.type === 'enemy')) return;
+        // Players can only toggle their own player token in game
+        if (!isHost) {
+          if (!(clickedEl.type === 'player' && clickedEl.participantUserId === currentUserId)) return;
+        }
+        if (typeof toggleMovementHighlight === 'function') {
+          toggleMovementHighlight(clickedId, localBattleMapRef);
+        }
+      }
+      return;
+    }
     // Only left mouse button should initiate element drag/move; ignore touch to avoid accidental drags
     if (e.pointerType === 'mouse') {
       if (e.button !== 0) return;
@@ -452,6 +473,28 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
       document.removeEventListener('pointercancel', handlePointerUp);
     };
   }, [handlePointerMove, handlePointerUp]);
+
+  // When movement tool becomes active for a player, auto-highlight their token.
+  // When leaving the tool, clear any movement highlight.
+  useEffect(() => {
+    const mapEl = localBattleMapRef.current;
+    if (!mapEl) return;
+    if (tool === ToolIds.MOVE) {
+      if (!isHost && currentUserId) {
+        try {
+          const myToken = (state.elements || []).find(el => el && el.type === 'player' && el.participantUserId === currentUserId);
+          if (myToken && typeof toggleMovementHighlight === 'function') {
+            toggleMovementHighlight(myToken.id, localBattleMapRef);
+          }
+        } catch {}
+      }
+    } else {
+      // Clear highlight when switching away from Move tool
+      try { document.querySelectorAll('.movement-highlight').forEach(h => h.remove()); } catch {}
+      try { if (mapEl && mapEl.dataset) delete mapEl.dataset.highlightedId; } catch {}
+      setState(prev => ({ ...prev, highlightedElementId: null }));
+    }
+  }, [tool, isHost, currentUserId, state.elements, toggleMovementHighlight, setState]);
 
   // Handle pinch-to-zoom with two pointers; keep midpoint stationary
   const onContainerPointerDown = (e) => {

@@ -4,6 +4,7 @@ import React, { createContext, useContext, useMemo, useState, useEffect } from '
 export const ToolIds = {
   POINTER: 'pointer',
   RULER: 'ruler',
+  MOVE: 'move',
 };
 
 const ToolContext = createContext({

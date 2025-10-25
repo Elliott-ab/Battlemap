@@ -815,6 +815,11 @@ body {
 }
 .tool--ruler .map-container { cursor: crosshair; }
 .tool--ruler .element { cursor: crosshair; }
+/* Move tool cursor hint: use OS 4-way move cursor to match the toolbar icon semantics */
+.tool--move .map-container { cursor: move; }
+.tool--move .battle-map { cursor: move; }
+.tool--move .grid-cell { cursor: move; }
+.tool--move .element { cursor: move; }
 /* Grey out the entire grid and tokens while measuring; overlay stays full brightness */
 .tool--ruler .battle-map {
     filter: grayscale(0.35) brightness(0.92);

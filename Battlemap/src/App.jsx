@@ -1296,6 +1296,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
           updateElementPosition={safeUpdateElementPosition}
           pushUndo={pushUndo}
           highlightCoverGroup={highlightCoverGroup}
+          toggleMovementHighlight={toggleMovementHighlight}
           battleMapRef={battleMapRef}
           isHost={isHost}
           currentUserId={user?.id}
