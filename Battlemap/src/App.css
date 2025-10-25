@@ -868,14 +868,12 @@ body {
     width: 80px;
     accent-color: #4CAF50;
 }
-/* Responsive visibility: show desktop controls on >=1025px, mobile controls below */
+/* Only show desktop zoom controls; mobile zoom controls are removed */
 @media (max-width: 1024px) {
     .zoom-controls--desktop { display: none; }
-    .zoom-controls--mobile { display: flex; }
 }
 @media (min-width: 1025px) {
     .zoom-controls--desktop { display: flex; }
-    .zoom-controls--mobile { display: none; }
 }
 
 /* Improve touch targets on mobile zoom controls */
@@ -889,9 +887,53 @@ body {
     right: 10px;
 }
 
-/* Add bottom padding in map container to avoid controls overlapping content on mobile */
-@media (max-width: 768px) {
-    .map-container { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+/* Define a mobile footer height variable (0 by default); can be overridden if a footer exists */
+:root { --mobile-footer-height: 0px; }
+
+/* Add bottom padding in map container to avoid the bottom tool bar overlapping content on mobile */
+@media (max-width: 1024px) {
+    .map-container { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px) + var(--mobile-footer-height, 0px)); }
+}
+
+/* Slim toolbar: default (desktop) top bar in map pane */
+.slim-toolbar {
+    z-index: 45; /* below zoom controls (50) and ruler (60) */
+    height: 32px;
+    border-bottom: 1px solid #444;
+    background-color: #242424;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding-left: 12px;
+    padding-right: 12px;
+}
+
+/* On mobile, pin the slim toolbar to the bottom of the viewport and expand */
+@media (max-width: 1024px) {
+    .slim-toolbar {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: calc(env(safe-area-inset-bottom, 0px) + var(--mobile-footer-height, 0px));
+        height: 48px;
+        border-top: 1px solid #444;
+        border-bottom: none;
+        background-color: rgba(36,36,36,0.98);
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        padding: 6px 10px;
+        box-shadow: 0 -4px 12px rgba(0,0,0,0.4);
+    }
+    /* Slightly larger touch targets on mobile */
+    .slim-toolbar .MuiIconButton-root { width: 36px; height: 36px; }
+    .slim-toolbar svg[data-icon] { font-size: 16px; }
+}
+
+/* Desktop sizing for toolbar buttons and icons */
+@media (min-width: 1025px) {
+    .slim-toolbar .MuiIconButton-root { width: 28px; height: 28px; }
+    .slim-toolbar svg[data-icon] { font-size: 14px; }
 }
 
 .battle-map {
@@ -1796,10 +1838,12 @@ body {
 .icon-button--small { padding: 2px; }
 .icon-button--large { padding: 8px; }
 
-/* Slim tools toolbar tweaks on dark bg */
-.slim-toolbar {
-    position: relative;
-    z-index: 5; /* above content area */
+/* Slim tools toolbar tweaks: scope the relative stacking to desktop only to avoid overriding mobile fixed bar */
+@media (min-width: 1025px) {
+    .slim-toolbar {
+        position: relative;
+        z-index: 5; /* above content area */
+    }
 }
 
 /* Responsive swap for Global Modifiers card layouts */

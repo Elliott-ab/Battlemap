@@ -114,6 +114,42 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
     updateGridInfo();
   }, [state, updateGridInfo]);
 
+  // Mobile footer support: if the page includes a footer marked with
+  // [data-mobile-footer], measure its height and expose it as the
+  // CSS variable --mobile-footer-height so the bottom tool bar can
+  // sit just above it.
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    const root = document.documentElement;
+    let observed = null;
+    let ro = null;
+    const update = () => {
+      try {
+        const el = document.querySelector('[data-mobile-footer]');
+        // Rebind observer if the footer node changes/appears
+        if (el !== observed) {
+          if (ro && observed) {
+            try { ro.unobserve(observed); } catch {}
+          }
+          observed = el;
+          if (observed && 'ResizeObserver' in window) {
+            ro = new ResizeObserver(() => update());
+            try { ro.observe(observed); } catch {}
+          }
+        }
+        const h = el ? Math.round(el.getBoundingClientRect().height) : 0;
+        root.style.setProperty('--mobile-footer-height', `${h}px`);
+      } catch {}
+    };
+    update();
+    const onResize = () => update();
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      try { ro?.disconnect?.(); } catch {}
+    };
+  }, []);
+
   // One-time cleanup: if a previous build stored Supabase auth in localStorage,
   // remove it so users don't remain logged in after switching to sessionStorage.
   useEffect(() => {

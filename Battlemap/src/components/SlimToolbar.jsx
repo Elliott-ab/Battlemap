@@ -12,8 +12,6 @@ export default function SlimToolbar() {
     border: active ? '1px solid rgba(76,175,80,0.7)' : '1px solid rgba(255,255,255,0.15)',
     backgroundColor: active ? 'rgba(76,175,80,0.15)' : 'transparent',
     '&:hover': { backgroundColor: 'rgba(255,255,255,0.08)' },
-    width: 28,
-    height: 28,
     p: 0,
   });
 
@@ -21,9 +19,6 @@ export default function SlimToolbar() {
     <Box
       className="slim-toolbar"
       sx={{
-        height: 32,
-        borderBottom: '1px solid #444',
-        backgroundColor: '#242424',
         display: 'flex',
         alignItems: 'center',
         gap: 0.5,
@@ -34,12 +29,12 @@ export default function SlimToolbar() {
     >
       <Tooltip title="Pointer" placement="bottom">
         <IconButton aria-label="Pointer tool" size="small" sx={btnSx(tool === ToolIds.POINTER)} onClick={() => setTool(ToolIds.POINTER)}>
-          <FontAwesomeIcon icon={faArrowPointer} style={{ fontSize: 12 }} />
+          <FontAwesomeIcon icon={faArrowPointer} />
         </IconButton>
       </Tooltip>
       <Tooltip title="Ruler (measure)" placement="bottom">
         <IconButton aria-label="Ruler tool" size="small" sx={btnSx(tool === ToolIds.RULER)} onClick={() => setTool(ToolIds.RULER)}>
-          <FontAwesomeIcon icon={faRulerCombined} style={{ fontSize: 12 }} />
+          <FontAwesomeIcon icon={faRulerCombined} />
         </IconButton>
       </Tooltip>
     </Box>
