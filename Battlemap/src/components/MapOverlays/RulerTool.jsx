@@ -174,7 +174,7 @@ export default function RulerTool({
     return { cells: euclidCells, feet, line, blocked };
   }, [start, end, state?.grid?.cellSize, state?.elements]);
 
-  // Build overlay line using DOM positions (auto-follows transforms)
+  // Build overlay positions using DOM (auto-follows transforms)
   const overlay = useMemo(() => {
     if (!start || !end || !info) return null;
     const map = battleMapRef?.current;
@@ -184,7 +184,6 @@ export default function RulerTool({
     if (!startCell || !endCell) return null;
     const sc = startCell.getBoundingClientRect();
     const ec = endCell.getBoundingClientRect();
-    // Container for overlay anchoring
     const container = map.closest('.map-container');
     const cr = container ? container.getBoundingClientRect() : { left: 0, top: 0 };
     const sx = sc.left + sc.width / 2 - cr.left;
@@ -193,6 +192,21 @@ export default function RulerTool({
     const ey = ec.top + ec.height / 2 - cr.top;
     return { sx, sy, ex, ey, containerRect: cr };
   }, [start, end, battleMapRef, info, zoom, viewTick]);
+
+  // Compute start marker position independently so we can show a dot after first tap
+  const startOverlay = useMemo(() => {
+    if (!start) return null;
+    const map = battleMapRef?.current;
+    if (!map) return null;
+    const startCell = map.querySelector(`.grid-cell[data-x="${start.x}"][data-y="${start.y}"]`);
+    if (!startCell) return null;
+    const sc = startCell.getBoundingClientRect();
+    const container = map.closest('.map-container');
+    const cr = container ? container.getBoundingClientRect() : { left: 0, top: 0 };
+    const sx = sc.left + sc.width / 2 - cr.left;
+    const sy = sc.top + sc.height / 2 - cr.top;
+    return { sx, sy };
+  }, [start, battleMapRef, zoom, viewTick]);
 
   return (
     <div
@@ -203,57 +217,67 @@ export default function RulerTool({
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
     >
-      {overlay && info && (
-        <svg
-          width="100%"
-          height="100%"
-          style={{ position: 'absolute', inset: 0 }}
-        >
-          <line
-            x1={overlay.sx}
-            y1={overlay.sy}
-            x2={overlay.ex}
-            y2={overlay.ey}
-            stroke={info.blocked ? '#ef5350' : '#ffffff'}
-            strokeWidth="2"
-            strokeOpacity="0.9"
-            strokeDasharray="6,4"
-          />
-          {/* Endpoints */}
-          <circle
-            cx={overlay.sx}
-            cy={overlay.sy}
-            r="4"
-            fill={info.blocked ? '#ef5350' : '#ffffff'}
-            stroke="rgba(0,0,0,0.6)"
-            strokeWidth="1.5"
-          />
-          <circle
-            cx={overlay.ex}
-            cy={overlay.ey}
-            r="4"
-            fill={info.blocked ? '#ef5350' : '#ffffff'}
-            stroke="rgba(0,0,0,0.6)"
-            strokeWidth="1.5"
-          />
-          {/* Label near end */}
-          <g>
-            <rect
-              x={Math.min(overlay.ex, overlay.sx) + Math.abs(overlay.ex - overlay.sx) * 0.5 - 40}
-              y={Math.min(overlay.ey, overlay.sy) + Math.abs(overlay.ey - overlay.sy) * 0.5 - 14}
-              width="80" height="20" rx="6" ry="6"
-              fill="rgba(34,34,34,0.85)" stroke="rgba(255,255,255,0.25)" />
-            <text
-              x={Math.min(overlay.ex, overlay.sx) + Math.abs(overlay.ex - overlay.sx) * 0.5}
-              y={Math.min(overlay.ey, overlay.sy) + Math.abs(overlay.ey - overlay.sy) * 0.5}
-              dominantBaseline="middle"
-              textAnchor="middle"
-              fill="#fff"
-              fontSize="12"
-            >
-              {Math.round(info.feet)} ft
-            </text>
-          </g>
+      {(startOverlay || (overlay && info)) && (
+        <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0 }}>
+          {/* If we have both endpoints, draw the line and both endpoint dots */}
+          {overlay && info && (
+            <>
+              <line
+                x1={overlay.sx}
+                y1={overlay.sy}
+                x2={overlay.ex}
+                y2={overlay.ey}
+                stroke={info.blocked ? '#ef5350' : '#ffffff'}
+                strokeWidth="2"
+                strokeOpacity="0.9"
+                strokeDasharray="6,4"
+              />
+              <circle
+                cx={overlay.sx}
+                cy={overlay.sy}
+                r="4"
+                fill={info.blocked ? '#ef5350' : '#ffffff'}
+                stroke="rgba(0,0,0,0.6)"
+                strokeWidth="1.5"
+              />
+              <circle
+                cx={overlay.ex}
+                cy={overlay.ey}
+                r="4"
+                fill={info.blocked ? '#ef5350' : '#ffffff'}
+                stroke="rgba(0,0,0,0.6)"
+                strokeWidth="1.5"
+              />
+              <g>
+                <rect
+                  x={Math.min(overlay.ex, overlay.sx) + Math.abs(overlay.ex - overlay.sx) * 0.5 - 40}
+                  y={Math.min(overlay.ey, overlay.sy) + Math.abs(overlay.ey - overlay.sy) * 0.5 - 14}
+                  width="80" height="20" rx="6" ry="6"
+                  fill="rgba(34,34,34,0.85)" stroke="rgba(255,255,255,0.25)" />
+                <text
+                  x={Math.min(overlay.ex, overlay.sx) + Math.abs(overlay.ex - overlay.sx) * 0.5}
+                  y={Math.min(overlay.ey, overlay.sy) + Math.abs(overlay.ey - overlay.sy) * 0.5}
+                  dominantBaseline="middle"
+                  textAnchor="middle"
+                  fill="#fff"
+                  fontSize="12"
+                >
+                  {Math.round(info.feet)} ft
+                </text>
+              </g>
+            </>
+          )}
+          {/* If only the start was chosen (e.g., first tap on mobile), show a start dot */}
+          {!overlay && startOverlay && (
+            <circle
+              cx={startOverlay.sx}
+              cy={startOverlay.sy}
+              r="4"
+              fill="#ffffff"
+              stroke="rgba(0,0,0,0.6)"
+              strokeWidth="1.5"
+            />
+          )}
         </svg>
       )}
     </div>
