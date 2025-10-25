@@ -35,6 +35,8 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
   const hasPannedRef = useRef(false);
   // Drawing mode painting state
   const paintingRef = useRef({ active: false, visited: new Set() });
+  // Ensure we only auto-fit once per grid load to avoid render loops
+  const initialFitDoneRef = useRef(false);
 
   const processCoverAtPoint = (clientX, clientY) => {
     const cell = getCellFromPoint(clientX, clientY);
@@ -138,12 +140,17 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
     }
   }, [localBattleMapRef, battleMapRef]);
 
-  // Render grid when state or ref is ready
+  // Render grid when state or rotation changes; perform initial auto-fit only once per grid load
   useEffect(() => {
     if (localBattleMapRef.current) {
-  renderGrid(localBattleMapRef, rotationIndex);
-      // Fit to screen by default if user hasn't zoomed
-      if (!userZoomedRef.current) {
+      renderGrid(localBattleMapRef, rotationIndex);
+      // Update external ref if provided
+      if (battleMapRef && battleMapRef.current !== localBattleMapRef.current) {
+        battleMapRef.current = localBattleMapRef.current;
+      }
+      // Do the initial fit exactly once to avoid triggering an infinite update loop
+      if (!initialFitDoneRef.current) {
+        initialFitDoneRef.current = true;
         scheduleFitToScreen();
       }
     } else {
@@ -153,14 +160,26 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
           if (battleMapRef && battleMapRef.current !== localBattleMapRef.current) {
             battleMapRef.current = localBattleMapRef.current;
           }
-          if (!userZoomedRef.current) {
+          if (!initialFitDoneRef.current) {
+            initialFitDoneRef.current = true;
             scheduleFitToScreen();
           }
         }
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [state, rotationIndex, renderGrid, localBattleMapRef, battleMapRef]);
+  }, [state, rotationIndex, renderGrid]);
+
+  // If the grid dimensions or cell size change (e.g., new map loaded), allow a fresh initial fit
+  useEffect(() => {
+    try {
+      const w = state?.grid?.width;
+      const h = state?.grid?.height;
+      const cs = state?.grid?.cellSize;
+      // Touching the ref is enough; effect re-run will schedule a fit once
+      initialFitDoneRef.current = false;
+    } catch {}
+  }, [state?.grid?.width, state?.grid?.height, state?.grid?.cellSize]);
 
   // Ensure drawing mode starts with a clean click state (no suppressed first click)
   useEffect(() => {
@@ -478,30 +497,68 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
     };
   }, [handlePointerMove, handlePointerUp]);
 
-  // When movement tool becomes active for a player, auto-highlight their token.
-  // When leaving the tool, clear any movement highlight.
+  // When movement tool becomes active for a player, auto-highlight their token once
   useEffect(() => {
+    if (tool !== ToolIds.MOVE) return;
     const mapEl = localBattleMapRef.current;
     if (!mapEl) return;
-    if (tool === ToolIds.MOVE) {
-      if (!isHost && currentUserId) {
-        try {
-          const myToken = (state.elements || []).find(el => el && el.type === 'player' && el.participantUserId === currentUserId);
-          if (myToken && typeof toggleMovementHighlight === 'function') {
-            toggleMovementHighlight(myToken.id, localBattleMapRef);
-          }
-        } catch {}
-      }
-    } else {
-      // Clear highlight when switching away from Move tool
-      try { document.querySelectorAll('.movement-highlight').forEach(h => h.remove()); } catch {}
-      try { if (mapEl && mapEl.dataset) delete mapEl.dataset.highlightedId; } catch {}
-      setState(prev => ({ ...prev, highlightedElementId: null }));
+    if (!isHost && currentUserId) {
+      try {
+        const myToken = (state.elements || []).find(el => el && el.type === 'player' && el.participantUserId === currentUserId);
+        if (!myToken) return;
+        // Read current highlighted id (DOM dataset preferred for immediate accuracy)
+        const domHighlightedId = mapEl?.dataset?.highlightedId ? parseInt(mapEl.dataset.highlightedId) : null;
+        const effectiveHighlightedId = domHighlightedId || state.highlightedElementId || null;
+        // Only toggle if not already highlighted to avoid flip-flop loops
+        if (effectiveHighlightedId !== myToken.id && typeof toggleMovementHighlight === 'function') {
+          toggleMovementHighlight(myToken.id, localBattleMapRef);
+        }
+      } catch {}
     }
-  }, [tool, isHost, currentUserId, state.elements, toggleMovementHighlight, setState]);
+  }, [tool, isHost, currentUserId, state.elements, toggleMovementHighlight]);
+
+  // When leaving the Move tool, clear any movement highlight (run only on tool change)
+  useEffect(() => {
+    if (tool === ToolIds.MOVE) return;
+    const mapEl = localBattleMapRef.current;
+    if (!mapEl) return;
+    try { document.querySelectorAll('.movement-highlight').forEach(h => h.remove()); } catch {}
+    try { if (mapEl && mapEl.dataset) delete mapEl.dataset.highlightedId; } catch {}
+    setState(prev => (prev.highlightedElementId ? { ...prev, highlightedElementId: null } : prev));
+  }, [tool]);
 
   // Handle pinch-to-zoom with two pointers; keep midpoint stationary
   const onContainerPointerDown = (e) => {
+    // Fallback for mobile taps: if Move tool is active and the child handler didn't catch the token
+    // (e.g., due to hit-testing over child layers), detect the token under the finger and toggle highlight.
+    if (tool === ToolIds.MOVE && e.pointerType === 'touch' && !isDrawingCover) {
+      try {
+        // If child handler already handled, it would have called stopPropagation; React synthetic
+        // events respect stopPropagation, but guard anyway.
+        const existing = (e.target && typeof e.target.closest === 'function') ? e.target.closest('.element') : null;
+        let elDiv = existing;
+        if (!elDiv && typeof document.elementFromPoint === 'function') {
+          const n = document.elementFromPoint(e.clientX, e.clientY);
+          elDiv = n && typeof n.closest === 'function' ? n.closest('.element') : null;
+        }
+        if (elDiv) {
+          const clickedId = parseInt(elDiv.dataset.id);
+          const clickedEl = state.elements.find(x => x.id === clickedId);
+          if (clickedEl && (clickedEl.type === 'player' || clickedEl.type === 'enemy')) {
+            // Players may only toggle their own player token; host/editor can toggle any
+            if (isHost || (clickedEl.type === 'player' && clickedEl.participantUserId === currentUserId)) {
+              if (typeof e.preventDefault === 'function') e.preventDefault();
+              if (typeof e.stopPropagation === 'function') e.stopPropagation();
+              if (typeof toggleMovementHighlight === 'function') {
+                toggleMovementHighlight(clickedId, localBattleMapRef);
+                suppressNextClickRef.current = true;
+                return; // handled
+              }
+            }
+          }
+        }
+      } catch {}
+    }
     // Drawing mode: start painting on left mouse or single-finger touch
     if (isDrawingCover) {
       if ((e.pointerType === 'mouse' && e.button === 0) || e.pointerType === 'touch') {

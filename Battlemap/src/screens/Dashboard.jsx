@@ -72,6 +72,8 @@ export default function Dashboard() {
       const code = joinCode.trim().toUpperCase();
       if (!code) return;
       const game = await joinGameByCode(user.id, code);
+      // Ensure session is populated so App can prompt for character selection on join
+      setSession({ id: game.id, code: game.code, name: game.name || null, role: 'player', host_id: game.host_id, promptCharacter: true });
       navigate(`/battlemap/${game.code}`);
     } catch (e) {
       setError(e.message);
