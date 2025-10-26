@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Box, IconButton, Tooltip } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faRulerCombined, faArrowPointer, faArrowsUpDownLeftRight, faChevronDown, faChevronRight } from '@fortawesome/free-solid-svg-icons';
+import { faRulerCombined, faArrowPointer, faArrowsUpDownLeftRight, faChevronRight } from '@fortawesome/free-solid-svg-icons';
 import { faPenToSquare as faPenToSquareRegular } from '@fortawesome/free-regular-svg-icons';
 import { useTool, ToolIds } from '../context/ToolContext.jsx';
 
@@ -83,7 +83,7 @@ export default function SlimToolbar({
         const within = wrapRef.current?.contains?.(e.target);
         if (!within) {
           setDrawMenuOpen(false);
-          setPrimaryOpen(null);
+          // Preserve primaryOpen so reopening restores the last submenu
         }
       } catch {}
     };
@@ -142,11 +142,6 @@ export default function SlimToolbar({
             >
               {/* Main icon */}
               <FontAwesomeIcon icon={faPenToSquareRegular} />
-              {/* Dropdown indicator chevron anchored to the bottom of the button */}
-              <FontAwesomeIcon
-                icon={faChevronDown}
-                style={{ position: 'absolute', bottom: 2, left: '50%', transform: 'translateX(-50%)', fontSize: 10, opacity: 0.9, pointerEvents: 'none' }}
-              />
             </IconButton>
           </Tooltip>
           {drawMenuOpen && (
