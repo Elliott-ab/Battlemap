@@ -22,6 +22,31 @@ export default function SlimToolbar({
   const drawBtnRef = useRef(null);
   const menuRef = useRef(null);
   const wrapRef = useRef(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [menuHeight, setMenuHeight] = useState(56); // track primary menu height on mobile
+
+  // Track mobile layout (toolbar fixed at bottom); open draw menu upwards on mobile
+  React.useEffect(() => {
+    const compute = () => {
+      try {
+        setIsMobile(typeof window !== 'undefined' && window.innerWidth <= 1024);
+      } catch { setIsMobile(false); }
+    };
+    compute();
+    window.addEventListener('resize', compute);
+    return () => window.removeEventListener('resize', compute);
+  }, []);
+
+  // Measure the primary menu height when open on mobile so we can place the submenu above it
+  React.useEffect(() => {
+    if (!drawMenuOpen || !isMobile) return;
+    const el = menuRef.current;
+    if (!el) return;
+    try {
+      const rect = el.getBoundingClientRect();
+      if (rect?.height && Math.abs(rect.height - menuHeight) > 1) setMenuHeight(Math.ceil(rect.height));
+    } catch {}
+  }, [drawMenuOpen, isMobile, primaryOpen, menuHeight]);
 
   const btnSx = (active) => ({
     color: active ? '#4CAF50' : '#fff',
@@ -170,37 +195,101 @@ export default function SlimToolbar({
             </IconButton>
           </Tooltip>
           {drawMenuOpen && (
-            <div className="slim-dropdown" style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', marginTop: 6, zIndex: 210 }}>
-              <div className="slim-dropdown__menu" ref={menuRef}>
-                <button className={`slim-dropdown__item ${primaryOpen === 'environment' ? 'active' : ''}`} onClick={(e) => selectPrimary('environment', e)}>
+            <div
+              className="slim-dropdown"
+              style={{
+                position: isMobile ? 'fixed' : 'absolute',
+                zIndex: 210,
+                // Mobile: full-width primary bar directly above the slim toolbar
+                ...(isMobile
+                  ? {
+                      left: 0,
+                      right: 0,
+                      bottom: 'calc(48px + env(safe-area-inset-bottom, 0px) + var(--mobile-footer-height, 0px))',
+                      transform: 'none',
+                    }
+                  : {
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      top: '100%',
+                      marginTop: 6,
+                    }),
+              }}
+            >
+              <div
+                className="slim-dropdown__menu"
+                ref={menuRef}
+                style={isMobile ? {
+                  top: 'auto',
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  borderRadius: 0,
+                  display: 'flex',
+                  flexDirection: 'row',
+                  justifyContent: 'space-around',
+                  padding: '8px 10px',
+                } : undefined}
+              >
+                <button className={`slim-dropdown__item ${primaryOpen === 'environment' ? 'active' : ''}`} onClick={(e) => selectPrimary('environment', e)} style={isMobile ? { flex: 1, justifyContent: 'center' } : undefined}>
                   <span>Cover</span>
-                  <FontAwesomeIcon icon={faChevronRight} style={{ opacity: 0.85, fontSize: 10 }} />
+                  {!isMobile && (<FontAwesomeIcon icon={faChevronRight} style={{ opacity: 0.85, fontSize: 10 }} />)}
                 </button>
-                <button className={`slim-dropdown__item ${primaryOpen === 'terrain' ? 'active' : ''}`} onClick={(e) => selectPrimary('terrain', e)}>
+                <button className={`slim-dropdown__item ${primaryOpen === 'terrain' ? 'active' : ''}`} onClick={(e) => selectPrimary('terrain', e)} style={isMobile ? { flex: 1, justifyContent: 'center' } : undefined}>
                   <span>Terrain</span>
-                  <FontAwesomeIcon icon={faChevronRight} style={{ opacity: 0.85, fontSize: 10 }} />
+                  {!isMobile && (<FontAwesomeIcon icon={faChevronRight} style={{ opacity: 0.85, fontSize: 10 }} />)}
                 </button>
-                <button className={`slim-dropdown__item ${primaryOpen === 'creatures' ? 'active' : ''}`} onClick={(e) => selectPrimary('creatures', e)}>
+                <button className={`slim-dropdown__item ${primaryOpen === 'creatures' ? 'active' : ''}`} onClick={(e) => selectPrimary('creatures', e)} style={isMobile ? { flex: 1, justifyContent: 'center' } : undefined}>
                   <span>Creatures</span>
-                  <FontAwesomeIcon icon={faChevronRight} style={{ opacity: 0.85, fontSize: 10 }} />
+                  {!isMobile && (<FontAwesomeIcon icon={faChevronRight} style={{ opacity: 0.85, fontSize: 10 }} />)}
                 </button>
                 {primaryOpen === 'environment' && (
-                  <div className="slim-dropdown__submenu" style={{ left: '100%', top: submenuTop }}>
-                    <button className={`slim-dropdown__item ${drawEnvType === 'half' ? 'selected' : ''}`} onClick={() => selectEnvType('half')}>Half Cover</button>
-                    <button className={`slim-dropdown__item ${drawEnvType === 'three-quarters' ? 'selected' : ''}`} onClick={() => selectEnvType('three-quarters')}>Three-Quarters</button>
-                    <button className={`slim-dropdown__item ${drawEnvType === 'full' ? 'selected' : ''}`} onClick={() => selectEnvType('full')}>Full Cover</button>
+                  <div
+                    className="slim-dropdown__submenu"
+                    style={isMobile ? {
+                      top: 'auto',
+                      position: 'fixed',
+                      left: 0,
+                      right: 0,
+                      bottom: `calc(48px + env(safe-area-inset-bottom, 0px) + var(--mobile-footer-height, 0px) + ${menuHeight}px)`,
+                      borderRadius: 0,
+                    } : { left: '100%', top: submenuTop }}
+                  >
+                    <button className={`slim-dropdown__item ${drawEnvType === 'half' ? 'selected' : ''}`} onClick={() => selectEnvType('half')} style={isMobile ? { width: '100%' } : undefined}>Half Cover</button>
+                    <button className={`slim-dropdown__item ${drawEnvType === 'three-quarters' ? 'selected' : ''}`} onClick={() => selectEnvType('three-quarters')} style={isMobile ? { width: '100%' } : undefined}>Three-Quarters</button>
+                    <button className={`slim-dropdown__item ${drawEnvType === 'full' ? 'selected' : ''}`} onClick={() => selectEnvType('full')} style={isMobile ? { width: '100%' } : undefined}>Full Cover</button>
                   </div>
                 )}
                 {primaryOpen === 'terrain' && (
-                  <div className="slim-dropdown__submenu" style={{ left: '100%', top: submenuTop }}>
-                    <button className={`slim-dropdown__item ${drawEnvType === 'difficult' ? 'selected' : ''}`} onClick={() => selectEnvType('difficult')}>Difficult Terrain</button>
+                  <div
+                    className="slim-dropdown__submenu"
+                    style={isMobile ? {
+                      top: 'auto',
+                      position: 'fixed',
+                      left: 0,
+                      right: 0,
+                      bottom: `calc(48px + env(safe-area-inset-bottom, 0px) + var(--mobile-footer-height, 0px) + ${menuHeight}px)`,
+                      borderRadius: 0,
+                    } : { left: '100%', top: submenuTop }}
+                  >
+                    <button className={`slim-dropdown__item ${drawEnvType === 'difficult' ? 'selected' : ''}`} onClick={() => selectEnvType('difficult')} style={isMobile ? { width: '100%' } : undefined}>Difficult Terrain</button>
                   </div>
                 )}
                 {primaryOpen === 'creatures' && (
-                  <div className="slim-dropdown__submenu" style={{ left: '100%', top: submenuTop }}>
-                    <button className={`slim-dropdown__item ${drawCreatureMode === 'player-generic' ? 'selected' : ''}`} onClick={() => selectCreatureMode('player-generic')}>Player (Generic)</button>
-                    <button className={`slim-dropdown__item ${drawCreatureMode === 'enemy-generic' ? 'selected' : ''}`} onClick={() => selectCreatureMode('enemy-generic')}>Enemy (Generic)</button>
-                    <button className={`slim-dropdown__item ${drawCreatureMode === 'enemy-bestiary' ? 'selected' : ''}`} onClick={() => selectCreatureMode('enemy-bestiary')}>Enemy (Bestiary)</button>
+                  <div
+                    className="slim-dropdown__submenu"
+                    style={isMobile ? {
+                      top: 'auto',
+                      position: 'fixed',
+                      left: 0,
+                      right: 0,
+                      bottom: `calc(48px + env(safe-area-inset-bottom, 0px) + var(--mobile-footer-height, 0px) + ${menuHeight}px)`,
+                      borderRadius: 0,
+                    } : { left: '100%', top: submenuTop }}
+                  >
+                    <button className={`slim-dropdown__item ${drawCreatureMode === 'player-generic' ? 'selected' : ''}`} onClick={() => selectCreatureMode('player-generic')} style={isMobile ? { width: '100%' } : undefined}>Player (Generic)</button>
+                    <button className={`slim-dropdown__item ${drawCreatureMode === 'enemy-generic' ? 'selected' : ''}`} onClick={() => selectCreatureMode('enemy-generic')} style={isMobile ? { width: '100%' } : undefined}>Enemy (Generic)</button>
+                    <button className={`slim-dropdown__item ${drawCreatureMode === 'enemy-bestiary' ? 'selected' : ''}`} onClick={() => selectCreatureMode('enemy-bestiary')} style={isMobile ? { width: '100%' } : undefined}>Enemy (Bestiary)</button>
                   </div>
                 )}
               </div>
