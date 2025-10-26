@@ -1285,7 +1285,13 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
           openInitiativeModal={() => setModalState(prev => ({ ...prev, initiative: true }))}
           />
           <div className="map-pane">
-            <SlimToolbar />
+            <SlimToolbar
+              isHost={isHost}
+              isDrawingCover={isDrawingCover}
+              toggleDrawingMode={toggleDrawingMode}
+              drawEnvType={drawEnvType}
+              setDrawEnvType={setDrawEnvType}
+            />
             <BattleMap
           state={mergedState}
           setState={setState}
