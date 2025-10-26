@@ -18,6 +18,7 @@ export default function SlimToolbar({
   const [submenuTop, setSubmenuTop] = useState(0);
   const drawBtnRef = useRef(null);
   const menuRef = useRef(null);
+  const wrapRef = useRef(null);
 
   const btnSx = (active) => ({
     color: active ? '#4CAF50' : '#fff',
@@ -35,10 +36,14 @@ export default function SlimToolbar({
       if (typeof toggleDrawingMode === 'function') toggleDrawingMode();
       setDrawMenuOpen(true);
       setPrimaryOpen(null);
+      // Selecting draw should deselect previous tool and mark tool as DRAW
+      if (typeof setTool === 'function') setTool(ToolIds.DRAW);
       return;
     }
     // Already drawing: clicking toggles just the menu visibility (keep mode active)
     setDrawMenuOpen((v) => !v);
+    // Ensure tool reflects draw mode
+    if (typeof setTool === 'function') setTool(ToolIds.DRAW);
   };
 
   const selectPrimary = (key, evt) => {
@@ -70,6 +75,34 @@ export default function SlimToolbar({
     if (!isDrawingCover && typeof toggleDrawingMode === 'function') toggleDrawingMode();
   };
 
+  // Close draw menus when clicking outside the draw tool area
+  React.useEffect(() => {
+    if (!drawMenuOpen) return;
+    const onDocPointerDown = (e) => {
+      try {
+        const within = wrapRef.current?.contains?.(e.target);
+        if (!within) {
+          setDrawMenuOpen(false);
+          setPrimaryOpen(null);
+        }
+      } catch {}
+    };
+    document.addEventListener('pointerdown', onDocPointerDown, true);
+    return () => document.removeEventListener('pointerdown', onDocPointerDown, true);
+  }, [drawMenuOpen]);
+
+  const selectTool = (id) => {
+    // Switching tools while drawing should finish the drawing and exit mode
+    if (isDrawingCover && typeof toggleDrawingMode === 'function') {
+      toggleDrawingMode(); // completes/commits any drawn cover and exits mode
+    }
+    // Close any open draw menus
+    setDrawMenuOpen(false);
+    setPrimaryOpen(null);
+    // Switch tool
+    setTool(id);
+  };
+
   return (
     <Box
       className="slim-toolbar"
@@ -83,22 +116,22 @@ export default function SlimToolbar({
       aria-label="Tools"
     >
       <Tooltip title="Pointer" placement="bottom">
-        <IconButton aria-label="Pointer tool" size="small" sx={btnSx(tool === ToolIds.POINTER)} onClick={() => setTool(ToolIds.POINTER)}>
+        <IconButton aria-label="Pointer tool" size="small" sx={btnSx(tool === ToolIds.POINTER)} onClick={() => selectTool(ToolIds.POINTER)}>
           <FontAwesomeIcon icon={faArrowPointer} />
         </IconButton>
       </Tooltip>
       <Tooltip title="Move (highlight movement)" placement="bottom">
-        <IconButton aria-label="Move tool" size="small" sx={btnSx(tool === ToolIds.MOVE)} onClick={() => setTool(ToolIds.MOVE)}>
+        <IconButton aria-label="Move tool" size="small" sx={btnSx(tool === ToolIds.MOVE)} onClick={() => selectTool(ToolIds.MOVE)}>
           <FontAwesomeIcon icon={faArrowsUpDownLeftRight} />
         </IconButton>
       </Tooltip>
       <Tooltip title="Ruler (measure)" placement="bottom">
-        <IconButton aria-label="Ruler tool" size="small" sx={btnSx(tool === ToolIds.RULER)} onClick={() => setTool(ToolIds.RULER)}>
+        <IconButton aria-label="Ruler tool" size="small" sx={btnSx(tool === ToolIds.RULER)} onClick={() => selectTool(ToolIds.RULER)}>
           <FontAwesomeIcon icon={faRulerCombined} />
         </IconButton>
       </Tooltip>
       {isHost && (
-        <div className="slim-toolbar__draw" style={{ position: 'relative', display: 'inline-flex' }}>
+        <div className="slim-toolbar__draw" ref={wrapRef} style={{ position: 'relative', display: 'inline-flex' }}>
           <Tooltip title={isDrawingCover ? 'Drawing mode (click to toggle menu)' : 'Enter drawing mode'} placement="bottom">
             <IconButton
               ref={drawBtnRef}
@@ -120,7 +153,7 @@ export default function SlimToolbar({
             <div className="slim-dropdown" style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', marginTop: 6, zIndex: 210 }}>
               <div className="slim-dropdown__menu" ref={menuRef}>
                 <button className={`slim-dropdown__item ${primaryOpen === 'environment' ? 'active' : ''}`} onClick={(e) => selectPrimary('environment', e)}>
-                  <span>Environment</span>
+                  <span>Cover</span>
                   <FontAwesomeIcon icon={faChevronRight} style={{ opacity: 0.85, fontSize: 10 }} />
                 </button>
                 <button className={`slim-dropdown__item ${primaryOpen === 'terrain' ? 'active' : ''}`} onClick={(e) => selectPrimary('terrain', e)}>

@@ -5,6 +5,7 @@ export const ToolIds = {
   POINTER: 'pointer',
   RULER: 'ruler',
   MOVE: 'move',
+  DRAW: 'draw',
 };
 
 const ToolContext = createContext({
