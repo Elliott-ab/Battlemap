@@ -7,7 +7,7 @@ import { useGrid } from '../Utils/grid.js';
 import { useTool, ToolIds } from '../context/ToolContext.jsx';
 import RulerTool from './MapOverlays/RulerTool.jsx';
 
-const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlocks, drawEnvType, updateElementPosition, pushUndo, highlightCoverGroup, toggleMovementHighlight, battleMapRef, isHost = false, currentUserId = null }) => {
+const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlocks, drawEnvType, drawCreatureMode = null, creatureBlocks = [], setCreatureBlocks, requestBestiaryForDrawAt, updateElementPosition, pushUndo, highlightCoverGroup, toggleMovementHighlight, battleMapRef, isHost = false, currentUserId = null }) => {
   const localBattleMapRef = useRef(null);
   const containerRef = useRef(null);
   const currentDragElement = useRef(null);
@@ -29,6 +29,8 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
   // Bump this on any pan/zoom transform change so overlays can recompute positions
   const [viewTransformTick, setViewTransformTick] = useState(0);
   const [rotationIndex, setRotationIndex] = useState(0); // 0,1,2,3 => 0°,90°,180°,270°
+  // Track grid DOM rebuilds so overlay sync can rehydrate ghosts/highlights
+  const [gridDomVersion, setGridDomVersion] = useState(0);
   // Desktop mouse panning (middle or right button)
   const mousePanningRef = useRef({ active: false, pointerId: null, startX: 0, startY: 0, startTx: 0, startTy: 0 });
   const lastCenteredIdRef = useRef(null);
@@ -153,6 +155,8 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
         initialFitDoneRef.current = true;
         scheduleFitToScreen();
       }
+      // Bump version to signal grid DOM replaced
+      setGridDomVersion((v) => v + 1);
     } else {
       const timer = setTimeout(() => {
         if (localBattleMapRef.current) {
@@ -164,11 +168,12 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
             initialFitDoneRef.current = true;
             scheduleFitToScreen();
           }
+          setGridDomVersion((v) => v + 1);
         }
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [state, rotationIndex, renderGrid]);
+  }, [state, rotationIndex]);
 
   // If the grid dimensions or cell size change (e.g., new map loaded), allow a fresh initial fit
   useEffect(() => {
@@ -199,6 +204,62 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
     return cell ? cell.closest('.grid-cell') : null;
   };
 
+  // Keep staged creature ghosts in sync with creatureBlocks so they persist even if the grid re-renders
+  useEffect(() => {
+    const map = localBattleMapRef.current;
+    if (!map) return;
+    try {
+      // If we exit creature mode, clear creature overlays but do not touch cover highlights
+      if (!drawCreatureMode) {
+        map.querySelectorAll('.drawing-creature-ghost').forEach(n => n.remove());
+        map.querySelectorAll('.drawing-creature-stage').forEach(n => n.remove());
+        return;
+      }
+      const wanted = new Set((creatureBlocks || []).map(b => `${b.x},${b.y}:${b.creatureType||'enemy'}`));
+      // Remove any ghosts not in current staging
+      map.querySelectorAll('.drawing-creature-ghost').forEach(n => {
+        const cell = n.closest('.grid-cell');
+        if (!cell) { n.remove(); return; }
+        const key = `${parseInt(cell.dataset.x)},${parseInt(cell.dataset.y)}:${n.classList.contains('player') ? 'player' : 'enemy'}`;
+        if (!wanted.has(key)) n.remove();
+      });
+      // Remove creature-stage highlights not in current staging
+      map.querySelectorAll('.drawing-creature-stage').forEach(n => {
+        const cell = n.closest('.grid-cell');
+        if (!cell) { n.remove(); return; }
+        const k = `${parseInt(cell.dataset.x)},${parseInt(cell.dataset.y)}`;
+        if (!(creatureBlocks || []).some(b => `${b.x},${b.y}` === k)) n.remove();
+      });
+      // Ensure each staged cell has a highlight and a ghost
+      for (const b of (creatureBlocks || [])) {
+        const cell = map.querySelector(`.grid-cell[data-x="${b.x}"][data-y="${b.y}"]`);
+        if (!cell) continue;
+        if (!cell.querySelector('.drawing-creature-stage')) {
+          const hl = document.createElement('div');
+          hl.classList.add('drawing-creature-stage');
+          cell.appendChild(hl);
+        }
+        let ghost = cell.querySelector('.drawing-creature-ghost');
+        if (!ghost) {
+          ghost = document.createElement('div');
+          ghost.classList.add('drawing-creature-ghost');
+          cell.appendChild(ghost);
+        }
+        ghost.classList.toggle('player', b.creatureType === 'player');
+        ghost.classList.toggle('enemy', b.creatureType !== 'player');
+        // Label ghost: P for players; for enemies show E or short name if available
+        try {
+          if (b.creatureType === 'player') {
+            ghost.textContent = 'P';
+          } else {
+            const short = (b.bestiary?.name || '').trim();
+            ghost.textContent = short ? short.substring(0, 2).toUpperCase() : 'E';
+          }
+        } catch {}
+      }
+    } catch {}
+  }, [creatureBlocks, drawCreatureMode, gridDomVersion]);
+
   const handleClick = (e) => {
     // Disable native map click handling while using tools like Ruler
     if (tool === ToolIds.RULER) return;
@@ -216,6 +277,46 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
     }
   const cell = getCellFromPoint(e.clientX, e.clientY);
   if (!cell) return;
+
+    // Creature placement mode: click to toggle staged add/remove; no drag
+    if (drawCreatureMode) {
+      const x = parseInt(cell.dataset.x);
+      const y = parseInt(cell.dataset.y);
+      const isPlayerMode = drawCreatureMode === 'player-generic';
+      const isEnemyMode = drawCreatureMode === 'enemy-generic' || drawCreatureMode === 'enemy-bestiary';
+      if (!(isPlayerMode || isEnemyMode)) return;
+      // In Bestiary mode, always prompt selection for this cell and defer staging until selection
+      if (drawCreatureMode === 'enemy-bestiary') {
+        if (typeof requestBestiaryForDrawAt === 'function') {
+          try { requestBestiaryForDrawAt({ x, y }); } catch {}
+        }
+        return;
+      }
+      const idx = (creatureBlocks || []).findIndex(b => b.x === x && b.y === y);
+      if (idx >= 0) {
+        // Toggle off
+        setCreatureBlocks((prev) => prev.filter((_, i) => i !== idx));
+        const hl = cell.querySelector('.drawing-creature-stage');
+        if (hl) hl.remove();
+        // Remove ghost if present
+        const gh = cell.querySelector('.drawing-creature-ghost');
+        if (gh) gh.remove();
+      } else {
+        // Toggle on and add a highlight
+        const highlight = document.createElement('div');
+        highlight.classList.add('drawing-creature-stage');
+        cell.appendChild(highlight);
+        const creatureType = isPlayerMode ? 'player' : 'enemy';
+        // Add a ghost token to visualize the staged creature
+  const ghost = document.createElement('div');
+  ghost.classList.add('drawing-creature-ghost');
+  ghost.classList.add(creatureType);
+  try { ghost.textContent = creatureType === 'player' ? 'P' : 'E'; } catch {}
+        cell.appendChild(ghost);
+        setCreatureBlocks((prev) => [...(prev || []), { x, y, creatureType }]);
+      }
+      return;
+    }
 
     // Cover drawing mode
     if (isDrawingCover) {
@@ -338,6 +439,8 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
   const handlePointerDown = (e) => {
     // Disable token drag/pan while using tools like Ruler
     if (tool === ToolIds.RULER) return;
+    // Disable token drags while placing creatures
+    if (drawCreatureMode) return;
     // Movement tool: clicking a token toggles its movement highlight; do not start drags
     if (tool === ToolIds.MOVE) {
       if (e.pointerType === 'mouse' && e.button !== 0) return;

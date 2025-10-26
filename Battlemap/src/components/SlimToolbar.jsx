@@ -11,10 +11,13 @@ export default function SlimToolbar({
   toggleDrawingMode,
   drawEnvType,
   setDrawEnvType,
+  drawCreatureMode = null,
+  setDrawCreatureMode,
+  finalizeCreatureDrawing,
 }) {
   const { tool, setTool } = useTool();
   const [drawMenuOpen, setDrawMenuOpen] = useState(false);
-  const [primaryOpen, setPrimaryOpen] = useState(null); // 'environment' | 'terrain' | 'enemies' | null
+  const [primaryOpen, setPrimaryOpen] = useState(null); // 'environment' | 'terrain' | 'creatures' | null
   const [submenuTop, setSubmenuTop] = useState(0);
   const drawBtnRef = useRef(null);
   const menuRef = useRef(null);
@@ -31,18 +34,15 @@ export default function SlimToolbar({
   const onClickDraw = () => {
     // Only hosts can draw
     if (!isHost) return;
-    // If not currently drawing, enter drawing mode and open the menu
-    if (!isDrawingCover) {
-      if (typeof toggleDrawingMode === 'function') toggleDrawingMode();
-      setDrawMenuOpen(true);
-      setPrimaryOpen(null);
-      // Selecting draw should deselect previous tool and mark tool as DRAW
+    // If in any draw mode (cover or creatures), just toggle the menu visibility
+    if (isDrawingCover || drawCreatureMode) {
+      setDrawMenuOpen(v => !v);
       if (typeof setTool === 'function') setTool(ToolIds.DRAW);
       return;
     }
-    // Already drawing: clicking toggles just the menu visibility (keep mode active)
-    setDrawMenuOpen((v) => !v);
-    // Ensure tool reflects draw mode
+    // Otherwise, open the draw menu without entering any specific mode yet
+    setDrawMenuOpen(true);
+    setPrimaryOpen(null);
     if (typeof setTool === 'function') setTool(ToolIds.DRAW);
   };
 
@@ -71,8 +71,15 @@ export default function SlimToolbar({
 
   const selectEnvType = (type) => {
     if (typeof setDrawEnvType === 'function') setDrawEnvType(type);
-    // Ensure we're in drawing mode
+    // Exit creatures mode if active
+    if (drawCreatureMode) {
+      if (typeof finalizeCreatureDrawing === 'function') finalizeCreatureDrawing();
+      if (typeof setDrawCreatureMode === 'function') setDrawCreatureMode(null);
+    }
+    // Ensure we're in cover drawing mode
     if (!isDrawingCover && typeof toggleDrawingMode === 'function') toggleDrawingMode();
+    // Close the menu after selecting
+    setDrawMenuOpen(false);
   };
 
   // Close draw menus when clicking outside the draw tool area
@@ -96,11 +103,29 @@ export default function SlimToolbar({
     if (isDrawingCover && typeof toggleDrawingMode === 'function') {
       toggleDrawingMode(); // completes/commits any drawn cover and exits mode
     }
+    // Exit creature placement mode if active
+    if (drawCreatureMode) {
+      if (typeof finalizeCreatureDrawing === 'function') finalizeCreatureDrawing();
+      if (typeof setDrawCreatureMode === 'function') setDrawCreatureMode(null);
+    }
     // Close any open draw menus
     setDrawMenuOpen(false);
     setPrimaryOpen(null);
     // Switch tool
     setTool(id);
+  };
+
+  const selectCreatureMode = (mode) => {
+    if (!isHost) return;
+    // If currently in cover mode, finalize/exit first
+    if (isDrawingCover && typeof toggleDrawingMode === 'function') {
+      toggleDrawingMode();
+    }
+    if (typeof setDrawCreatureMode === 'function') setDrawCreatureMode(mode);
+    if (typeof setTool === 'function') setTool(ToolIds.DRAW);
+    // Keep the menu open and remember current submenu for quick switching
+    setPrimaryOpen('creatures');
+    setDrawMenuOpen(true);
   };
 
   return (
@@ -137,7 +162,7 @@ export default function SlimToolbar({
               ref={drawBtnRef}
               aria-label="Draw environments/terrain"
               size="small"
-              sx={{ ...btnSx(isDrawingCover), position: 'relative' }}
+              sx={{ ...btnSx((tool === ToolIds.DRAW) || isDrawingCover || !!drawCreatureMode), position: 'relative' }}
               onClick={onClickDraw}
             >
               {/* Main icon */}
@@ -155,8 +180,8 @@ export default function SlimToolbar({
                   <span>Terrain</span>
                   <FontAwesomeIcon icon={faChevronRight} style={{ opacity: 0.85, fontSize: 10 }} />
                 </button>
-                <button className={`slim-dropdown__item ${primaryOpen === 'enemies' ? 'active' : ''}`} onClick={(e) => selectPrimary('enemies', e)}>
-                  <span>Enemies</span>
+                <button className={`slim-dropdown__item ${primaryOpen === 'creatures' ? 'active' : ''}`} onClick={(e) => selectPrimary('creatures', e)}>
+                  <span>Creatures</span>
                   <FontAwesomeIcon icon={faChevronRight} style={{ opacity: 0.85, fontSize: 10 }} />
                 </button>
                 {primaryOpen === 'environment' && (
@@ -171,9 +196,11 @@ export default function SlimToolbar({
                     <button className={`slim-dropdown__item ${drawEnvType === 'difficult' ? 'selected' : ''}`} onClick={() => selectEnvType('difficult')}>Difficult Terrain</button>
                   </div>
                 )}
-                {primaryOpen === 'enemies' && (
+                {primaryOpen === 'creatures' && (
                   <div className="slim-dropdown__submenu" style={{ left: '100%', top: submenuTop }}>
-                    <div className="slim-dropdown__hint">Enemy brush coming soon</div>
+                    <button className={`slim-dropdown__item ${drawCreatureMode === 'player-generic' ? 'selected' : ''}`} onClick={() => selectCreatureMode('player-generic')}>Player (Generic)</button>
+                    <button className={`slim-dropdown__item ${drawCreatureMode === 'enemy-generic' ? 'selected' : ''}`} onClick={() => selectCreatureMode('enemy-generic')}>Enemy (Generic)</button>
+                    <button className={`slim-dropdown__item ${drawCreatureMode === 'enemy-bestiary' ? 'selected' : ''}`} onClick={() => selectCreatureMode('enemy-bestiary')}>Enemy (Bestiary)</button>
                   </div>
                 )}
               </div>

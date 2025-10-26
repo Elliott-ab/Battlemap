@@ -9,7 +9,6 @@ import {
   faEye as faEyeRegular,
   faUser as faUserRegular,
   faSquareCaretUp as faSquareCaretUpRegular,
-  faPenToSquare as faPenToSquareRegular,
   faCircleLeft as faCircleLeftRegular,
   faCircleRight as faCircleRightRegular,
 } from '@fortawesome/free-regular-svg-icons';
@@ -234,11 +233,10 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
 
   // De-duplicated: character adding is centralized in App via AddCharacterModal
 
-  // When drawing mode starts, expand Environments and collapse Creatures
+  // When drawing cover starts, expand Environments (do not auto-collapse Creatures)
   React.useEffect(() => {
     if (isDrawingCover) {
       setEnvOpen(true);
-      setCreaturesOpen(false);
     }
   }, [isDrawingCover]);
 
@@ -822,67 +820,12 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
           <FontAwesomeIcon icon={faChevronRight} style={{ color: 'white', transform: envOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
         </IconButton>
         <h3 style={{ margin: 0, cursor: 'pointer' }} onClick={() => setEnvOpen(v => !v)}>Environments</h3>
-        <IconButton onClick={toggleDrawingMode} title="Draw environment (cover/terrain) on grid" size="small">
-          <FontAwesomeIcon icon={faPenToSquareRegular} style={{ color: isDrawingCover ? '#4CAF50' : 'white' }} />
-        </IconButton>
       </div>
       </>
       )}
       {isHost && (
   <div className={`collapsible ${envOpen ? 'open' : ''}`}>
         <div className="element-list">
-          {isDrawingCover && (
-          <div className="drawing-options" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 6, marginBottom: 8 }}>
-            <label htmlFor="draw-env-half" onClick={() => setDrawEnvType('half')} style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fff', cursor: 'pointer' }}>
-              <input
-                id="draw-env-half"
-                type="radio"
-                name="draw-env-type"
-                value="half"
-                checked={drawEnvType === 'half'}
-                onChange={() => setDrawEnvType('half')}
-              />
-              Half Cover
-            </label>
-            <label htmlFor="draw-env-three-quarters" onClick={() => setDrawEnvType('three-quarters')} style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fff', cursor: 'pointer' }}>
-              <input
-                id="draw-env-three-quarters"
-                type="radio"
-                name="draw-env-type"
-                value="three-quarters"
-                checked={drawEnvType === 'three-quarters'}
-                onChange={() => setDrawEnvType('three-quarters')}
-              />
-              Three-Quarters Cover
-            </label>
-            <label htmlFor="draw-env-full" onClick={() => setDrawEnvType('full')} style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fff', cursor: 'pointer' }}>
-              <input
-                id="draw-env-full"
-                type="radio"
-                name="draw-env-type"
-                value="full"
-                checked={drawEnvType === 'full'}
-                onChange={() => setDrawEnvType('full')}
-              />
-              Full Cover
-            </label>
-            <label htmlFor="draw-env-difficult" onClick={() => setDrawEnvType('difficult')} style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fff', cursor: 'pointer' }}>
-              <input
-                id="draw-env-difficult"
-                type="radio"
-                name="draw-env-type"
-                value="difficult"
-                checked={drawEnvType === 'difficult'}
-                onChange={() => setDrawEnvType('difficult')}
-              />
-              Difficult Terrain
-            </label>
-            <div style={{ fontSize: 12, opacity: 0.8 }}>
-              Tip: Click cells to add/remove. Finish by clicking the pen icon again.
-            </div>
-            <hr className="sidebar-divider" />
-          </div>
-          )}
           {Object.entries(coverGroups).map(([groupId, { coverType, positions, firstId, color }]) => (
             <div
               key={groupId}

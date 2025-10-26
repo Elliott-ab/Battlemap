@@ -54,7 +54,11 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
   };
   const [state, setState] = useState({ ...initialState, highlightedElementId: null });
   const [isDrawingCover, setIsDrawingCover] = useState(false);
+  const [drawCreatureMode, setDrawCreatureMode] = useState(null); // 'player-generic' | 'enemy-generic' | 'enemy-bestiary' | null
   const [coverBlocks, setCoverBlocks] = useState([]);
+  const [creatureBlocks, setCreatureBlocks] = useState([]); // [{x,y, creatureType:'player'|'enemy', bestiary?:{index,name,hp?,movement?,size?,imageUrl?}}]
+  const [bestiarySelectingForDraw, setBestiarySelectingForDraw] = useState(false);
+  const [bestiaryPendingCell, setBestiaryPendingCell] = useState(null); // {x,y} for first click before selecting template
   const [modalState, setModalState] = useState({
     editModal: { isOpen: false, elementId: null },
     gridModal: false,
@@ -109,6 +113,14 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
   const [toast, setToast] = useState({ open: false, message: '', severity: 'info' });
   const [bestiaryModal, setBestiaryModal] = useState({ open: false, initialIndex: null });
   const [monsterDescModal, setMonsterDescModal] = useState({ open: false, index: null });
+
+  // If leaving bestiary draw mode, just clear selection intent (template may persist until finalize)
+  useEffect(() => {
+    if (drawCreatureMode !== 'enemy-bestiary') {
+      setBestiarySelectingForDraw(false);
+      setBestiaryPendingCell(null);
+    }
+  }, [drawCreatureMode]);
 
   useEffect(() => {
     updateGridInfo();
@@ -667,6 +679,98 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
       resultByKey.set(k, copy);
     }
     return result;
+  };
+  // Finalize staged creature placements into actual elements, then clear staging
+  const finalizeCreatureDrawing = () => {
+    try {
+      if (!Array.isArray(creatureBlocks) || creatureBlocks.length === 0) return;
+      setState(prev => {
+        const elements = Array.isArray(prev.elements) ? prev.elements.slice() : [];
+        // Build counters for next numbering
+        const playerNums = elements.filter(e => e && e.type === 'player').map(e => parseInt(((e.name || '').split(' ')[1]) || '0', 10)).filter(Number.isFinite);
+        let nextPlayerNum = playerNums.length ? Math.max(...playerNums) + 1 : 1;
+        const enemyNums = elements.filter(e => e && e.type === 'enemy').map(e => parseInt(((e.name || '').split(' ')[1]) || '0', 10)).filter(Number.isFinite);
+        let nextEnemyNum = enemyNums.length ? Math.max(...enemyNums) + 1 : 1;
+        let nextId = Math.max(0, ...elements.map(e => (typeof e?.id === 'number' ? e.id : parseInt(e?.id, 10)) || 0)) + 1;
+
+        // Create for each staged block
+        for (const b of creatureBlocks) {
+          const { x, y, creatureType } = b || {};
+          if (typeof x !== 'number' || typeof y !== 'number') continue;
+          // Skip if something already in that cell to avoid overlap
+          const occupied = elements.some(el => el && el.position && el.position.x === x && el.position.y === y);
+          if (occupied) continue;
+          if (creatureType === 'player') {
+            const el = {
+              id: nextId++,
+              type: 'player',
+              name: `Player ${nextPlayerNum++}`,
+              position: { x, y },
+              size: 1,
+              color: '#4CAF50',
+              maxHp: 10,
+              currentHp: 10,
+              movement: 30,
+              incapacitated: false,
+            };
+            elements.push(el);
+          } else if (creatureType === 'enemy') {
+            // Use per-cell Bestiary selection if provided; otherwise create a generic enemy
+            const tpl = b?.bestiary || null;
+            if (tpl) {
+              const name = tpl?.name || `Enemy ${nextEnemyNum++}`;
+              const hp = Number.isFinite(tpl?.hp) ? tpl.hp : undefined;
+              const movement = Number.isFinite(tpl?.movement) ? tpl.movement : 30;
+              const iconUrl = tpl?.imageUrl || null;
+              const index = tpl?.index || null;
+              // Force single-cell size regardless of Bestiary data (matches sidebar behavior)
+              const size = 1;
+              const el = {
+                id: nextId++,
+                type: 'enemy',
+                name,
+                position: { x, y },
+                size,
+                color: '#f44336',
+                movement,
+                damage: 0,
+                incapacitated: false,
+                enemyIconUrl: iconUrl,
+                bestiaryIndex: index,
+                facing: 90,
+                ...(Number.isFinite(hp) ? { maxHp: hp, currentHp: hp } : {}),
+              };
+              elements.push(el);
+            } else {
+              const el = {
+                id: nextId++,
+                type: 'enemy',
+                name: `Enemy ${nextEnemyNum++}`,
+                position: { x, y },
+                size: 1,
+                color: '#f44336',
+                movement: 30,
+                damage: 0,
+                incapacitated: false,
+                facing: 90,
+              };
+              elements.push(el);
+            }
+          }
+        }
+        return { ...prev, elements, highlightedElementId: null };
+      });
+    } finally {
+      // Clear staging and any temporary highlights
+      setCreatureBlocks([]);
+      // Clear pending Bestiary selection/cell
+      setBestiaryPendingCell(null);
+      try {
+        document.querySelectorAll('.drawing-cover-highlight').forEach(h => h.remove());
+        document.querySelectorAll('.drawing-creature-ghost').forEach(h => h.remove());
+      } catch {}
+      pushUndo();
+    }
   };
 
   // Preserve positions of elements moved locally in the last PENDING_TTL_MS when applying incoming state
@@ -1291,6 +1395,9 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
               toggleDrawingMode={toggleDrawingMode}
               drawEnvType={drawEnvType}
               setDrawEnvType={setDrawEnvType}
+              drawCreatureMode={drawCreatureMode}
+              setDrawCreatureMode={setDrawCreatureMode}
+              finalizeCreatureDrawing={finalizeCreatureDrawing}
             />
             <BattleMap
           state={mergedState}
@@ -1299,6 +1406,14 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
           coverBlocks={coverBlocks}
           setCoverBlocks={setCoverBlocks}
           drawEnvType={drawEnvType}
+          drawCreatureMode={drawCreatureMode}
+          creatureBlocks={creatureBlocks}
+          setCreatureBlocks={setCreatureBlocks}
+          requestBestiaryForDrawAt={({ x, y }) => {
+            setBestiaryPendingCell({ x, y });
+            setBestiarySelectingForDraw(true);
+            setBestiaryModal({ open: true, initialIndex: null });
+          }}
           updateElementPosition={safeUpdateElementPosition}
           pushUndo={pushUndo}
           highlightCoverGroup={highlightCoverGroup}
@@ -1319,12 +1434,52 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
       <MonsterBrowserModal
         open={bestiaryModal.open}
         initialIndex={bestiaryModal.initialIndex}
-        onClose={() => setBestiaryModal({ open: false, initialIndex: null })}
+        onClose={() => {
+          setBestiaryModal({ open: false, initialIndex: null });
+          setBestiarySelectingForDraw(false);
+          setBestiaryPendingCell(null);
+        }}
         canSummon={!gameId || isHost}
         isInMap={(idx) => {
           try { return (state.elements || []).some(e => e && e.type === 'enemy' && e.bestiaryIndex === idx); } catch { return false; }
         }}
-        {...((!gameId || isHost) ? { onImport: (monster) => importMonster(monster), onRemove: (info) => removeMonster(info) } : {})}
+        {...((!gameId || isHost) ? {
+          onImport: (monster) => {
+            if (bestiarySelectingForDraw) {
+              // Place selected monster as a staged enemy at the pending cell
+              const mname = monster?.name || 'Monster';
+              const tpl = {
+                index: monster?.index || null,
+                name: monster?.name || null,
+                hp: Number.isFinite(monster?.hp) ? monster.hp : undefined,
+                movement: Number.isFinite(monster?.movement) ? monster.movement : 30,
+                size: Number.isFinite(monster?.size) ? monster.size : 1,
+                imageUrl: monster?.imageUrl || null,
+              };
+              const { x: px, y: py } = bestiaryPendingCell || {};
+              if (Number.isFinite(px) && Number.isFinite(py)) {
+                setCreatureBlocks((prev) => {
+                  const exists = (prev || []).some(b => b.x === px && b.y === py);
+                  if (exists) {
+                    // Replace existing block info for this cell to reflect new selection
+                    return (prev || []).map(b => (b.x === px && b.y === py) ? { ...b, creatureType: 'enemy', bestiary: tpl } : b);
+                  }
+                  return [...(prev || []), { x: px, y: py, creatureType: 'enemy', bestiary: tpl }];
+                });
+                setToast({ open: true, severity: 'success', message: `Selected ${mname}. Placed at (${px + 1}, ${py + 1}). Click another square to choose a monster, then finalize.` });
+              } else {
+                setToast({ open: true, severity: 'success', message: `Selected ${mname}. Click a square to place, then finalize.` });
+              }
+              // Close modal and reset selection intent; Bestiary will reopen on next click in enemy-bestiary mode
+              setBestiaryModal({ open: false, initialIndex: null });
+              setBestiarySelectingForDraw(false);
+              setBestiaryPendingCell(null);
+            } else {
+              importMonster(monster);
+            }
+          },
+          onRemove: (info) => removeMonster(info),
+        } : {})}
       />
       <MonsterDescriptionModal
         open={monsterDescModal.open}
