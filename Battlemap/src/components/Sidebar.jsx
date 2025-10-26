@@ -20,7 +20,7 @@ import InlineNumberEditor from './common/InlineNumberEditor.jsx';
 
 // Using Font Awesome icons for UI controls
 
-const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup, showEditModal, battleMapRef, isDrawingCover, toggleDrawingMode, openAddCharacterModal, openInitiativeModal, drawEnvType, setDrawEnvType, onOpenMyCharacterSheet, currentUserId, isHost = false }) => {
+const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup, showEditModal, battleMapRef, isDrawingCover, toggleDrawingMode, openInitiativeModal, drawEnvType, setDrawEnvType, onOpenMyCharacterSheet, currentUserId, isHost = false }) => {
   const navigate = useNavigate();
 
   // Collapsible sections state
@@ -231,7 +231,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
   };
 
 
-  // De-duplicated: character adding is centralized in App via AddCharacterModal
+  // Creatures are added via the Draw tool; sidebar no longer provides an add button
 
   // When drawing cover starts, expand Environments (do not auto-collapse Creatures)
   React.useEffect(() => {
@@ -481,10 +481,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
             <FontAwesomeIcon icon={faChevronRight} style={{ color: 'white', transform: creaturesOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
           </IconButton>
           <h3 style={{ margin: 0, cursor: 'pointer' }} onClick={() => setCreaturesOpen(v => !v)}>Creatures</h3>
-          <IconButton onClick={openAddCharacterModal} disabled={isDrawingCover} title="Add creature" size="small">
-            <FontAwesomeIcon icon={faUserRegular} style={{ color: isDrawingCover ? 'grey' : 'white' }} />
-          </IconButton>
-          {/* Popover moved to App.jsx as AddCharacterModal */}
+          {/* Creature add icon removed; use Draw tool to add creatures */}
         </div>
       )}
       {(isHost || !isPortraitPhone) && (

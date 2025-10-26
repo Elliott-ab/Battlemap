@@ -6,7 +6,6 @@ import SlimToolbar from './components/SlimToolbar.jsx';
 import Sidebar from './components/Sidebar.jsx';
 import BattleMap from './components/BattleMap.jsx';
 import EditModal from './components/Modals/EditModal.jsx';
-import AddCharacterModal from './components/Modals/AddCharacterModal.jsx';
 import MonsterBrowserModal from './components/Modals/MonsterBrowserModal.jsx';
 import MonsterDescriptionModal from './components/Modals/MonsterDescriptionModal.jsx';
 import CharacterSelectModal from './components/Modals/CharacterSelectModal.jsx';
@@ -62,7 +61,6 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
   const [modalState, setModalState] = useState({
     editModal: { isOpen: false, elementId: null },
     gridModal: false,
-    addCharacter: false,
     selectCharacter: false,
     initiative: false,
     globalModifiers: false,
@@ -107,7 +105,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
   // Character sheet pane removed; selection applies to token only
 
   const { updateGridInfo } = useGrid(state);
-  const { addElement, addCharactersBatch, createCoverFromBlocks, getElementById, updateElementPosition, toggleMovementHighlight, highlightCoverGroup, updateElement, deleteElement } = useElements(state, setState);
+  const { createCoverFromBlocks, getElementById, updateElementPosition, toggleMovementHighlight, highlightCoverGroup, updateElement, deleteElement } = useElements(state, setState);
   const { showEditModal, showGridModal } = useModals(setModalState);
   const { pushUndo, undo } = useUndo(state, setState, setUndoStack);
   const [toast, setToast] = useState({ open: false, message: '', severity: 'info' });
@@ -1110,10 +1108,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
   };
 
   // Use centralized batch add API
-  const handleAddCharacters = (characterType, quantity) => {
-    addCharactersBatch(characterType, quantity);
-    setModalState(prev => ({ ...prev, addCharacter: false }));
-  };
+  // Add-character modal removed; creatures are added via the Draw tool only
 
   // Import a monster as an enemy element (host or in editor)
   const importMonster = async (monster) => {
@@ -1385,7 +1380,6 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
           setDrawEnvType={setDrawEnvType}
           currentUserId={user?.id}
           isHost={isHost}
-          openAddCharacterModal={() => setModalState(prev => ({ ...prev, addCharacter: true }))}
           openInitiativeModal={() => setModalState(prev => ({ ...prev, initiative: true }))}
           />
           <div className="map-pane">
@@ -1425,11 +1419,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
           </div>
         </div>
       </ToolProvider>
-      <AddCharacterModal
-        isOpen={modalState.addCharacter}
-        onClose={() => setModalState(prev => ({ ...prev, addCharacter: false }))}
-        onAdd={handleAddCharacters}
-      />
+      {/* AddCharacterModal removed: use Draw tool > Creatures to add to grid */}
       {/* Bestiary modal for description/import, can be opened programmatically */}
       <MonsterBrowserModal
         open={bestiaryModal.open}
