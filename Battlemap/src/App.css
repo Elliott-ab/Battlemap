@@ -1862,10 +1862,10 @@ body {
     .sidebar.collapsed .sidebar-body { display: none; }
 }
 
-/* When sidebar is collapsed sideways, allow toolbar logo to shrink for visual alignment */
+/* Sidebar collapse should not affect toolbar layout */
+/* Keep toolbar logo width stable on desktop/tablet even if sidebar is collapsed */
 @media (min-width: 769px), (orientation: landscape) {
-    body.app--sidebar-collapsed .toolbar-logo { width: 56px; }
-    body.app--sidebar-collapsed .toolbar-logo h1 { display: none; }
+    body.app--sidebar-collapsed .toolbar-logo { width: 280px; }
 }
 
 /* Minimal icon button component */
