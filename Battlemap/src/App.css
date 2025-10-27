@@ -262,6 +262,7 @@ body {
     align-items: center;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     flex-shrink: 0;
+    position: relative; /* allow absolute-centered nav */
 }
 
 .toolbar h1 {
@@ -312,19 +313,26 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 1rem;
-    margin-left: 0.75rem;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-left: 0; /* center nav independently from logo */
+    white-space: nowrap; /* keep items on one line */
 }
 .toolbar-link {
-    color: #f44336; /* red links */
+    color: #fff; /* white by default */
     text-decoration: none;
-    font-weight: 700;
+    font-weight: 500; /* normal by default */
     letter-spacing: 0.3px;
 }
 .toolbar-link:hover {
-    text-decoration: underline;
+    text-decoration: none; /* no underline on hover */
+    color: #f44336; /* highlight red on hover (not bold) */
 }
 .toolbar-link.active {
-    text-decoration: underline;
+    text-decoration: none; /* no underline when selected */
+    font-weight: 700; /* bold only when selected */
+    color: #f44336; /* red when active */
 }
 
 .toolbar-turn {
