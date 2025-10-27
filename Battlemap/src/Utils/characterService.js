@@ -91,6 +91,24 @@ export async function deleteCharacter(id) {
   if (error) throw error;
 }
 
+// Optional notes helper: requires a `notes` text column on characters
+// Suggested SQL:
+//   alter table public.characters add column notes text;
+export async function upsertCharacterNotes(characterId, notes) {
+  const { error } = await supabase
+    .from('characters')
+    .update({ notes: notes || '' })
+    .eq('id', characterId);
+  if (error) {
+    const msg = (error?.message || '').toLowerCase();
+    if (msg.includes('column') && msg.includes('notes')) {
+      throw new Error('Missing "notes" column on characters. Run: alter table public.characters add column notes text; and ensure RLS allows owners to update.');
+    }
+    throw error;
+  }
+  return true;
+}
+
 // Upload an image file to Supabase Storage and return its public URL.
 // Requires a storage bucket named 'character-icons' with public read.
 export async function uploadCharacterIcon(userId, file) {

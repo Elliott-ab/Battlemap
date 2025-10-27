@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Box, IconButton, Tooltip } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faRulerCombined, faArrowPointer, faArrowsUpDownLeftRight, faChevronRight, faGear, faTrashCan, faUpload, faDownload, faRightToBracket, faUserPlus, faRightFromBracket, faRotateLeft } from '@fortawesome/free-solid-svg-icons';
+import { faRulerCombined, faArrowPointer, faArrowsUpDownLeftRight, faChevronRight, faGear, faTrashCan, faUpload, faDownload, faRightToBracket, faUserPlus, faRightFromBracket, faRotateLeft, faBook } from '@fortawesome/free-solid-svg-icons';
 import { faPenToSquare as faPenToSquareRegular } from '@fortawesome/free-regular-svg-icons';
 import { useTool, ToolIds } from '../context/ToolContext.jsx';
 
@@ -18,6 +18,9 @@ export default function SlimToolbar({
   openGlobalModifiers,
   gridSize,
   openGridSettings,
+  gameId = null,
+  hasCharacter = false,
+  onSaveNotes,
   // Map actions (optional)
   clearMap,
   onSaveMap,
@@ -52,6 +55,13 @@ export default function SlimToolbar({
   const settingsWrapRef = useRef(null);
   const settingsMenuRef = useRef(null);
   const [settingsMenuHeight, setSettingsMenuHeight] = useState(56);
+  // Notes popover state
+  const [notesOpen, setNotesOpen] = useState(false);
+  const notesWrapRef = useRef(null);
+  const notesEditorRef = useRef(null);
+  const [notesHtml, setNotesHtml] = useState('');
+  const notesStorageKey = gameId ? `bm-notes-${gameId}` : 'bm-notes-local';
+  const notesHydratedRef = useRef(false);
   const isPlayerInGame = hasGame && !isHost;
 
   // Track mobile layout (toolbar fixed at bottom); open draw menu upwards on mobile
@@ -202,6 +212,47 @@ export default function SlimToolbar({
     return () => document.removeEventListener('pointerdown', onDocPointerDown, true);
   }, [settingsMenuOpen]);
 
+  // Notes: load/save and outside click
+  React.useEffect(() => {
+    if (!notesOpen) return;
+    try {
+      const saved = window.localStorage.getItem(notesStorageKey);
+      setNotesHtml(saved || '');
+      // Hydrate editor content and focus after open
+      setTimeout(() => {
+        if (notesEditorRef.current) {
+          try { notesEditorRef.current.innerHTML = saved || ''; } catch {}
+          notesEditorRef.current.focus();
+          notesHydratedRef.current = true;
+        }
+      }, 50);
+    } catch {}
+  }, [notesOpen, notesStorageKey]);
+  React.useEffect(() => { if (!notesOpen) notesHydratedRef.current = false; }, [notesOpen]);
+  React.useEffect(() => {
+    if (!notesOpen) return;
+    try { window.localStorage.setItem(notesStorageKey, notesHtml || ''); } catch {}
+  }, [notesOpen, notesHtml, notesStorageKey]);
+  React.useEffect(() => {
+    if (!notesOpen) return;
+    const onDocPointerDown = (e) => {
+      try {
+        const within = notesWrapRef.current?.contains?.(e.target);
+        if (!within) setNotesOpen(false);
+      } catch {}
+    };
+    document.addEventListener('pointerdown', onDocPointerDown, true);
+    return () => document.removeEventListener('pointerdown', onDocPointerDown, true);
+  }, [notesOpen]);
+  const execNoteCmd = (cmd) => {
+    try {
+      document.execCommand(cmd, false, null);
+      const next = notesEditorRef.current?.innerHTML || '';
+      setNotesHtml(next);
+    } catch {}
+  };
+  const [savingNotes, setSavingNotes] = useState(false);
+
   const selectTool = (id) => {
     // Switching tools while drawing should finish the drawing and exit mode
     if (isDrawingCover && typeof toggleDrawingMode === 'function') {
@@ -261,6 +312,7 @@ export default function SlimToolbar({
           <FontAwesomeIcon icon={faRulerCombined} />
         </IconButton>
       </Tooltip>
+      
       {isHost && (
         <div className="slim-toolbar__draw" ref={wrapRef} style={{ position: 'relative', display: 'inline-flex' }}>
           <Tooltip title={isDrawingCover ? 'Drawing mode (click to toggle menu)' : 'Enter drawing mode'} placement="bottom">
@@ -360,6 +412,70 @@ export default function SlimToolbar({
           )}
         </div>
       )}
+      {/* Settings dropdown (gear) */}
+      {/* Notes button, placed after Drawing tool */}
+      <div className="slim-toolbar__notes" ref={notesWrapRef} style={{ position: 'relative', display: 'inline-flex' }}>
+        <Tooltip title="Notes" placement="bottom">
+          <IconButton aria-label="Notes" size="small" sx={btnSxAmber(notesOpen)} onClick={() => { setNotesOpen(v => !v); setSettingsMenuOpen(false); setDrawMenuOpen(false); }}>
+            <FontAwesomeIcon icon={faBook} />
+          </IconButton>
+        </Tooltip>
+        {notesOpen && (
+          <div
+            className="slim-dropdown"
+            style={{
+              position: isMobile ? 'fixed' : 'absolute',
+              zIndex: 210,
+              ...(isMobile ? { left: 0, right: 0, bottom: `calc(${barHeight}px + env(safe-area-inset-bottom, 0px) + var(--mobile-footer-height, 0px))`, transform: 'none' } : { left: '50%', transform: 'translateX(-50%)', top: '100%', marginTop: 6 })
+            }}
+          >
+            <div
+              className="slim-dropdown__menu"
+              style={isMobile ? {
+                top: 'auto', left: 0, right: 0, bottom: 0, borderRadius: 0, padding: '10px',
+                maxHeight: `calc(100vh - ${barHeight}px - env(safe-area-inset-bottom, 0px) - var(--mobile-footer-height, 0px) - 12px)`,
+                overflowY: 'auto'
+              } : { minWidth: 420, maxWidth: 520, padding: 10, maxHeight: '70vh', overflowY: 'auto' }}
+            >
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8, alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <button className="btn" onClick={() => execNoteCmd('bold')} title="Bold"><b>B</b></button>
+                <button className="btn" onClick={() => execNoteCmd('italic')} title="Italic"><i>I</i></button>
+                <button className="btn" onClick={() => execNoteCmd('underline')} title="Underline"><u>U</u></button>
+                <button className="btn" onClick={() => execNoteCmd('strikeThrough')} title="Strikethrough"><s>S</s></button>
+                <div style={{ width: 1, background: 'rgba(255,255,255,0.2)' }} />
+                <button className="btn" onClick={() => execNoteCmd('insertUnorderedList')} title="Bullet list">• List</button>
+                <button className="btn" onClick={() => execNoteCmd('insertOrderedList')} title="Numbered list">1. List</button>
+                </div>
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                  <button
+                    className="btn btn-primary"
+                    disabled={savingNotes || !gameId || (!isHost && !hasCharacter)}
+                    title={gameId ? (isHost ? 'Save campaign notes' : (hasCharacter ? 'Save to your character' : 'Select a character to save notes')) : 'Notes can be saved only in a game'}
+                    onClick={async () => {
+                      if (!onSaveNotes) return;
+                      setSavingNotes(true);
+                      const res = await Promise.resolve(onSaveNotes(notesHtml));
+                      setSavingNotes(false);
+                      if (res && res.ok) setNotesOpen(false);
+                    }}
+                  >
+                    {savingNotes ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
+              </div>
+              <div
+                ref={notesEditorRef}
+                contentEditable
+                suppressContentEditableWarning
+                onInput={() => { const next = notesEditorRef.current?.innerHTML || ''; setNotesHtml(next); }}
+                style={{ minHeight: 240, outline: 'none', border: '1px solid #555', borderRadius: 6, padding: '8px 10px', backgroundColor: '#2c2c2c', direction: 'ltr', textAlign: 'left', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowY: 'auto' }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+      
       {/* Settings dropdown (gear) */}
       <div className="slim-toolbar__settings" ref={settingsWrapRef} style={{ position: 'relative', display: 'inline-flex' }}>
         <Tooltip title={isHost ? (isDrawingCover ? 'Settings disabled while drawing' : 'Settings') : 'Settings (host features disabled)'} placement="bottom">

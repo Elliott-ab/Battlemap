@@ -19,7 +19,8 @@ import { useModals } from './Utils/modals.js';
 import { useUndo } from './Utils/undo.js';
 import { supabase } from './supabaseClient';
 import { getCharacter } from './Utils/characterService.js';
-import { getMapState, upsertMapState, pushDraftToLive, listMapDrafts, upsertMapDraft, getMapDraft, listLibraryMaps, upsertLibraryMap, getLibraryMap } from './Utils/mapService.js';
+import { getMapState, upsertMapState, pushDraftToLive, listMapDrafts, upsertMapDraft, getMapDraft, listLibraryMaps, upsertLibraryMap, getLibraryMap, upsertGameNotes, getGameNotes } from './Utils/mapService.js';
+import { upsertCharacterNotes } from './Utils/characterService.js';
 import SaveDraftModal from './components/Modals/SaveDraftModal.jsx';
 import LoadDraftModal from './components/Modals/LoadDraftModal.jsx';
 import { useGameSession } from './Utils/GameSessionContext.jsx';
@@ -94,6 +95,8 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
   const userIdRef = useRef(user?.id || null);
   useEffect(() => { userIdRef.current = user?.id || null; }, [user?.id]);
   const lastLiveUpdatedAtRef = useRef(0);
+  // Track whether we've hydrated notes for this game/character to avoid redundant fetches
+  const notesLoadedKeyRef = useRef(null); // format: `g:<gameId>|c:<characterId or host>`
   // Track very recent local token moves so incoming live state doesn't briefly overwrite them
   const pendingMovesRef = useRef(new Map()); // id -> timestamp
   const PENDING_TTL_MS = 1500;
@@ -1307,6 +1310,27 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
       nextTokenForSync = { ...token, ...updates };
       return updated;
     });
+    // Preload character notes into Notes editor storage so it's ready when opened
+    try {
+      if (gameId) {
+        const key = `bm-notes-${gameId}`;
+        if (typeof character.notes === 'string') {
+          try { window.localStorage.setItem(key, character.notes || ''); } catch {}
+          notesLoadedKeyRef.current = `g:${gameId}|c:${character.id || 'unknown'}`;
+        } else if (character.id) {
+          // Fetch full character to get notes if not present on the passed object
+          (async () => {
+            try {
+              const full = await getCharacter(character.id);
+              if (typeof full?.notes === 'string') {
+                try { window.localStorage.setItem(key, full.notes || ''); } catch {}
+                notesLoadedKeyRef.current = `g:${gameId}|c:${character.id}`;
+              }
+            } catch {}
+          })();
+        }
+      }
+    } catch {}
     // Persist to LIVE so host/others see the player's token quickly
     if (!isHost && gameId && user) {
       // Fire and forget; errors are safe to ignore as we still have local state
@@ -1326,6 +1350,14 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
         const row = await getCharacter(cid);
         if (!active || !row) return;
         applyCharacterToToken(row);
+        // Also hydrate notes if present
+        try {
+          if (gameId && typeof row?.notes === 'string') {
+            const nkey = `bm-notes-${gameId}`;
+            try { window.localStorage.setItem(nkey, row.notes || ''); } catch {}
+            notesLoadedKeyRef.current = `g:${gameId}|c:${row.id}`;
+          }
+        } catch {}
         // Notify the user that their changes were applied
         setToast({ open: true, severity: 'success', message: 'Character saved and applied to your token.' });
         try {
@@ -1336,6 +1368,40 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
     })();
     return () => { active = false; };
   }, [user?.id]);
+
+  // Host: hydrate campaign notes into local storage when starting/entering a game
+  useEffect(() => {
+    (async () => {
+      try {
+        if (!gameId || !isHost) return;
+        const sig = `g:${gameId}|c:host`;
+        if (notesLoadedKeyRef.current === sig) return;
+        const row = await getGameNotes(gameId).catch(() => null);
+        const html = row?.notes || '';
+        try { window.localStorage.setItem(`bm-notes-${gameId}`, html); } catch {}
+        notesLoadedKeyRef.current = sig;
+      } catch {}
+    })();
+  }, [gameId, isHost]);
+
+  // Player: if already has a character token when joining, backfill notes once
+  useEffect(() => {
+    (async () => {
+      try {
+        if (!gameId || !user || isHost) return;
+        const me = (state.elements || []).find(el => el.type === 'player' && el.participantUserId === user.id);
+        const cid = me?.characterId;
+        if (!cid) return;
+        const sig = `g:${gameId}|c:${cid}`;
+        if (notesLoadedKeyRef.current === sig) return;
+        const row = await getCharacter(cid).catch(() => null);
+        if (typeof row?.notes === 'string') {
+          try { window.localStorage.setItem(`bm-notes-${gameId}`, row.notes || ''); } catch {}
+          notesLoadedKeyRef.current = sig;
+        }
+      } catch {}
+    })();
+  }, [gameId, user?.id, isHost, state.elements]);
 
   // Listen for Bestiary import and open requests from children
   useEffect(() => {
@@ -1424,6 +1490,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
               openGridSettings={showGridModal}
               clearMap={() => { setState({ ...state, elements: [], highlightedElementId: null }); pushUndo(); }}
               onSaveMap={handleSaveMap}
+              gameId={gameId}
               onLoadMap={handleLoadMap}
               onSaveLibrary={handleSaveLibrary}
               onLoadLibrary={handleLoadLibrary}
@@ -1431,6 +1498,33 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
               onHostGame={onHostGame}
               onLeaveGame={onLeaveGame}
               hasGame={!!gameId}
+              hasCharacter={(() => {
+                try {
+                  const me = (state.elements || []).find(el => el.type === 'player' && el.participantUserId === user?.id);
+                  return !!me?.characterId;
+                } catch { return false; }
+              })()}
+              onSaveNotes={async (html) => {
+                try {
+                  if (!gameId) return { ok: false, message: 'Notes can only be saved while in a game.' };
+                  if (!user) return { ok: false, message: 'You must be signed in to save notes.' };
+                  if (isHost) {
+                    await upsertGameNotes(gameId, html, user.id);
+                    setToast({ open: true, severity: 'success', message: 'Campaign notes saved.' });
+                    return { ok: true };
+                  }
+                  // Player: save to selected character
+                  const me = (state.elements || []).find(el => el.type === 'player' && el.participantUserId === user.id);
+                  if (!me?.characterId) return { ok: false, message: 'Select a character to save notes to your sheet.' };
+                  await upsertCharacterNotes(me.characterId, html);
+                  setToast({ open: true, severity: 'success', message: 'Character notes saved.' });
+                  return { ok: true };
+                } catch (e) {
+                  const msg = e?.message || 'Failed to save notes.';
+                  setToast({ open: true, severity: 'error', message: msg });
+                  return { ok: false, message: msg };
+                }
+              }}
               currentChannel={channel}
               onToggleChannel={() => setChannel((c) => (c === 'draft' ? 'live' : 'draft'))}
               onPushToPlayers={async () => {

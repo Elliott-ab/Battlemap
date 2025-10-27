@@ -177,3 +177,37 @@ export async function getLibraryMap(ownerId, name) {
   if (error) throw error;
   return data;
 }
+
+// Campaign Notes ------------------------------------------------------------
+// Suggested SQL (run in Supabase):
+// create table public.game_notes (
+//   game_id uuid primary key references public.games(id) on delete cascade,
+//   notes text not null default '',
+//   updated_by uuid references auth.users(id),
+//   updated_at timestamptz not null default now()
+// );
+// alter table public.game_notes enable row level security;
+// create policy "host manages game notes" on public.game_notes for all
+//   using (exists (select 1 from public.games g where g.id = game_notes.game_id and g.host_id = auth.uid()))
+//   with check (exists (select 1 from public.games g where g.id = game_notes.game_id and g.host_id = auth.uid()));
+
+export async function getGameNotes(gameId) {
+  const { data, error } = await supabase
+    .from('game_notes')
+    .select('notes, updated_at, updated_by')
+    .eq('game_id', gameId)
+    .maybeSingle();
+  if (error) throw error;
+  return data || null;
+}
+
+export async function upsertGameNotes(gameId, notes, userId) {
+  const row = { game_id: gameId, notes: notes || '', updated_by: userId, updated_at: new Date().toISOString() };
+  const { data, error } = await supabase
+    .from('game_notes')
+    .upsert(row)
+    .select('game_id, updated_at')
+    .single();
+  if (error) throw error;
+  return data;
+}
