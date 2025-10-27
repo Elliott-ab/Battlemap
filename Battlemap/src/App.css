@@ -1926,11 +1926,11 @@ body {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    min-width: 160px;
+    min-width: 220px; /* wider so long labels like "Load from Library" don't wrap */
     box-shadow: 0 6px 16px rgba(0,0,0,0.5);
 }
 .slim-dropdown__menu { left: 0; }
-.slim-dropdown__submenu { top: 0; margin-left: 8px; }
+.slim-dropdown__submenu { top: 0; margin-left: 0; }
 .slim-dropdown__item {
     background: transparent;
     color: #fff;
@@ -1944,6 +1944,7 @@ body {
     align-items: center;
     justify-content: space-between;
     gap: 8px;
+    white-space: nowrap; /* keep icon + label on one line */
 }
 .slim-dropdown__item:hover { background: rgba(255,255,255,0.08); }
 .slim-dropdown__item.active { border-color: rgba(76,175,80,0.6); }

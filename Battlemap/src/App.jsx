@@ -1392,6 +1392,17 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
               drawCreatureMode={drawCreatureMode}
               setDrawCreatureMode={setDrawCreatureMode}
               finalizeCreatureDrawing={finalizeCreatureDrawing}
+              openGlobalModifiers={() => setModalState(prev => ({ ...prev, globalModifiers: true }))}
+              gridSize={state.grid.cellSize}
+              openGridSettings={showGridModal}
+              clearMap={() => { setState({ ...state, elements: [], highlightedElementId: null }); pushUndo(); }}
+              onSaveMap={handleSaveMap}
+              onLoadMap={handleLoadMap}
+              onSaveLibrary={handleSaveLibrary}
+              onLoadLibrary={handleLoadLibrary}
+              onJoinGame={onJoinGame}
+              onHostGame={onHostGame}
+              onLeaveGame={onLeaveGame}
             />
             <BattleMap
           state={mergedState}

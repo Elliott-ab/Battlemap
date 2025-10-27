@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Box, IconButton, Tooltip } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faRulerCombined, faArrowPointer, faArrowsUpDownLeftRight, faChevronRight } from '@fortawesome/free-solid-svg-icons';
+import { faRulerCombined, faArrowPointer, faArrowsUpDownLeftRight, faChevronRight, faGear, faTrashCan, faUpload, faDownload, faRightToBracket, faUserPlus, faRightFromBracket } from '@fortawesome/free-solid-svg-icons';
 import { faPenToSquare as faPenToSquareRegular } from '@fortawesome/free-regular-svg-icons';
 import { useTool, ToolIds } from '../context/ToolContext.jsx';
 
@@ -14,6 +14,19 @@ export default function SlimToolbar({
   drawCreatureMode = null,
   setDrawCreatureMode,
   finalizeCreatureDrawing,
+  openGlobalModifiers,
+  gridSize,
+  openGridSettings,
+  // Map actions (optional)
+  clearMap,
+  onSaveMap,
+  onLoadMap,
+  onSaveLibrary,
+  onLoadLibrary,
+  // Game actions (optional)
+  onJoinGame,
+  onHostGame,
+  onLeaveGame,
 }) {
   const { tool, setTool } = useTool();
   const [drawMenuOpen, setDrawMenuOpen] = useState(false);
@@ -24,6 +37,13 @@ export default function SlimToolbar({
   const wrapRef = useRef(null);
   const [isMobile, setIsMobile] = useState(false);
   const [menuHeight, setMenuHeight] = useState(56); // track primary menu height on mobile
+  // Settings dropdown state
+  const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
+  const [settingsPrimaryOpen, setSettingsPrimaryOpen] = useState(null); // 'map' | 'game' | null
+  const [settingsSubmenuTop, setSettingsSubmenuTop] = useState(0);
+  const settingsWrapRef = useRef(null);
+  const settingsMenuRef = useRef(null);
+  const [settingsMenuHeight, setSettingsMenuHeight] = useState(56);
 
   // Track mobile layout (toolbar fixed at bottom); open draw menu upwards on mobile
   React.useEffect(() => {
@@ -48,10 +68,28 @@ export default function SlimToolbar({
     } catch {}
   }, [drawMenuOpen, isMobile, primaryOpen, menuHeight]);
 
+  // Measure settings primary height on mobile
+  React.useEffect(() => {
+    if (!settingsMenuOpen || !isMobile) return;
+    const el = settingsMenuRef.current;
+    if (!el) return;
+    try {
+      const rect = el.getBoundingClientRect();
+      if (rect?.height && Math.abs(rect.height - settingsMenuHeight) > 1) setSettingsMenuHeight(Math.ceil(rect.height));
+    } catch {}
+  }, [settingsMenuOpen, isMobile, settingsPrimaryOpen, settingsMenuHeight]);
+
   const btnSx = (active) => ({
     color: active ? '#4CAF50' : '#fff',
     border: active ? '1px solid rgba(76,175,80,0.7)' : '1px solid rgba(255,255,255,0.15)',
     backgroundColor: active ? 'rgba(76,175,80,0.15)' : 'transparent',
+    '&:hover': { backgroundColor: 'rgba(255,255,255,0.08)' },
+    p: 0,
+  });
+  const btnSxAmber = (active) => ({
+    color: active ? '#FFC107' : '#fff',
+    border: active ? '1px solid rgba(255,193,7,0.7)' : '1px solid rgba(255,255,255,0.15)',
+    backgroundColor: active ? 'rgba(255,193,7,0.15)' : 'transparent',
     '&:hover': { backgroundColor: 'rgba(255,255,255,0.08)' },
     p: 0,
   });
@@ -123,6 +161,21 @@ export default function SlimToolbar({
     return () => document.removeEventListener('pointerdown', onDocPointerDown, true);
   }, [drawMenuOpen]);
 
+  // Close settings menu on outside click
+  React.useEffect(() => {
+    if (!settingsMenuOpen) return;
+    const onDocPointerDown = (e) => {
+      try {
+        const within = settingsWrapRef.current?.contains?.(e.target);
+        if (!within) {
+          setSettingsMenuOpen(false);
+        }
+      } catch {}
+    };
+    document.addEventListener('pointerdown', onDocPointerDown, true);
+    return () => document.removeEventListener('pointerdown', onDocPointerDown, true);
+  }, [settingsMenuOpen]);
+
   const selectTool = (id) => {
     // Switching tools while drawing should finish the drawing and exit mode
     if (isDrawingCover && typeof toggleDrawingMode === 'function') {
@@ -187,7 +240,7 @@ export default function SlimToolbar({
               ref={drawBtnRef}
               aria-label="Draw environments/terrain"
               size="small"
-              sx={{ ...btnSx((tool === ToolIds.DRAW) || isDrawingCover || !!drawCreatureMode), position: 'relative' }}
+              sx={{ ...btnSx(isDrawingCover || !!drawCreatureMode || drawMenuOpen), position: 'relative' }}
               onClick={onClickDraw}
             >
               {/* Main icon */}
@@ -200,36 +253,18 @@ export default function SlimToolbar({
               style={{
                 position: isMobile ? 'fixed' : 'absolute',
                 zIndex: 210,
-                // Mobile: full-width primary bar directly above the slim toolbar
-                ...(isMobile
-                  ? {
-                      left: 0,
-                      right: 0,
-                      bottom: 'calc(48px + env(safe-area-inset-bottom, 0px) + var(--mobile-footer-height, 0px))',
-                      transform: 'none',
-                    }
-                  : {
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      top: '100%',
-                      marginTop: 6,
-                    }),
+                ...(isMobile ? {
+                  left: 0,
+                  right: 0,
+                  bottom: 'calc(48px + env(safe-area-inset-bottom, 0px) + var(--mobile-footer-height, 0px))',
+                  transform: 'none',
+                } : { left: '50%', transform: 'translateX(-50%)', top: '100%', marginTop: 6 })
               }}
             >
               <div
                 className="slim-dropdown__menu"
                 ref={menuRef}
-                style={isMobile ? {
-                  top: 'auto',
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  borderRadius: 0,
-                  display: 'flex',
-                  flexDirection: 'row',
-                  justifyContent: 'space-around',
-                  padding: '8px 10px',
-                } : undefined}
+                style={isMobile ? { top: 'auto', left: 0, right: 0, bottom: 0, borderRadius: 0, display: 'flex', flexDirection: 'row', justifyContent: 'space-around', padding: '8px 10px' } : undefined}
               >
                 <button className={`slim-dropdown__item ${primaryOpen === 'environment' ? 'active' : ''}`} onClick={(e) => selectPrimary('environment', e)} style={isMobile ? { flex: 1, justifyContent: 'center' } : undefined}>
                   <span>Cover</span>
@@ -297,6 +332,142 @@ export default function SlimToolbar({
           )}
         </div>
       )}
+      {/* Settings dropdown (gear) */}
+      <div className="slim-toolbar__settings" ref={settingsWrapRef} style={{ position: 'relative', display: 'inline-flex' }}>
+        <Tooltip title={isHost ? (isDrawingCover ? 'Settings disabled while drawing' : 'Settings') : 'Settings (host features disabled)'} placement="bottom">
+          <span>
+            <IconButton
+              aria-label="Settings"
+              size="small"
+              sx={btnSxAmber(settingsMenuOpen)}
+              onClick={() => {
+                setSettingsMenuOpen(v => !v);
+                setSettingsPrimaryOpen(null);
+                setDrawMenuOpen(false);
+                // Do not change the current tool; Settings is not a tool
+              }}
+            >
+              <FontAwesomeIcon icon={faGear} />
+            </IconButton>
+          </span>
+        </Tooltip>
+        {settingsMenuOpen && (
+          <div
+            className="slim-dropdown"
+            style={{
+              position: isMobile ? 'fixed' : 'absolute',
+              zIndex: 210,
+              ...(isMobile ? { left: 0, right: 0, bottom: 'calc(48px + env(safe-area-inset-bottom, 0px) + var(--mobile-footer-height, 0px))', transform: 'none' } : { left: '50%', transform: 'translateX(-50%)', top: '100%', marginTop: 6 })
+            }}
+          >
+            <div
+              className="slim-dropdown__menu"
+              ref={settingsMenuRef}
+              style={isMobile ? { top: 'auto', left: 0, right: 0, bottom: 0, borderRadius: 0, display: 'flex', flexDirection: 'row', justifyContent: 'space-around', padding: '8px 10px' } : undefined}
+            >
+              <button className={`slim-dropdown__item`} onClick={() => { if (!isDrawingCover) openGridSettings && openGridSettings(); setSettingsMenuOpen(false); }} style={isMobile ? { flex: 1, justifyContent: 'center' } : undefined}>
+                <span>Grid Settings</span>
+              </button>
+              <button className={`slim-dropdown__item ${settingsPrimaryOpen === 'map' ? 'active' : ''}`} onClick={(e) => {
+                if (settingsPrimaryOpen === 'map') setSettingsPrimaryOpen(null); else setSettingsPrimaryOpen('map');
+                if (!isMobile) {
+                  try {
+                    const mRect = settingsMenuRef.current?.getBoundingClientRect();
+                    const iRect = e.currentTarget?.getBoundingClientRect();
+                    if (mRect && iRect) setSettingsSubmenuTop(Math.max(0, iRect.top - mRect.top));
+                  } catch {}
+                }
+              }} style={isMobile ? { flex: 1, justifyContent: 'center' } : undefined}>
+                <span>Map Settings</span>
+                {!isMobile && (<FontAwesomeIcon icon={faChevronRight} style={{ opacity: 0.85, fontSize: 10 }} />)}
+              </button>
+              <button className={`slim-dropdown__item ${settingsPrimaryOpen === 'game' ? 'active' : ''}`} onClick={(e) => {
+                if (settingsPrimaryOpen === 'game') setSettingsPrimaryOpen(null); else setSettingsPrimaryOpen('game');
+                if (!isMobile) {
+                  try {
+                    const mRect = settingsMenuRef.current?.getBoundingClientRect();
+                    const iRect = e.currentTarget?.getBoundingClientRect();
+                    if (mRect && iRect) setSettingsSubmenuTop(Math.max(0, iRect.top - mRect.top));
+                  } catch {}
+                }
+              }} style={isMobile ? { flex: 1, justifyContent: 'center' } : undefined}>
+                <span>Game Settings</span>
+                {!isMobile && (<FontAwesomeIcon icon={faChevronRight} style={{ opacity: 0.85, fontSize: 10 }} />)}
+              </button>
+
+              {settingsPrimaryOpen === 'map' && (
+                <div
+                  className="slim-dropdown__submenu"
+                  style={isMobile ? { top: 'auto', position: 'fixed', left: 0, right: 0, bottom: `calc(48px + env(safe-area-inset-bottom, 0px) + var(--mobile-footer-height, 0px) + ${settingsMenuHeight}px)`, borderRadius: 0 } : { left: '100%', top: settingsSubmenuTop }}
+                >
+                  <button className="slim-dropdown__item" onClick={() => { if (!isDrawingCover) clearMap && clearMap(); setSettingsMenuOpen(false); }}>
+                    <FontAwesomeIcon icon={faTrashCan} style={{ marginRight: 8 }} />
+                    <span>Clear Map</span>
+                  </button>
+                  <button className="slim-dropdown__item" onClick={() => { if (!isDrawingCover) onSaveMap && onSaveMap(); setSettingsMenuOpen(false); }}>
+                    <FontAwesomeIcon icon={faUpload} style={{ marginRight: 8 }} />
+                    <span>Save Map</span>
+                  </button>
+                  <button className="slim-dropdown__item" onClick={() => { if (!isDrawingCover) onLoadMap && onLoadMap(); setSettingsMenuOpen(false); }}>
+                    <FontAwesomeIcon icon={faDownload} style={{ marginRight: 8 }} />
+                    <span>Load Map</span>
+                  </button>
+                  <button className="slim-dropdown__item" onClick={() => { if (!isDrawingCover) onSaveLibrary && onSaveLibrary(); setSettingsMenuOpen(false); }}>
+                    <FontAwesomeIcon icon={faUpload} style={{ marginRight: 8 }} />
+                    <span>Save to Library</span>
+                  </button>
+                  <button className="slim-dropdown__item" onClick={() => { if (!isDrawingCover) onLoadLibrary && onLoadLibrary(); setSettingsMenuOpen(false); }}>
+                    <FontAwesomeIcon icon={faDownload} style={{ marginRight: 8 }} />
+                    <span>Load from Library</span>
+                  </button>
+                </div>
+              )}
+
+              {settingsPrimaryOpen === 'game' && (
+                <div
+                  className="slim-dropdown__submenu"
+                  style={isMobile ? { top: 'auto', position: 'fixed', left: 0, right: 0, bottom: `calc(48px + env(safe-area-inset-bottom, 0px) + var(--mobile-footer-height, 0px) + ${settingsMenuHeight}px)`, borderRadius: 0 } : { left: '100%', top: settingsSubmenuTop }}
+                >
+                  {onJoinGame && (
+                    <button className="slim-dropdown__item" onClick={() => { onJoinGame(); setSettingsMenuOpen(false); }}>
+                      <FontAwesomeIcon icon={faRightToBracket} style={{ marginRight: 8 }} />
+                      <span>Join Game</span>
+                    </button>
+                  )}
+                  {onHostGame && (
+                    <button className="slim-dropdown__item" onClick={() => { onHostGame(); setSettingsMenuOpen(false); }}>
+                      <FontAwesomeIcon icon={faUserPlus} style={{ marginRight: 8 }} />
+                      <span>Host Game</span>
+                    </button>
+                  )}
+                  {onLeaveGame && (
+                    <button className="slim-dropdown__item" onClick={() => { onLeaveGame(); setSettingsMenuOpen(false); }}>
+                      <FontAwesomeIcon icon={faRightFromBracket} style={{ marginRight: 8 }} />
+                      <span>Leave Game</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Spacer to align moved items to the right side */}
+      <div style={{ flex: 1 }} />
+      {/* Moved from burger/main toolbar: Global Modifiers and Grid size */}
+      <div className="toolbar-divider-vert" aria-hidden="true" />
+      <button
+        className="turn-box turn-box--small turn-box--danger"
+        onClick={isDrawingCover ? undefined : openGlobalModifiers}
+        disabled={!!isDrawingCover}
+        title="Global Modifiers"
+        style={{ cursor: isDrawingCover ? 'not-allowed' : 'pointer' }}
+      >
+        Global Modifiers
+      </button>
+      <div className="toolbar-divider-vert" aria-hidden="true" />
+      <span className="grid-info">Grid: {gridSize}ft per cell</span>
     </Box>
   );
 }

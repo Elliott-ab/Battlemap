@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faGear, faTrashCan, faRotateLeft, faDownload, faUpload, faBars, faUserGear, faCircle, faBell } from '@fortawesome/free-solid-svg-icons';
+import { faTrashCan, faRotateLeft, faDownload, faUpload, faBars, faUserGear, faCircle, faBell } from '@fortawesome/free-solid-svg-icons';
 import IconButton from './common/IconButton.jsx';
 import { useGameSession } from '../Utils/GameSessionContext.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
@@ -254,15 +254,6 @@ const Toolbar = ({
       <div className="controls">
         {variant === 'battlemap' && (
           <>
-            <div
-              className="turn-box turn-box--small turn-box--danger"
-              onClick={isDrawingCover ? undefined : openGlobalModifiers}
-              style={{ cursor: isDrawingCover ? 'not-allowed' : 'pointer', minWidth: 0 }}
-              title="Global Modifiers"
-            >
-              Global Modifiers
-            </div>
-            <div className="toolbar-divider-vert" aria-hidden="true" />
             <div className="toolbar-icons">
               {/* Clear/Undo removed from toolbar; available via burger for hosts only */}
               {isHost && game && game.id && game.code && (
@@ -290,7 +281,6 @@ const Toolbar = ({
                 </>
               )}
             </div>
-            <span className="grid-info">Grid: {gridSize}ft per cell</span>
           </>
         )}
         <IconButton className="toolbar-burger" title="Menu" size="large" onClick={() => setMenuOpen(v => !v)}>
@@ -332,65 +322,21 @@ const Toolbar = ({
               <span>Characters</span>
             </a>
             <hr className="toolbar-divider-horiz menu-item--mobile-only" />
-            {variant === 'battlemap' && isHost && (
-              <button className="menu-item" onClick={() => handleMaybe(showGridModal)} disabled={isDrawingCover} role="menuitem">
-                <FontAwesomeIcon icon={faGear} />
-                <span>Grid Settings</span>
-              </button>
-            )}
+            {/* Grid Settings moved to Slim Toolbar (gear icon) */}
+            {/* Clear Map moved to Slim Toolbar > Settings > Map Settings; keep Undo here for quick access */}
             {variant === 'battlemap' && isHost && (
               <>
-                <button className="menu-item" onClick={() => handleMaybe(clearMap)} disabled={isDrawingCover} role="menuitem">
-                  <FontAwesomeIcon icon={faTrashCan} />
-                  <span>Clear Map</span>
-                </button>
                 <button className="menu-item" onClick={() => handleMaybe(undo)} disabled={isDrawingCover} role="menuitem">
                   <FontAwesomeIcon icon={faRotateLeft} />
                   <span>Undo</span>
                 </button>
               </>
             )}
-            {variant === 'battlemap' && isHost && game && game.id && game.code && (
-              <>
-                <button className="menu-item" onClick={() => handleMaybe(onSaveMap)} disabled={isDrawingCover} role="menuitem">
-                  <FontAwesomeIcon icon={faDownload} />
-                  <span>Save Map</span>
-                </button>
-                <button className="menu-item" onClick={() => handleMaybe(onLoadMap)} disabled={isDrawingCover} role="menuitem">
-                  <FontAwesomeIcon icon={faUpload} />
-                  <span>Load Map</span>
-                </button>
-              </>
-            )}
+            {/* Save/Load Map moved to Slim Toolbar > Settings > Map Settings */}
             {/* Library actions only visible on Battlemap per request */}
-            {variant === 'battlemap' && (
-              <>
-                <button className="menu-item" onClick={() => handleMaybe(onSaveLibrary)} disabled={isDrawingCover} role="menuitem">
-                  <FontAwesomeIcon icon={faDownload} />
-                  <span>Save to Library</span>
-                </button>
-                <button className="menu-item" onClick={() => handleMaybe(onLoadLibrary)} disabled={isDrawingCover} role="menuitem">
-                  <FontAwesomeIcon icon={faUpload} />
-                  <span>Load from Library</span>
-                </button>
-              </>
-            )}
+            {/* Save/Load Library moved to Slim Toolbar > Settings > Map Settings */}
             <hr className="toolbar-divider-horiz" />
-            {onJoinGame && (
-              <button className="menu-item" onClick={() => { onJoinGame(); setMenuOpen(false); }} role="menuitem">
-                <span>Join Game</span>
-              </button>
-            )}
-            {onHostGame && (
-              <button className="menu-item" onClick={() => { onHostGame(); setMenuOpen(false); }} role="menuitem">
-                <span>Host Game</span>
-              </button>
-            )}
-            {onLeaveGame && (
-              <button className="menu-item" onClick={() => { onLeaveGame(); setMenuOpen(false); }} role="menuitem">
-                <span>Leave Game</span>
-              </button>
-            )}
+            {/* Join/Host/Leave moved to Slim Toolbar > Settings > Game Settings */}
             {variant === 'battlemap' && isHost && game && game.id && game.code && (
               <>
                 <hr className="toolbar-divider-horiz" />
