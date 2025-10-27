@@ -198,6 +198,32 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
   // Persist latest state when tab hides/unmounts
   usePersistOnHide(gameId, user, channel, latestStateRef, isHost, canWriteLive);
 
+  // Refresh latest live state when the host returns to the app (focus/visible)
+  useEffect(() => {
+    if (!gameId || !user || !isHost) return;
+    const refresh = async () => {
+      try {
+        if (channel !== 'live') return; // only refresh when viewing Live
+        const row = await getMapState(gameId, 'live');
+        const saved = row?.state || {};
+        setState(prev => ({
+          ...prev,
+          elements: Array.isArray(saved.elements) ? saved.elements : prev.elements,
+          grid: saved.grid || prev.grid,
+          globalModifiers: Array.isArray(saved.globalModifiers) || typeof saved.globalModifiers === 'object' ? saved.globalModifiers : prev.globalModifiers,
+        }));
+      } catch (_) { /* ignore */ }
+    };
+    const onFocus = () => refresh();
+    const onVis = () => { if (document.visibilityState === 'visible') refresh(); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [gameId, user?.id, isHost, channel]);
+
   // Load a library map into the local editor when requested
   useEffect(() => {
     let active = true;
@@ -1726,6 +1752,9 @@ function usePersistOnHide(gameId, user, channel, latestStateRef, isHost, canWrit
         // Guard writes according to role/channel to avoid RLS 403s
   // Only the host saves on hide/unmount to avoid write loops from viewers
   if (!isHost) return;
+  // Never auto-save the live channel on hide/unmount to avoid overwriting
+  // player updates while the host is backgrounded or navigating away.
+  if (channel === 'live') return;
         // Fire and forget; we don't block navigation
         upsertMapState(gameId, channel, payload, user.id).catch(() => {});
       } catch {}
