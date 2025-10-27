@@ -324,6 +324,9 @@ body {
     text-decoration: none;
     font-weight: 500; /* normal by default */
     letter-spacing: 0.3px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px; /* space between icon and label */
 }
 .toolbar-link:hover {
     text-decoration: none; /* no underline on hover */
@@ -905,7 +908,8 @@ body {
 
 /* Add bottom padding in map container to avoid the bottom tool bar overlapping content on mobile */
 @media (max-width: 1024px) {
-    .map-container { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px) + var(--mobile-footer-height, 0px)); }
+    /* increase bottom padding to account for taller mobile toolbar (two rows) */
+    .map-container { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px) + var(--mobile-footer-height, 0px)); }
 }
 
 /* Slim toolbar: default (desktop) top bar in map pane */
@@ -929,11 +933,13 @@ body {
         left: 0;
         right: 0;
         bottom: calc(env(safe-area-inset-bottom, 0px) + var(--mobile-footer-height, 0px));
-        height: 48px;
+        height: auto; /* allow toolbar to grow beyond one row */
+        min-height: 48px; /* base minimum height on mobile */
         border-top: 1px solid #444;
         border-bottom: none;
         background-color: rgba(36,36,36,0.98);
         display: flex;
+        flex-wrap: wrap; /* allow content to wrap to next line */
         justify-content: center;
         gap: 8px;
         padding: 6px 10px;
@@ -1840,10 +1846,19 @@ body {
     cursor: pointer;
     min-height: 44px;
     text-align: left;
+    text-decoration: none; /* remove underline for links */
 }
 .toolbar-menu .menu-item:hover {
     background: #383838;
     border-color: #555;
+}
+/* Mobile-only nav items should mirror toolbar link styling */
+.toolbar-menu .menu-item.menu-item--mobile-only:hover {
+    color: #f44336; /* red on hover */
+}
+.toolbar-menu .menu-item.menu-item--mobile-only.active {
+    color: #f44336; /* red when active */
+    font-weight: 700; /* bold when active */
 }
 
 /* Mobile-only items inside the toolbar menu */

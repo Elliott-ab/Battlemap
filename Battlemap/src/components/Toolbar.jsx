@@ -254,33 +254,7 @@ const Toolbar = ({
       <div className="controls">
         {variant === 'battlemap' && (
           <>
-            <div className="toolbar-icons">
-              {/* Clear/Undo removed from toolbar; available via burger for hosts only */}
-              {isHost && game && game.id && game.code && (
-                <>
-                  <div className="toolbar-divider-vert" aria-hidden="true" />
-                  <button
-                    className={`turn-box turn-box--small ${currentChannel === 'draft' ? 'turn-box--status-draft' : 'turn-box--status-live'}`}
-                    onClick={isDrawingCover ? undefined : onPushToPlayers}
-                    disabled={isDrawingCover}
-                    title="Push current draft to all players"
-                    style={{ cursor: isDrawingCover ? 'not-allowed' : 'pointer' }}
-                  >
-                    Push to Players
-                  </button>
-                  <div className="toolbar-divider-vert" aria-hidden="true" />
-                  <button
-                    className={`turn-box turn-box--small ${currentChannel === 'draft' ? 'turn-box--status-draft' : 'turn-box--status-live'}`}
-                    onClick={isDrawingCover ? undefined : onToggleChannel}
-                    disabled={isDrawingCover}
-                    title="Toggle edit/view channel"
-                    style={{ cursor: isDrawingCover ? 'not-allowed' : 'pointer' }}
-                  >
-                    {currentChannel === 'draft' ? 'Editing Draft' : 'Viewing Live'}
-                  </button>
-                </>
-              )}
-            </div>
+            <div className="toolbar-icons" />
           </>
         )}
         <IconButton className="toolbar-burger" title="Menu" size="large" onClick={() => setMenuOpen(v => !v)}>
@@ -308,19 +282,39 @@ const Toolbar = ({
         <>
           <div className="toolbar-menu-backdrop" onClick={() => setMenuOpen(false)} />
           <div className="toolbar-menu" role="menu" aria-label="Toolbar menu">
-            {/* Mobile-only primary navigation at the top of the menu */}
-            <a href="#/home" className="menu-item menu-item--mobile-only" onClick={() => setMenuOpen(false)} role="menuitem">
+            {/* Mobile-only primary navigation at the top of the menu (use NavLink for active styling) */}
+            <NavLink
+              to="/home"
+              className={({ isActive }) => `menu-item menu-item--mobile-only ${isActive ? 'active' : ''}`}
+              onClick={() => setMenuOpen(false)}
+              role="menuitem"
+            >
               <span>Home</span>
-            </a>
-            <a href="#/library" className="menu-item menu-item--mobile-only" onClick={() => setMenuOpen(false)} role="menuitem">
+            </NavLink>
+            <NavLink
+              to="/library"
+              className={({ isActive }) => `menu-item menu-item--mobile-only ${isActive ? 'active' : ''}`}
+              onClick={() => setMenuOpen(false)}
+              role="menuitem"
+            >
               <span>Library</span>
-            </a>
-            <a href={game?.code ? `#/battlemap/${game.code}` : '#/battlemap/LOCAL'} className="menu-item menu-item--mobile-only" onClick={() => setMenuOpen(false)} role="menuitem">
+            </NavLink>
+            <NavLink
+              to={game?.code ? `/battlemap/${game.code}` : '/battlemap/LOCAL'}
+              className={({ isActive }) => `menu-item menu-item--mobile-only ${isActive ? 'active' : ''}`}
+              onClick={() => setMenuOpen(false)}
+              role="menuitem"
+            >
               <span>Battlemap</span>
-            </a>
-            <a href="#/characters" className="menu-item menu-item--mobile-only" onClick={() => setMenuOpen(false)} role="menuitem">
+            </NavLink>
+            <NavLink
+              to="/characters"
+              className={({ isActive }) => `menu-item menu-item--mobile-only ${isActive ? 'active' : ''}`}
+              onClick={() => setMenuOpen(false)}
+              role="menuitem"
+            >
               <span>Characters</span>
-            </a>
+            </NavLink>
             <hr className="toolbar-divider-horiz menu-item--mobile-only" />
             {/* Grid Settings moved to Slim Toolbar (gear icon) */}
             {/* Clear Map moved to Slim Toolbar > Settings > Map Settings; keep Undo here for quick access */}
@@ -336,18 +330,7 @@ const Toolbar = ({
             {/* Library actions only visible on Battlemap per request */}
             {/* Save/Load Library moved to Slim Toolbar > Settings > Map Settings */}
             <hr className="toolbar-divider-horiz" />
-            {/* Join/Host/Leave moved to Slim Toolbar > Settings > Game Settings */}
-            {variant === 'battlemap' && isHost && game && game.id && game.code && (
-              <>
-                <hr className="toolbar-divider-horiz" />
-                <button className="menu-item" onClick={() => handleMaybe(onPushToPlayers)} role="menuitem">
-                  <span>Push to Players</span>
-                </button>
-                <button className="menu-item" onClick={() => handleMaybe(onToggleChannel)} role="menuitem">
-                  <span>{currentChannel === 'draft' ? 'Switch to Live' : 'Switch to Draft'}</span>
-                </button>
-              </>
-            )}
+            {/* Join/Host/Leave moved to Slim Toolbar > Settings > Game Settings; Push/Toggle moved to Slim Toolbar */}
             {/* Fellowship section (always available when handler is provided), above User Settings */}
             <hr className="toolbar-divider-horiz" />
             {onFellowshipClick && (

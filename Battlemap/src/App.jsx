@@ -1403,6 +1403,22 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
               onJoinGame={onJoinGame}
               onHostGame={onHostGame}
               onLeaveGame={onLeaveGame}
+              hasGame={!!gameId}
+              currentChannel={channel}
+              onToggleChannel={() => setChannel((c) => (c === 'draft' ? 'live' : 'draft'))}
+              onPushToPlayers={async () => {
+                if (!isHost || !gameId || !user) return;
+                try {
+                  await pushDraftToLive(gameId, user.id);
+                  setToast({ open: true, severity: 'success', message: 'Updates sent to players.' });
+                  if (liveSignalRef.current) {
+                    try { await liveSignalRef.current.send({ type: 'broadcast', event: 'live-updated', payload: { by: user.id, t: Date.now() } }); } catch {}
+                  }
+                } catch (e) {
+                  console.error('Push to players failed:', e);
+                  setToast({ open: true, severity: 'error', message: 'Failed to push updates to players.' });
+                }
+              }}
             />
             <BattleMap
           state={mergedState}

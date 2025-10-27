@@ -27,6 +27,11 @@ export default function SlimToolbar({
   onJoinGame,
   onHostGame,
   onLeaveGame,
+  // Host live/draft controls
+  currentChannel,
+  onToggleChannel,
+  onPushToPlayers,
+  hasGame = false,
 }) {
   const { tool, setTool } = useTool();
   const [drawMenuOpen, setDrawMenuOpen] = useState(false);
@@ -37,6 +42,8 @@ export default function SlimToolbar({
   const wrapRef = useRef(null);
   const [isMobile, setIsMobile] = useState(false);
   const [menuHeight, setMenuHeight] = useState(56); // track primary menu height on mobile
+  const toolbarRef = useRef(null);
+  const [barHeight, setBarHeight] = useState(48);
   // Settings dropdown state
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
   const [settingsPrimaryOpen, setSettingsPrimaryOpen] = useState(null); // 'map' | 'game' | null
@@ -44,6 +51,7 @@ export default function SlimToolbar({
   const settingsWrapRef = useRef(null);
   const settingsMenuRef = useRef(null);
   const [settingsMenuHeight, setSettingsMenuHeight] = useState(56);
+  const isPlayerInGame = hasGame && !isHost;
 
   // Track mobile layout (toolbar fixed at bottom); open draw menu upwards on mobile
   React.useEffect(() => {
@@ -67,6 +75,23 @@ export default function SlimToolbar({
       if (rect?.height && Math.abs(rect.height - menuHeight) > 1) setMenuHeight(Math.ceil(rect.height));
     } catch {}
   }, [drawMenuOpen, isMobile, primaryOpen, menuHeight]);
+
+  // Measure the slim toolbar height on mobile so menus can sit above it even when it grows
+  React.useEffect(() => {
+    if (!isMobile) return;
+    const measure = () => {
+      try {
+        const el = toolbarRef.current;
+        if (!el) return;
+        const h = Math.ceil(el.getBoundingClientRect().height);
+        if (Number.isFinite(h) && h > 0 && Math.abs(h - barHeight) > 1) setBarHeight(h);
+      } catch {}
+    };
+    measure();
+    const onResize = () => measure();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [isMobile, barHeight, isHost, hasGame]);
 
   // Measure settings primary height on mobile
   React.useEffect(() => {
@@ -214,9 +239,11 @@ export default function SlimToolbar({
         alignItems: 'center',
         gap: 0.5,
         px: 0.75,
+        flexWrap: isMobile ? 'wrap' : 'nowrap',
       }}
       role="toolbar"
       aria-label="Tools"
+      ref={toolbarRef}
     >
       <Tooltip title="Pointer" placement="bottom">
         <IconButton aria-label="Pointer tool" size="small" sx={btnSx(tool === ToolIds.POINTER)} onClick={() => selectTool(ToolIds.POINTER)}>
@@ -256,7 +283,7 @@ export default function SlimToolbar({
                 ...(isMobile ? {
                   left: 0,
                   right: 0,
-                  bottom: 'calc(48px + env(safe-area-inset-bottom, 0px) + var(--mobile-footer-height, 0px))',
+                  bottom: `calc(${barHeight}px + env(safe-area-inset-bottom, 0px) + var(--mobile-footer-height, 0px))`,
                   transform: 'none',
                 } : { left: '50%', transform: 'translateX(-50%)', top: '100%', marginTop: 6 })
               }}
@@ -286,7 +313,7 @@ export default function SlimToolbar({
                       position: 'fixed',
                       left: 0,
                       right: 0,
-                      bottom: `calc(48px + env(safe-area-inset-bottom, 0px) + var(--mobile-footer-height, 0px) + ${menuHeight}px)`,
+                      bottom: `calc(${barHeight}px + env(safe-area-inset-bottom, 0px) + var(--mobile-footer-height, 0px) + ${menuHeight}px)`,
                       borderRadius: 0,
                     } : { left: '100%', top: submenuTop }}
                   >
@@ -303,7 +330,7 @@ export default function SlimToolbar({
                       position: 'fixed',
                       left: 0,
                       right: 0,
-                      bottom: `calc(48px + env(safe-area-inset-bottom, 0px) + var(--mobile-footer-height, 0px) + ${menuHeight}px)`,
+                      bottom: `calc(${barHeight}px + env(safe-area-inset-bottom, 0px) + var(--mobile-footer-height, 0px) + ${menuHeight}px)`,
                       borderRadius: 0,
                     } : { left: '100%', top: submenuTop }}
                   >
@@ -318,7 +345,7 @@ export default function SlimToolbar({
                       position: 'fixed',
                       left: 0,
                       right: 0,
-                      bottom: `calc(48px + env(safe-area-inset-bottom, 0px) + var(--mobile-footer-height, 0px) + ${menuHeight}px)`,
+                      bottom: `calc(${barHeight}px + env(safe-area-inset-bottom, 0px) + var(--mobile-footer-height, 0px) + ${menuHeight}px)`,
                       borderRadius: 0,
                     } : { left: '100%', top: submenuTop }}
                   >
@@ -357,7 +384,7 @@ export default function SlimToolbar({
             style={{
               position: isMobile ? 'fixed' : 'absolute',
               zIndex: 210,
-              ...(isMobile ? { left: 0, right: 0, bottom: 'calc(48px + env(safe-area-inset-bottom, 0px) + var(--mobile-footer-height, 0px))', transform: 'none' } : { left: '50%', transform: 'translateX(-50%)', top: '100%', marginTop: 6 })
+              ...(isMobile ? { left: 0, right: 0, bottom: `calc(${barHeight}px + env(safe-area-inset-bottom, 0px) + var(--mobile-footer-height, 0px))`, transform: 'none' } : { left: '50%', transform: 'translateX(-50%)', top: '100%', marginTop: 6 })
             }}
           >
             <div
@@ -365,19 +392,26 @@ export default function SlimToolbar({
               ref={settingsMenuRef}
               style={isMobile ? { top: 'auto', left: 0, right: 0, bottom: 0, borderRadius: 0, display: 'flex', flexDirection: 'row', justifyContent: 'space-around', padding: '8px 10px' } : undefined}
             >
-              <button className={`slim-dropdown__item`} onClick={() => { if (!isDrawingCover) openGridSettings && openGridSettings(); setSettingsMenuOpen(false); }} style={isMobile ? { flex: 1, justifyContent: 'center' } : undefined}>
+              <button className={`slim-dropdown__item`} disabled={isPlayerInGame}
+                onClick={() => { if (isPlayerInGame) return; if (!isDrawingCover) openGridSettings && openGridSettings(); setSettingsMenuOpen(false); }}
+                style={isMobile ? { flex: 1, justifyContent: 'center', opacity: isPlayerInGame ? 0.5 : 1, cursor: isPlayerInGame ? 'not-allowed' : 'pointer' } : (isPlayerInGame ? { opacity: 0.5, cursor: 'not-allowed' } : undefined)}
+              >
                 <span>Grid Settings</span>
               </button>
-              <button className={`slim-dropdown__item ${settingsPrimaryOpen === 'map' ? 'active' : ''}`} onClick={(e) => {
-                if (settingsPrimaryOpen === 'map') setSettingsPrimaryOpen(null); else setSettingsPrimaryOpen('map');
-                if (!isMobile) {
-                  try {
-                    const mRect = settingsMenuRef.current?.getBoundingClientRect();
-                    const iRect = e.currentTarget?.getBoundingClientRect();
-                    if (mRect && iRect) setSettingsSubmenuTop(Math.max(0, iRect.top - mRect.top));
-                  } catch {}
-                }
-              }} style={isMobile ? { flex: 1, justifyContent: 'center' } : undefined}>
+              <button className={`slim-dropdown__item ${settingsPrimaryOpen === 'map' ? 'active' : ''}`} disabled={isPlayerInGame}
+                onClick={(e) => {
+                  if (isPlayerInGame) return;
+                  if (settingsPrimaryOpen === 'map') setSettingsPrimaryOpen(null); else setSettingsPrimaryOpen('map');
+                  if (!isMobile) {
+                    try {
+                      const mRect = settingsMenuRef.current?.getBoundingClientRect();
+                      const iRect = e.currentTarget?.getBoundingClientRect();
+                      if (mRect && iRect) setSettingsSubmenuTop(Math.max(0, iRect.top - mRect.top));
+                    } catch {}
+                  }
+                }}
+                style={isMobile ? { flex: 1, justifyContent: 'center', opacity: isPlayerInGame ? 0.5 : 1, cursor: isPlayerInGame ? 'not-allowed' : 'pointer' } : (isPlayerInGame ? { opacity: 0.5, cursor: 'not-allowed' } : undefined)}
+              >
                 <span>Map Settings</span>
                 {!isMobile && (<FontAwesomeIcon icon={faChevronRight} style={{ opacity: 0.85, fontSize: 10 }} />)}
               </button>
@@ -398,7 +432,7 @@ export default function SlimToolbar({
               {settingsPrimaryOpen === 'map' && (
                 <div
                   className="slim-dropdown__submenu"
-                  style={isMobile ? { top: 'auto', position: 'fixed', left: 0, right: 0, bottom: `calc(48px + env(safe-area-inset-bottom, 0px) + var(--mobile-footer-height, 0px) + ${settingsMenuHeight}px)`, borderRadius: 0 } : { left: '100%', top: settingsSubmenuTop }}
+                  style={isMobile ? { top: 'auto', position: 'fixed', left: 0, right: 0, bottom: `calc(${barHeight}px + env(safe-area-inset-bottom, 0px) + var(--mobile-footer-height, 0px) + ${settingsMenuHeight}px)`, borderRadius: 0 } : { left: '100%', top: settingsSubmenuTop }}
                 >
                   <button className="slim-dropdown__item" onClick={() => { if (!isDrawingCover) clearMap && clearMap(); setSettingsMenuOpen(false); }}>
                     <FontAwesomeIcon icon={faTrashCan} style={{ marginRight: 8 }} />
@@ -426,7 +460,7 @@ export default function SlimToolbar({
               {settingsPrimaryOpen === 'game' && (
                 <div
                   className="slim-dropdown__submenu"
-                  style={isMobile ? { top: 'auto', position: 'fixed', left: 0, right: 0, bottom: `calc(48px + env(safe-area-inset-bottom, 0px) + var(--mobile-footer-height, 0px) + ${settingsMenuHeight}px)`, borderRadius: 0 } : { left: '100%', top: settingsSubmenuTop }}
+                  style={isMobile ? { top: 'auto', position: 'fixed', left: 0, right: 0, bottom: `calc(${barHeight}px + env(safe-area-inset-bottom, 0px) + var(--mobile-footer-height, 0px) + ${settingsMenuHeight}px)`, borderRadius: 0 } : { left: '100%', top: settingsSubmenuTop }}
                 >
                   {onJoinGame && (
                     <button className="slim-dropdown__item" onClick={() => { onJoinGame(); setSettingsMenuOpen(false); }}>
@@ -441,7 +475,7 @@ export default function SlimToolbar({
                     </button>
                   )}
                   {onLeaveGame && (
-                    <button className="slim-dropdown__item" onClick={() => { onLeaveGame(); setSettingsMenuOpen(false); }}>
+                    <button className="slim-dropdown__item" onClick={() => { onLeaveGame(); setSettingsMenuOpen(false); }} style={{ color: '#f44336' }}>
                       <FontAwesomeIcon icon={faRightFromBracket} style={{ marginRight: 8 }} />
                       <span>Leave Game</span>
                     </button>
@@ -453,21 +487,103 @@ export default function SlimToolbar({
         )}
       </div>
 
-      {/* Spacer to align moved items to the right side */}
-      <div style={{ flex: 1 }} />
+  {/* Spacer to align moved items to the right side (desktop only) */}
+  {!isMobile && <div style={{ flex: 1 }} />}
       {/* Moved from burger/main toolbar: Global Modifiers and Grid size */}
-      <div className="toolbar-divider-vert" aria-hidden="true" />
-      <button
-        className="turn-box turn-box--small turn-box--danger"
-        onClick={isDrawingCover ? undefined : openGlobalModifiers}
-        disabled={!!isDrawingCover}
-        title="Global Modifiers"
-        style={{ cursor: isDrawingCover ? 'not-allowed' : 'pointer' }}
-      >
-        Global Modifiers
-      </button>
-      <div className="toolbar-divider-vert" aria-hidden="true" />
-      <span className="grid-info">Grid: {gridSize}ft per cell</span>
+      {isHost && hasGame && !isMobile && (
+        <>
+          <div className="toolbar-divider-vert" aria-hidden="true" />
+          <button
+            className="turn-box turn-box--small"
+            onClick={isDrawingCover ? undefined : onPushToPlayers}
+            disabled={!!isDrawingCover}
+            title="Push current draft to all players"
+            style={{ cursor: isDrawingCover ? 'not-allowed' : 'pointer' }}
+          >
+            Push to Players
+          </button>
+          <div className="toolbar-divider-vert" aria-hidden="true" />
+          <button
+            className={`turn-box turn-box--small ${currentChannel === 'draft' ? 'turn-box--status-draft' : 'turn-box--status-live'}`}
+            onClick={isDrawingCover ? undefined : onToggleChannel}
+            disabled={!!isDrawingCover}
+            title="Toggle edit/view channel"
+            style={{ cursor: isDrawingCover ? 'not-allowed' : 'pointer' }}
+          >
+            {currentChannel === 'draft' ? 'Editing Draft' : 'Viewing Live'}
+          </button>
+        </>
+      )}
+      {!isMobile && (
+        <>
+          <div className="toolbar-divider-vert" aria-hidden="true" />
+          {(isHost || !hasGame) && (
+            <button
+              className="turn-box turn-box--small turn-box--danger"
+              onClick={isDrawingCover ? undefined : openGlobalModifiers}
+              disabled={!!isDrawingCover}
+              title="Global Modifiers"
+              style={{ cursor: isDrawingCover ? 'not-allowed' : 'pointer' }}
+            >
+              Global Modifiers
+            </button>
+          )}
+          <div className="toolbar-divider-vert" aria-hidden="true" />
+          <span className="grid-info">Grid: {gridSize}ft per cell</span>
+        </>
+      )}
+
+      {/* Mobile-only host controls below tools, separated by a divider */}
+      {isMobile && (
+        (() => {
+          const showHostRow = isHost && hasGame;
+          const showModifiersOnly = !hasGame; // not in a game
+          const hasSecondRow = showHostRow || showModifiersOnly;
+          if (!hasSecondRow) return null;
+          return (
+            <>
+              <div style={{ flexBasis: '100%' }} />
+              <div style={{ width: '100%', height: 1, background: 'rgba(255,255,255,0.2)', margin: '6px 0' }} aria-hidden="true" />
+              <div style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, justifyContent: showModifiersOnly ? 'center' : 'center' }}>
+                {/* Global Modifiers always first when shown on mobile second row */}
+                {(isHost || !hasGame) && (
+                  <button
+                    className="turn-box turn-box--small turn-box--danger"
+                    onClick={isDrawingCover ? undefined : openGlobalModifiers}
+                    disabled={!!isDrawingCover}
+                    title="Global Modifiers"
+                    style={{ cursor: isDrawingCover ? 'not-allowed' : 'pointer' }}
+                  >
+                    Global Modifiers
+                  </button>
+                )}
+                {showHostRow && (
+                  <>
+                    <button
+                      className="turn-box turn-box--small"
+                      onClick={isDrawingCover ? undefined : onPushToPlayers}
+                      disabled={!!isDrawingCover}
+                      title="Push current draft to all players"
+                      style={{ cursor: isDrawingCover ? 'not-allowed' : 'pointer' }}
+                    >
+                      Push to Players
+                    </button>
+                    <button
+                      className={`turn-box turn-box--small ${currentChannel === 'draft' ? 'turn-box--status-draft' : 'turn-box--status-live'}`}
+                      onClick={isDrawingCover ? undefined : onToggleChannel}
+                      disabled={!!isDrawingCover}
+                      title="Toggle edit/view channel"
+                      style={{ cursor: isDrawingCover ? 'not-allowed' : 'pointer' }}
+                    >
+                      {currentChannel === 'draft' ? 'Editing Draft' : 'Viewing Live'}
+                    </button>
+                  </>
+                )}
+              </div>
+            </>
+          );
+        })()
+      )}
     </Box>
   );
 }
