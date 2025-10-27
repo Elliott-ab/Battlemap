@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTrashCan, faRotateLeft, faDownload, faUpload, faBars, faUserGear, faCircle, faBell } from '@fortawesome/free-solid-svg-icons';
+import { faTrashCan, faDownload, faUpload, faBars, faUserGear, faCircle, faBell } from '@fortawesome/free-solid-svg-icons';
 import IconButton from './common/IconButton.jsx';
 import { useGameSession } from '../Utils/GameSessionContext.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
@@ -317,15 +317,7 @@ const Toolbar = ({
             </NavLink>
             <hr className="toolbar-divider-horiz menu-item--mobile-only" />
             {/* Grid Settings moved to Slim Toolbar (gear icon) */}
-            {/* Clear Map moved to Slim Toolbar > Settings > Map Settings; keep Undo here for quick access */}
-            {variant === 'battlemap' && isHost && (
-              <>
-                <button className="menu-item" onClick={() => handleMaybe(undo)} disabled={isDrawingCover} role="menuitem">
-                  <FontAwesomeIcon icon={faRotateLeft} />
-                  <span>Undo</span>
-                </button>
-              </>
-            )}
+            {/* Undo moved to Slim Toolbar > Settings > Game Settings */}
             {/* Save/Load Map moved to Slim Toolbar > Settings > Map Settings */}
             {/* Library actions only visible on Battlemap per request */}
             {/* Save/Load Library moved to Slim Toolbar > Settings > Map Settings */}

@@ -1392,6 +1392,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
               drawCreatureMode={drawCreatureMode}
               setDrawCreatureMode={setDrawCreatureMode}
               finalizeCreatureDrawing={finalizeCreatureDrawing}
+              undo={undo}
               openGlobalModifiers={() => setModalState(prev => ({ ...prev, globalModifiers: true }))}
               gridSize={state.grid.cellSize}
               openGridSettings={showGridModal}

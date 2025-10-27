@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Box, IconButton, Tooltip } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faRulerCombined, faArrowPointer, faArrowsUpDownLeftRight, faChevronRight, faGear, faTrashCan, faUpload, faDownload, faRightToBracket, faUserPlus, faRightFromBracket } from '@fortawesome/free-solid-svg-icons';
+import { faRulerCombined, faArrowPointer, faArrowsUpDownLeftRight, faChevronRight, faGear, faTrashCan, faUpload, faDownload, faRightToBracket, faUserPlus, faRightFromBracket, faRotateLeft } from '@fortawesome/free-solid-svg-icons';
 import { faPenToSquare as faPenToSquareRegular } from '@fortawesome/free-regular-svg-icons';
 import { useTool, ToolIds } from '../context/ToolContext.jsx';
 
@@ -14,6 +14,7 @@ export default function SlimToolbar({
   drawCreatureMode = null,
   setDrawCreatureMode,
   finalizeCreatureDrawing,
+  undo,
   openGlobalModifiers,
   gridSize,
   openGridSettings,
@@ -462,6 +463,12 @@ export default function SlimToolbar({
                   className="slim-dropdown__submenu"
                   style={isMobile ? { top: 'auto', position: 'fixed', left: 0, right: 0, bottom: `calc(${barHeight}px + env(safe-area-inset-bottom, 0px) + var(--mobile-footer-height, 0px) + ${settingsMenuHeight}px)`, borderRadius: 0 } : { left: '100%', top: settingsSubmenuTop }}
                 >
+                  {(undo && (isHost || !hasGame)) && (
+                    <button className="slim-dropdown__item" onClick={() => { if (isDrawingCover) return; undo && undo(); setSettingsMenuOpen(false); }} disabled={!!isDrawingCover}>
+                      <FontAwesomeIcon icon={faRotateLeft} style={{ marginRight: 8 }} />
+                      <span>Undo</span>
+                    </button>
+                  )}
                   {onJoinGame && (
                     <button className="slim-dropdown__item" onClick={() => { onJoinGame(); setSettingsMenuOpen(false); }}>
                       <FontAwesomeIcon icon={faRightToBracket} style={{ marginRight: 8 }} />
