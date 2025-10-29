@@ -15,6 +15,8 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
   const didDragRef = useRef(false);
   const suppressNextClickRef = useRef(false);
   const { renderGrid } = useGrid(state);
+  // Local-only map background (no sync). Hydrated from sessionStorage and events.
+  const [localBg, setLocalBg] = useState({ url: null, mode: 'cover', imageOpacity: 1, gridOpacity: 0.22 });
   const { tool } = useTool();
 
   // Zoom/pan state
@@ -146,6 +148,27 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
   useEffect(() => {
     if (localBattleMapRef.current) {
       renderGrid(localBattleMapRef, rotationIndex);
+      // Apply local background if present (no server sync) via CSS variables on the map node
+      const el = localBattleMapRef.current;
+      if (el) {
+        if (localBg?.url) {
+          try {
+            el.style.setProperty('--map-bg-image', `url(\"${localBg.url}\")`);
+            el.style.setProperty('--map-bg-size', localBg.mode || 'cover');
+            el.style.setProperty('--map-bg-opacity', String(localBg.imageOpacity ?? 1));
+            el.style.setProperty('--grid-border-alpha', String(localBg.gridOpacity ?? 0.22));
+            el.classList.add('has-bg');
+          } catch {}
+        } else {
+          try {
+            el.style.removeProperty('--map-bg-image');
+            el.style.removeProperty('--map-bg-size');
+            el.style.removeProperty('--map-bg-opacity');
+            el.style.removeProperty('--grid-border-alpha');
+            el.classList.remove('has-bg');
+          } catch {}
+        }
+      }
       // Update external ref if provided
       if (battleMapRef && battleMapRef.current !== localBattleMapRef.current) {
         battleMapRef.current = localBattleMapRef.current;
@@ -173,7 +196,7 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [state, rotationIndex]);
+  }, [state, rotationIndex, localBg?.url, localBg?.mode, localBg?.imageOpacity, localBg?.gridOpacity]);
 
   // If the grid dimensions or cell size change (e.g., new map loaded), allow a fresh initial fit
   useEffect(() => {
@@ -630,6 +653,30 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
     setState(prev => (prev.highlightedElementId ? { ...prev, highlightedElementId: null } : prev));
   }, [tool]);
 
+  // Hydrate local background from sessionStorage and listen for updates
+  useEffect(() => {
+    const read = () => {
+      try {
+        const raw = sessionStorage.getItem('bm-local-bg');
+        if (raw) {
+          const cfg = JSON.parse(raw);
+          setLocalBg(prev => ({
+            url: cfg.url || null,
+            mode: cfg.mode || 'cover',
+            imageOpacity: Number.isFinite(cfg.imageOpacity) ? cfg.imageOpacity : 1,
+            gridOpacity: Number.isFinite(cfg.gridOpacity) ? cfg.gridOpacity : 0.22,
+          }));
+        } else {
+          setLocalBg({ url: null, mode: 'cover', imageOpacity: 1, gridOpacity: 0.22 });
+        }
+      } catch {}
+    };
+    read();
+    const onCustom = () => read();
+    window.addEventListener('bm-local-bg-updated', onCustom);
+    return () => window.removeEventListener('bm-local-bg-updated', onCustom);
+  }, []);
+
   // Handle pinch-to-zoom with two pointers; keep midpoint stationary
   const onContainerPointerDown = (e) => {
     // Fallback for mobile taps: if Move tool is active and the child handler didn't catch the token
@@ -955,6 +1002,7 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
         <IconButton size="small" aria-label="Rotate" title="Rotate clockwise" onClick={() => setRotationIndex((r) => (r + 1) % 4)}>
           <FontAwesomeIcon icon={faGroupArrowsRotate} style={{ color: '#fff', fontSize: 14 }} />
         </IconButton>
+
       </div>
       {/* Mobile zoom controls removed per requirements; desktop controls remain above */}
       {/* Compass overlay (top-right), rotates with the grid */}
