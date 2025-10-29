@@ -41,9 +41,11 @@ const Toolbar = ({
   const rawBase = import.meta.env.BASE_URL || '/';
   const base = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
   // Try user-provided name first, then common defaults
+  // Prefer known-present PNG first to avoid a 404 flicker on initial mount
+  // If you add a matching WebP later, you can swap order.
   const logoCandidates = [
-    `${base}dicelogo.webp`,
     `${base}dicelogo.png`,
+    `${base}dicelogo.webp`,
     `${base}logo.svg`,
     `${base}logo.png`,
     `${base}logo.webp`,
@@ -200,7 +202,8 @@ const Toolbar = ({
         }
       }}
       alt="Battlemap Logo"
-      style={{ maxHeight: 64, maxWidth: '100%', objectFit: 'contain', display: 'block' }}
+      decoding="async"
+      style={{ maxHeight: 64, maxWidth: '100%', objectFit: 'contain', display: 'block', backfaceVisibility: 'hidden', transform: 'translateZ(0)' }}
     />
   );
 
