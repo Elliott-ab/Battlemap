@@ -137,12 +137,16 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
     }
   });
   // Label generator for cover types
+  const isDifficultType = (t) => (t === 'difficult' || t === 'vegetation' || t === 'water');
   const coverTypeLabel = (t) => {
     switch (t) {
       case 'half': return 'Half Cover';
       case 'three-quarters': return 'Three Quarter Cover';
       case 'full': return 'Full Cover';
       case 'difficult': return 'Difficult Terrain';
+      case 'vegetation': return 'Vegetation';
+      case 'water': return 'Water';
+      case 'walls': return 'Walls';
       default: return 'Cover';
     }
   };
@@ -848,7 +852,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
               onDoubleClick={() => showEditModal(firstId)}
             >
               <div className="element-info" style={{ gap: '0.5rem', marginBottom: 0 }}>
-                {coverType === 'difficult' ? (
+                {isDifficultType(coverType) ? (
                   <FontAwesomeIcon icon={faSquareCaretUpRegular} style={{ color: color || '#795548' }} />
                 ) : (
                   <FontAwesomeIcon icon={faSquareRegular} style={{ color: color || '#795548' }} />
@@ -887,7 +891,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
             onDoubleClick={() => showEditModal(el.id)}
           >
             <div className="element-info" style={{ gap: '0.5rem', marginBottom: 0 }}>
-              {(el.coverType === 'difficult') ? (
+              {isDifficultType(el.coverType) ? (
                 <FontAwesomeIcon icon={faSquareCaretUpRegular} style={{ color: el.color || '#795548' }} />
               ) : (
                 <FontAwesomeIcon icon={faSquareRegular} style={{ color: el.color || '#795548' }} />

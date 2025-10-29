@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" style="color:#1b5e20;opacity:0.8">
+  <defs>
+    <pattern id="veg_dots" width="16" height="16" patternUnits="userSpaceOnUse">
+      <rect width="16" height="16" fill="transparent"/>
+      <circle cx="4" cy="4" r="1.8" fill="currentColor"/>
+      <circle cx="12" cy="12" r="1.8" fill="currentColor"/>
+      <circle cx="12" cy="4" r="1.2" fill="currentColor" opacity="0.9"/>
+      <circle cx="4" cy="12" r="1.2" fill="currentColor" opacity="0.9"/>
+    </pattern>
+  </defs>
+  <rect width="64" height="64" fill="url(#veg_dots)"/>
+</svg>

@@ -316,10 +316,10 @@ export const useElements = (state, setState) => {
       // Clamp single element to bounds
       let clampedX = Math.max(0, Math.min(x, state.grid.width - el.size));
       let clampedY = Math.max(0, Math.min(y, state.grid.height - el.size));
-      // Prevent moving onto normal cover cells; allow difficult terrain (special coverType)
+      // Prevent moving onto normal cover cells; allow difficult terrain types (passable)
       const wouldOverlapCover = state.elements.some(other => {
         if (other.type !== 'cover') return false;
-        const isDifficult = other.coverType === 'difficult';
+        const isDifficult = (other.coverType === 'difficult' || other.coverType === 'vegetation' || other.coverType === 'water');
         if (isDifficult) return false; // difficult terrain is passable
         return (
           clampedX < other.position.x + other.size &&

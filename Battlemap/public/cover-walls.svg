@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" style="color:#6a4a39;opacity:0.95">
+  <defs>
+    <!-- Standard brick pattern:
+         pattern size 32x16, rows offset by half-brick for proper stacking.
+         Bricks are slightly inset to create mortar gaps (transparent).
+    -->
+    <pattern id="brick_standard" width="32" height="16" patternUnits="userSpaceOnUse">
+      <rect width="32" height="16" fill="transparent"/>
+      <!-- Top row: two bricks -->
+      <rect x="0"  y="1" width="14" height="6" rx="1" ry="1" fill="currentColor"/>
+      <rect x="18" y="1" width="14" height="6" rx="1" ry="1" fill="currentColor"/>
+      <!-- Bottom row (offset by half-brick = 8px) -->
+      <rect x="-8" y="9" width="14" height="6" rx="1" ry="1" fill="currentColor"/>
+      <rect x="8"  y="9" width="14" height="6" rx="1" ry="1" fill="currentColor"/>
+      <rect x="24" y="9" width="14" height="6" rx="1" ry="1" fill="currentColor"/>
+    </pattern>
+  </defs>
+
+  <!-- Use the pattern to fill the whole tile -->
+  <rect width="64" height="64" fill="url(#brick_standard)"/>
+</svg>

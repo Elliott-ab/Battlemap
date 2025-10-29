@@ -373,6 +373,7 @@ export default function SlimToolbar({
                     <button className={`slim-dropdown__item ${drawEnvType === 'half' ? 'selected' : ''}`} onClick={() => selectEnvType('half')} style={isMobile ? { width: '100%' } : undefined}>Half Cover</button>
                     <button className={`slim-dropdown__item ${drawEnvType === 'three-quarters' ? 'selected' : ''}`} onClick={() => selectEnvType('three-quarters')} style={isMobile ? { width: '100%' } : undefined}>Three-Quarters</button>
                     <button className={`slim-dropdown__item ${drawEnvType === 'full' ? 'selected' : ''}`} onClick={() => selectEnvType('full')} style={isMobile ? { width: '100%' } : undefined}>Full Cover</button>
+                    <button className={`slim-dropdown__item ${drawEnvType === 'walls' ? 'selected' : ''}`} onClick={() => selectEnvType('walls')} style={isMobile ? { width: '100%' } : undefined}>Walls (Full)</button>
                   </div>
                 )}
                 {primaryOpen === 'terrain' && (
@@ -388,6 +389,8 @@ export default function SlimToolbar({
                     } : { left: '100%', top: submenuTop }}
                   >
                     <button className={`slim-dropdown__item ${drawEnvType === 'difficult' ? 'selected' : ''}`} onClick={() => selectEnvType('difficult')} style={isMobile ? { width: '100%' } : undefined}>Difficult Terrain</button>
+                    <button className={`slim-dropdown__item ${drawEnvType === 'vegetation' ? 'selected' : ''}`} onClick={() => selectEnvType('vegetation')} style={isMobile ? { width: '100%' } : undefined}>Vegetation</button>
+                    <button className={`slim-dropdown__item ${drawEnvType === 'water' ? 'selected' : ''}`} onClick={() => selectEnvType('water')} style={isMobile ? { width: '100%' } : undefined}>Water</button>
                   </div>
                 )}
                 {primaryOpen === 'creatures' && (

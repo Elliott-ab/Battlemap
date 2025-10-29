@@ -350,7 +350,7 @@ export const useGrid = (state) => {
         const difficult = new Set(); // difficult terrain cells
         state.elements.forEach(el => {
           if (el.type === 'cover') {
-            const isDifficult = el.coverType === 'difficult';
+            const isDifficult = (el.coverType === 'difficult' || el.coverType === 'vegetation' || el.coverType === 'water');
             for (let dx = 0; dx < el.size; dx++) {
               for (let dy = 0; dy < el.size; dy++) {
                 const key = `${el.position.x + dx},${el.position.y + dy}`;

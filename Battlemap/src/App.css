@@ -1141,6 +1141,32 @@ body {
     ) !important;
 }
 
+/* New terrain types (functionally difficult terrain) */
+.element.cover.vegetation {
+    background-color: #2e7d32 !important; /* deep green */
+    background-image: url('/Battlemap/terrain-vegetation.svg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+.element.cover.water {
+    background-color: #0277bd !important; /* ocean blue */
+    background-image: url('/Battlemap/terrain-water.svg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+/* Walls (acts as full cover but with distinct visual) */
+.element.cover.walls {
+    background-color: #4E342E !important; /* dark brown base */
+    background-image: url('/Battlemap/cover-walls.svg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
 /* Ensure cover is always beneath tokens during drag and after re-render */
 .element.cover { z-index: 1 !important; }
 .element.player, .element.enemy { z-index: 15 !important; }
@@ -1524,6 +1550,13 @@ body {
 /* Make only difficult terrain slightly less opaque */
 .element.cover.difficult.custom-cover {
     opacity: 0.45;
+}
+
+/* Make preview tiles for new types a touch translucent while drawing */
+.element.cover.vegetation.custom-cover,
+.element.cover.water.custom-cover,
+.element.cover.walls.custom-cover {
+    opacity: 0.5;
 }
 
 /* Style the DT label on difficult terrain to be small and readable */
