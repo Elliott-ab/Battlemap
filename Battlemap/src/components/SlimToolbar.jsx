@@ -1,9 +1,9 @@
 import React, { useRef, useState } from 'react';
 import { Box, IconButton, Tooltip } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faRulerCombined, faArrowPointer, faArrowsUpDownLeftRight, faChevronRight, faGear, faTrashCan, faUpload, faDownload, faRightToBracket, faUserPlus, faRightFromBracket, faRotateLeft, faBook } from '@fortawesome/free-solid-svg-icons';
+import { faRuler, faRulerCombined, faArrowPointer, faArrowsUpDownLeftRight, faChevronRight, faGear, faTrashCan, faUpload, faDownload, faRightToBracket, faUserPlus, faRightFromBracket, faRotateLeft, faBook } from '@fortawesome/free-solid-svg-icons';
 import { faPenToSquare as faPenToSquareRegular } from '@fortawesome/free-regular-svg-icons';
-import { useTool, ToolIds } from '../context/ToolContext.jsx';
+import { useTool, ToolIds, RulerModes } from '../context/ToolContext.jsx';
 
 export default function SlimToolbar({
   isHost = false,
@@ -37,7 +37,7 @@ export default function SlimToolbar({
   onPushToPlayers,
   hasGame = false,
 }) {
-  const { tool, setTool } = useTool();
+  const { tool, setTool, rulerMode, setRulerMode } = useTool();
   const [drawMenuOpen, setDrawMenuOpen] = useState(false);
   const [primaryOpen, setPrimaryOpen] = useState(null); // 'environment' | 'terrain' | 'creatures' | null
   const [submenuTop, setSubmenuTop] = useState(0);
@@ -48,6 +48,11 @@ export default function SlimToolbar({
   const [menuHeight, setMenuHeight] = useState(56); // track primary menu height on mobile
   const toolbarRef = useRef(null);
   const [barHeight, setBarHeight] = useState(48);
+  // Ruler dropdown state
+  const [rulerMenuOpen, setRulerMenuOpen] = useState(false);
+  const rulerWrapRef = useRef(null);
+  const rulerMenuRef = useRef(null);
+  const [rulerMenuHeight, setRulerMenuHeight] = useState(56);
   // Settings dropdown state
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
   const [settingsPrimaryOpen, setSettingsPrimaryOpen] = useState(null); // 'map' | 'game' | null
@@ -114,6 +119,17 @@ export default function SlimToolbar({
       if (rect?.height && Math.abs(rect.height - settingsMenuHeight) > 1) setSettingsMenuHeight(Math.ceil(rect.height));
     } catch {}
   }, [settingsMenuOpen, isMobile, settingsPrimaryOpen, settingsMenuHeight]);
+
+  // Measure ruler primary height on mobile
+  React.useEffect(() => {
+    if (!rulerMenuOpen || !isMobile) return;
+    const el = rulerMenuRef.current;
+    if (!el) return;
+    try {
+      const rect = el.getBoundingClientRect();
+      if (rect?.height && Math.abs(rect.height - rulerMenuHeight) > 1) setRulerMenuHeight(Math.ceil(rect.height));
+    } catch {}
+  }, [rulerMenuOpen, isMobile, rulerMenuHeight]);
 
   const btnSx = (active) => ({
     color: active ? '#4CAF50' : '#fff',
@@ -212,6 +228,19 @@ export default function SlimToolbar({
     return () => document.removeEventListener('pointerdown', onDocPointerDown, true);
   }, [settingsMenuOpen]);
 
+  // Close ruler menu on outside click
+  React.useEffect(() => {
+    if (!rulerMenuOpen) return;
+    const onDocPointerDown = (e) => {
+      try {
+        const within = rulerWrapRef.current?.contains?.(e.target);
+        if (!within) setRulerMenuOpen(false);
+      } catch {}
+    };
+    document.addEventListener('pointerdown', onDocPointerDown, true);
+    return () => document.removeEventListener('pointerdown', onDocPointerDown, true);
+  }, [rulerMenuOpen]);
+
   // Notes: load/save and outside click
   React.useEffect(() => {
     if (!notesOpen) return;
@@ -307,11 +336,65 @@ export default function SlimToolbar({
           <FontAwesomeIcon icon={faArrowsUpDownLeftRight} />
         </IconButton>
       </Tooltip>
-      <Tooltip title="Ruler (measure)" placement="bottom">
-        <IconButton aria-label="Ruler tool" size="small" sx={btnSx(tool === ToolIds.RULER)} onClick={() => selectTool(ToolIds.RULER)}>
-          <FontAwesomeIcon icon={faRulerCombined} />
-        </IconButton>
-      </Tooltip>
+      {/* Ruler tool with dropdown */}
+      <div className="slim-toolbar__ruler" ref={rulerWrapRef} style={{ position: 'relative', display: 'inline-flex' }}>
+        <Tooltip title="Ruler (choose mode)" placement="bottom">
+          <IconButton
+            aria-label="Ruler tool"
+            size="small"
+            sx={btnSx(tool === ToolIds.RULER || rulerMenuOpen)}
+            onClick={() => {
+              // Enter ruler tool and toggle menu
+              if (tool !== ToolIds.RULER) setTool(ToolIds.RULER);
+              setRulerMenuOpen(v => !v);
+              // Close other menus
+              setDrawMenuOpen(false);
+              setSettingsMenuOpen(false);
+              setNotesOpen(false);
+            }}
+          >
+            <FontAwesomeIcon icon={faRuler} />
+          </IconButton>
+        </Tooltip>
+        {rulerMenuOpen && (
+          <div
+            className="slim-dropdown"
+            style={{
+              position: isMobile ? 'fixed' : 'absolute',
+              zIndex: 210,
+              ...(isMobile ? {
+                left: 0,
+                right: 0,
+                bottom: `calc(${barHeight}px + env(safe-area-inset-bottom, 0px) + var(--mobile-footer-height, 0px))`,
+                transform: 'none',
+              } : { left: '50%', transform: 'translateX(-50%)', top: '100%', marginTop: 6 })
+            }}
+          >
+            <div
+              className="slim-dropdown__menu"
+              ref={rulerMenuRef}
+              style={isMobile ? { top: 'auto', left: 0, right: 0, bottom: 0, borderRadius: 0, display: 'flex', flexDirection: 'row', justifyContent: 'space-around', padding: '8px 10px' } : undefined}
+            >
+              <button
+                className={`slim-dropdown__item ${rulerMode === RulerModes.LINE ? 'selected' : ''}`}
+                onClick={() => { setRulerMode(RulerModes.LINE); setRulerMenuOpen(false); setTool(ToolIds.RULER); }}
+                style={isMobile ? { flex: 1, justifyContent: 'center' } : undefined}
+              >
+                <FontAwesomeIcon icon={faRuler} style={{ marginRight: 8 }} />
+                <span>Line Measure</span>
+              </button>
+              <button
+                className={`slim-dropdown__item ${rulerMode === RulerModes.PATH ? 'selected' : ''}`}
+                onClick={() => { setRulerMode(RulerModes.PATH); setRulerMenuOpen(false); setTool(ToolIds.RULER); }}
+                style={isMobile ? { flex: 1, justifyContent: 'center' } : undefined}
+              >
+                <FontAwesomeIcon icon={faRulerCombined} style={{ marginRight: 8 }} />
+                <span>Path Measure</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
       
       {isHost && (
         <div className="slim-toolbar__draw" ref={wrapRef} style={{ position: 'relative', display: 'inline-flex' }}>

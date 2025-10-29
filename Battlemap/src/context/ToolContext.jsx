@@ -8,14 +8,22 @@ export const ToolIds = {
   DRAW: 'draw',
 };
 
+export const RulerModes = {
+  LINE: 'line',
+  PATH: 'path',
+};
+
 const ToolContext = createContext({
   tool: ToolIds.POINTER,
   setTool: () => {},
   isActive: () => false,
+  rulerMode: 'line',
+  setRulerMode: () => {},
 });
 
 export function ToolProvider({ children }) {
   const [tool, setToolState] = useState(ToolIds.POINTER);
+  const [rulerMode, setRulerMode] = useState(RulerModes.LINE);
 
   const setTool = (id) => {
     setToolState(id);
@@ -38,7 +46,9 @@ export function ToolProvider({ children }) {
     tool,
     setTool,
     isActive: (id) => tool === id,
-  }), [tool]);
+    rulerMode,
+    setRulerMode,
+  }), [tool, rulerMode]);
 
   return (
     <ToolContext.Provider value={value}>{children}</ToolContext.Provider>

@@ -17,7 +17,7 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
   const { renderGrid } = useGrid(state);
   // Local-only map background (no sync). Hydrated from sessionStorage and events.
   const [localBg, setLocalBg] = useState({ url: null, mode: 'cover', imageOpacity: 1, gridOpacity: 0.22 });
-  const { tool } = useTool();
+  const { tool, rulerMode } = useTool();
 
   // Zoom/pan state
   const MIN_SCALE = 0.5;
@@ -999,6 +999,7 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
           battleMapRef={localBattleMapRef}
           zoom={zoom}
           viewTick={viewTransformTick}
+          mode={rulerMode}
         />
       )}
       {/* Desktop-only zoom controls (bottom-right) */}
