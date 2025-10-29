@@ -291,15 +291,37 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
       const btn = (e.nativeEvent && typeof e.nativeEvent.button === 'number') ? e.nativeEvent.button : (typeof e.button === 'number' ? e.button : 0);
       if (btn !== 0) return;
     }
-    // If we just finished or are in a drag, ignore the synthetic click that follows.
-    // This covers event ordering differences between native and React synthetic events.
+    const cell = getCellFromPoint(e.clientX, e.clientY);
+    if (!cell) return;
+    // Handle suppression more precisely: only suppress the immediate synthetic click on the token's own cell
     if (didDragRef.current || suppressNextClickRef.current) {
       didDragRef.current = false;
-      suppressNextClickRef.current = false;
-      return;
+      // If a movement highlight is active and the user clicked a different cell, allow the click (move)
+      const container = localBattleMapRef.current;
+      const domHighlightedId = container?.dataset?.highlightedId ? parseInt(container.dataset.highlightedId) : null;
+      const effectiveHighlightedId = domHighlightedId || state.highlightedElementId;
+      if (suppressNextClickRef.current && effectiveHighlightedId) {
+        const element = state.elements.find(e => e.id === effectiveHighlightedId);
+        if (element && element.position) {
+          const cx = parseInt(cell.dataset.x);
+          const cy = parseInt(cell.dataset.y);
+          const sameCell = (cx === element.position.x && cy === element.position.y);
+          // Consume suppression only if clicking the same cell; otherwise proceed to handle move
+          if (!sameCell) {
+            suppressNextClickRef.current = false;
+          } else {
+            suppressNextClickRef.current = false;
+            return;
+          }
+        } else {
+          suppressNextClickRef.current = false;
+          return;
+        }
+      } else {
+        suppressNextClickRef.current = false;
+        return;
+      }
     }
-  const cell = getCellFromPoint(e.clientX, e.clientY);
-  if (!cell) return;
 
     // Creature placement mode: click to toggle staged add/remove; no drag
     if (drawCreatureMode) {
