@@ -1034,6 +1034,35 @@ body {
     display: inline-block;
 }
 
+/* Fainter labels for subtle cover annotations (e.g., DT) */
+.element .token-label.faint {
+    opacity: 0.45;
+    font-size: calc(var(--cell-px) * 0.26);
+    font-weight: 700;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+}
+
+/* Sidebar cover icon squares that mirror grid visuals */
+.cover-icon.element.cover {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    min-height: 16px;
+    margin-right: 6px;
+    border-radius: 3px;
+    border: 1px solid #5d4037 !important; /* override .element default */
+    box-shadow: none !important;
+    transition: none !important;
+    cursor: default !important;
+}
+.cover-icon.element {
+    width: 16px !important;
+    height: 16px !important;
+    border: 1px solid #5d4037 !important;
+}
+.cover-icon.element .token-label { display: none; }
+
 .element:hover,
 .element:active {
     transform: scale(1.05);

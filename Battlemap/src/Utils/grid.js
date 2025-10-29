@@ -117,10 +117,21 @@ export const useGrid = (state) => {
             const preview = document.createElement('div');
             preview.classList.add('element', 'cover', 'custom-cover');
             if (b.coverType) preview.classList.add(b.coverType);
-            if (b.coverType === 'difficult') {
+            // Faint label for preview based on type
+            const previewLabelMap = {
+              'difficult': 'DT',
+              'vegetation': 'V',
+              'water': 'WT',
+              'half': '½',
+              'three-quarters': '¾',
+              'full': 'FC',
+              'walls': 'WL',
+            };
+            const prevLbl = b.coverType ? previewLabelMap[b.coverType] : undefined;
+            if (prevLbl) {
               const span = document.createElement('span');
-              span.classList.add('token-label');
-              span.textContent = 'DT';
+              span.classList.add('token-label', 'faint');
+              span.textContent = prevLbl;
               preview.appendChild(span);
             }
             preview.style.pointerEvents = 'none';
@@ -201,13 +212,25 @@ export const useGrid = (state) => {
           // Defer icon application until after the element is in the DOM
           queueMicrotask(() => applyIconToPlayerToken(battleMap, el.id, el.characterId, el.characterIconUrl));
         }
-      } else if (el.type === 'cover' && el.coverType === 'difficult') {
-        // Difficult terrain: explicit 'DT' label
-        const span = document.createElement('span');
-        span.classList.add('token-label');
-        span.textContent = 'DT';
-        elDiv.appendChild(span);
-      } else {
+      } else if (el.type === 'cover') {
+        // Faint label for cover types
+        const labelMap = {
+          'difficult': 'DT',
+          'vegetation': 'V',
+          'water': 'WT',
+          'half': '½',
+          'three-quarters': '¾',
+          'full': 'FC',
+          'walls': 'WL',
+        };
+        const lbl = labelMap[el.coverType];
+        if (lbl) {
+          const span = document.createElement('span');
+          span.classList.add('token-label', 'faint');
+          span.textContent = lbl;
+          elDiv.appendChild(span);
+        }
+      } else if (el.type !== 'cover') {
         // Default: first letter (includes cover blocks)
         const span = document.createElement('span');
         span.classList.add('token-label');

@@ -852,11 +852,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
               onDoubleClick={() => showEditModal(firstId)}
             >
               <div className="element-info" style={{ gap: '0.5rem', marginBottom: 0 }}>
-                {isDifficultType(coverType) ? (
-                  <FontAwesomeIcon icon={faSquareCaretUpRegular} style={{ color: color || '#795548' }} />
-                ) : (
-                  <FontAwesomeIcon icon={faSquareRegular} style={{ color: color || '#795548' }} />
-                )}
+                <span className={`cover-icon element cover ${coverType}`}></span>
                 <span className="element-name">{coverTypeLabel(coverType)}</span>
               </div>
             </div>
@@ -891,11 +887,7 @@ const Sidebar = ({ state, setState, toggleMovementHighlight, highlightCoverGroup
             onDoubleClick={() => showEditModal(el.id)}
           >
             <div className="element-info" style={{ gap: '0.5rem', marginBottom: 0 }}>
-              {isDifficultType(el.coverType) ? (
-                <FontAwesomeIcon icon={faSquareCaretUpRegular} style={{ color: el.color || '#795548' }} />
-              ) : (
-                <FontAwesomeIcon icon={faSquareRegular} style={{ color: el.color || '#795548' }} />
-              )}
+              <span className={`cover-icon element cover ${el.coverType}`}></span>
               <span className="element-name">{coverTypeLabel(el.coverType)}</span>
             </div>
           </div>
