@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTrashCan, faDownload, faUpload, faBars, faUserGear, faCircle, faBell } from '@fortawesome/free-solid-svg-icons';
+import { faUserGear, faCircle, faBell } from '@fortawesome/free-solid-svg-icons';
 import IconButton from './common/IconButton.jsx';
 import { useGameSession } from '../Utils/GameSessionContext.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
@@ -50,16 +50,11 @@ const Toolbar = ({
     `${base}logo.png`,
     `${base}logo.webp`,
   ];
-  const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifs, setNotifs] = useState([]); // merged server + ephemeral
   const [ephemeralNotifs, setEphemeralNotifs] = useState([]); // realtime-only
   const [notifError, setNotifError] = useState('');
-  const handleMaybe = (fn) => {
-    if (isDrawingCover) return;
-    fn && fn();
-    setMenuOpen(false);
-  };
+  
 
   const mergeNotifications = useCallback((serverRows, ephemeralRows) => {
     const server = Array.isArray(serverRows) ? serverRows : [];
@@ -147,8 +142,16 @@ const Toolbar = ({
   const handleBellClick = () => {
     if (onNotificationsClick) return onNotificationsClick();
     // Toggle internal popover
-    setMenuOpen(false);
     setNotifOpen(v => !v);
+  };
+
+  const handleSettingsClick = () => {
+    if (onSettingsClick) return onSettingsClick();
+    try {
+      // Hint Dashboard to open settings dialog when we arrive
+      sessionStorage.setItem('open-settings', '1');
+    } catch (_) {}
+    navigate('/home');
   };
 
   const handleNotifAction = async (n, action) => {
@@ -213,7 +216,7 @@ const Toolbar = ({
         {Logo}
       </a>
       <div className="toolbar-icons">
-        {/* Quick-access Clear/Undo removed; available via burger menu only */}
+        {/* Quick-access Clear/Undo removed */}
       </div>
       {/* Red navigation links */}
       <nav className="toolbar-nav" aria-label="Primary">
@@ -267,8 +270,8 @@ const Toolbar = ({
             <div className="toolbar-icons" />
           </>
         )}
-        <IconButton className="toolbar-burger" title="Menu" size="large" onClick={() => setMenuOpen(v => !v)}>
-          <FontAwesomeIcon icon={faBars} style={{ color: 'white', fontSize: 18 }} />
+        <IconButton className="toolbar-settings" title="User Settings" size="large" onClick={handleSettingsClick}>
+          <FontAwesomeIcon icon={faUserGear} style={{ color: 'white', fontSize: 18 }} />
         </IconButton>
         <IconButton className="toolbar-bell" title="Notifications" size="large" onClick={handleBellClick} style={{ position: 'relative' }}>
           <FontAwesomeIcon icon={faBell} style={{ color: 'white', fontSize: 18 }} />
@@ -287,76 +290,6 @@ const Toolbar = ({
           )}
         </IconButton>
       </div>
-      {/* Indicator moved up after nav */}
-      {menuOpen && (
-        <>
-          <div className="toolbar-menu-backdrop" onClick={() => setMenuOpen(false)} />
-          <div className="toolbar-menu" role="menu" aria-label="Toolbar menu">
-            {/* Mobile-only primary navigation at the top of the menu (use NavLink for active styling) */}
-            <NavLink
-              to="/home"
-              className={({ isActive }) => `menu-item menu-item--mobile-only ${isActive ? 'active' : ''}`}
-              onClick={() => setMenuOpen(false)}
-              role="menuitem"
-            >
-              <span>Home</span>
-            </NavLink>
-            <NavLink
-              to="/library"
-              className={({ isActive }) => `menu-item menu-item--mobile-only ${isActive ? 'active' : ''}`}
-              onClick={() => setMenuOpen(false)}
-              role="menuitem"
-            >
-              <span>Library</span>
-            </NavLink>
-            <NavLink
-              to={game?.code ? `/battlemap/${game.code}` : '/battlemap/LOCAL'}
-              className={({ isActive }) => `menu-item menu-item--mobile-only ${isActive ? 'active' : ''}`}
-              onClick={() => setMenuOpen(false)}
-              role="menuitem"
-            >
-              <span>Battlemap</span>
-            </NavLink>
-            <NavLink
-              to="/characters"
-              className={({ isActive }) => `menu-item menu-item--mobile-only ${isActive ? 'active' : ''}`}
-              onClick={() => setMenuOpen(false)}
-              role="menuitem"
-            >
-              <span>Characters</span>
-            </NavLink>
-            <NavLink
-              to="/fellowship"
-              className={({ isActive }) => `menu-item menu-item--mobile-only ${isActive ? 'active' : ''}`}
-              onClick={() => setMenuOpen(false)}
-              role="menuitem"
-            >
-              <span>Fellowship</span>
-            </NavLink>
-            <hr className="toolbar-divider-horiz menu-item--mobile-only" />
-            {/* Grid Settings moved to Slim Toolbar (gear icon) */}
-            {/* Undo moved to Slim Toolbar > Settings > Game Settings */}
-            {/* Save/Load Map moved to Slim Toolbar > Settings > Map Settings */}
-            {/* Library actions only visible on Battlemap per request */}
-            {/* Save/Load Library moved to Slim Toolbar > Settings > Map Settings */}
-            <hr className="toolbar-divider-horiz" />
-            {/* Join/Host/Leave moved to Slim Toolbar > Settings > Game Settings; Push/Toggle moved to Slim Toolbar */}
-            {/* Fellowship section (always available when handler is provided), above User Settings */}
-            <hr className="toolbar-divider-horiz" />
-            {/* Fellowship now accessible via primary nav; keep legacy button only if handler provided */}
-            {onFellowshipClick && (
-              <button className="menu-item" onClick={() => { onFellowshipClick(); setMenuOpen(false); }} role="menuitem">
-                <span>Fellowship (legacy)</span>
-              </button>
-            )}
-            <hr className="toolbar-divider-horiz" />
-            <button className="menu-item" onClick={() => handleMaybe(onSettingsClick)} role="menuitem">
-              <FontAwesomeIcon icon={faUserGear} />
-              <span>User Settings</span>
-            </button>
-          </div>
-        </>
-      )}
       {notifOpen && (
         <>
           <div className="toolbar-menu-backdrop" onClick={() => setNotifOpen(false)} />

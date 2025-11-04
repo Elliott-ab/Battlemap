@@ -11,6 +11,7 @@ import { useAuth } from '../auth/AuthContext.jsx';
 import { hostGame, joinGameByCode, listCampaignsByHost } from '../Utils/gameService.js';
 import Toolbar from '../components/Toolbar.jsx';
 import { deleteUserAccountData } from '../Utils/userService.js';
+import UserSettingsModal from '../components/Modals/UserSettingsModal.jsx';
 import { useGameSession } from '../Utils/GameSessionContext.jsx';
 // Sidebar removed on Home page
 // Dialog imports consolidated above
@@ -23,16 +24,8 @@ export default function Dashboard() {
   const [joinCode, setJoinCode] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const [email, setEmail] = useState(user?.email || '');
-  const [password, setPassword] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [showSetUsernameHint, setShowSetUsernameHint] = useState('');
-  const [username, setUsernameInput] = useState('');
-  const [usernameStatus, setUsernameStatus] = useState('');
-  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-  const [confirmDeleteText, setConfirmDeleteText] = useState('');
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState('');
   const [selectedCampaign, setSelectedCampaign] = useState(null);
   const [editName, setEditName] = useState('');
   // Toolbar menu modals
@@ -90,49 +83,17 @@ export default function Dashboard() {
     return () => { mounted = false; };
   }, [user?.id]);
 
-  const updateEmail = async () => {
-    setError('');
-    setMessage('');
-    const { error: err } = await supabase.auth.updateUser({ email });
-    if (err) return setError(err.message);
-    setMessage('Email update requested. Check your inbox to confirm.');
-  };
 
-  const updatePassword = async () => {
-    setError('');
-    setMessage('');
-    const { error: err } = await supabase.auth.updateUser({ password });
-    if (err) return setError(err.message);
-    setMessage('Password updated.');
-    setPassword('');
-  };
-
-  // Load current username when opening settings
+  // If navigated here via toolbar settings icon, auto-open settings
   React.useEffect(() => {
-    let active = true;
-    (async () => {
-      if (!showSettings || !user?.id) return;
-      try {
-        const mod = await import('../Utils/userService.js');
-        const prof = await mod.getUserProfile(user.id);
-        if (active) setUsernameInput(prof?.username || '');
-      } catch (_) { /* ignore */ }
-    })();
-    return () => { active = false; };
-  }, [showSettings, user?.id]);
-
-  const saveUsername = async () => {
-    setUsernameStatus('');
     try {
-      const desired = (username || '').trim();
-      if (!desired) { setUsernameStatus('Please enter a username.'); return; }
-      const mod = await import('../Utils/userService.js');
-      await mod.setUsername(user.id, desired);
-      setUsernameStatus('Username updated.');
-    } catch (e) {
-      setUsernameStatus(e.message || 'Failed to update username.');
-    }
-  };
+      const shouldOpen = sessionStorage.getItem('open-settings');
+      if (shouldOpen) {
+        sessionStorage.removeItem('open-settings');
+        setShowSettings(true);
+      }
+    } catch (_) {}
+  }, []);
 
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -157,22 +118,7 @@ export default function Dashboard() {
     return () => { mounted = false; };
   }, [user?.id]);
 
-  const handleDeleteAccount = async () => {
-    if (!user?.id) return;
-    setDeleteError('');
-    setDeleting(true);
-    try {
-      await deleteUserAccountData(user.id);
-      // Note: deleting the auth user requires a server-side function; we sign out client-side
-      await supabase.auth.signOut();
-      clearSession();
-      navigate('/login');
-    } catch (e) {
-      setDeleteError(e.message || 'Failed to delete account');
-    } finally {
-      setDeleting(false);
-    }
-  };
+  // Settings actions are now handled by the shared UserSettingsModal
 
   return (
     <Box className="app-container" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
@@ -411,58 +357,7 @@ export default function Dashboard() {
           )}
         </DialogActions>
       </Dialog>
-      <Dialog open={showSettings} onClose={() => setShowSettings(false)} fullWidth maxWidth="sm">
-        <DialogTitle>User Settings</DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {showSetUsernameHint && (
-              <Alert severity="info">{showSetUsernameHint}</Alert>
-            )}
-            <Typography variant="subtitle1">Profile</Typography>
-            <TextField label="Username" value={username} onChange={(e) => setUsernameInput(e.target.value)} fullWidth helperText="Your public display name (must be unique)." />
-            <Button onClick={saveUsername}>Update Username</Button>
-            {usernameStatus && <Alert severity={usernameStatus.includes('updated') ? 'success' : 'error'}>{usernameStatus}</Alert>}
-            <Divider sx={{ my: 2 }} />
-            <TextField label="Email" value={email} onChange={(e) => setEmail(e.target.value)} fullWidth />
-            <Button onClick={updateEmail}>Update Email</Button>
-            <TextField label="New password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} fullWidth />
-            <Button onClick={updatePassword}>Update Password</Button>
-            <Button variant="outlined" onClick={() => navigate('/reset-password')}>Reset Password via Email</Button>
-            <Divider sx={{ my: 2 }} />
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#d32f2f' }}>Danger zone</Typography>
-            {deleteError && <Alert severity="error">{deleteError}</Alert>}
-            <Typography variant="body2" color="text.secondary">
-              Deleting your account will remove your characters, library maps, participation in games, and any campaigns you host. This cannot be undone.
-            </Typography>
-            <Box>
-              <Button color="error" variant="contained" onClick={() => { setConfirmDeleteText(''); setConfirmDeleteOpen(true); }}>
-                Delete Account
-              </Button>
-            </Box>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowSettings(false)}>Close</Button>
-        </DialogActions>
-      </Dialog>
-      {/* Confirm Delete Account */}
-      <Dialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)} fullWidth maxWidth="xs">
-        <DialogTitle>Delete Account</DialogTitle>
-        <DialogContent>
-          <Typography sx={{ mb: 2 }}>
-            This action is permanent. Type DELETE to confirm.
-          </Typography>
-          <TextField autoFocus fullWidth label="Type DELETE to confirm" value={confirmDeleteText} onChange={(e) => setConfirmDeleteText(e.target.value)} />
-          {deleting && <Typography sx={{ mt: 1 }} variant="body2">Deleting your data…</Typography>}
-          {deleteError && <Alert severity="error" sx={{ mt: 1 }}>{deleteError}</Alert>}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmDeleteOpen(false)} disabled={deleting}>Cancel</Button>
-          <Button color="error" variant="contained" disabled={confirmDeleteText !== 'DELETE' || deleting} onClick={handleDeleteAccount}>
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <UserSettingsModal open={showSettings} onClose={() => setShowSettings(false)} hint={showSetUsernameHint} />
       {/* Toolbar: Host Game dialog */}
       <Dialog open={hostOpen} onClose={() => setHostOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle>Game Hosted</DialogTitle>

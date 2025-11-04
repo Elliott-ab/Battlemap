@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Snackbar, Alert } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import Toolbar from './components/Toolbar.jsx';
+import UserSettingsModal from './components/Modals/UserSettingsModal.jsx';
 import SlimToolbar from './components/SlimToolbar.jsx';
 import Sidebar from './components/Sidebar.jsx';
 import BattleMap from './components/BattleMap.jsx';
@@ -114,6 +115,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
   const [toast, setToast] = useState({ open: false, message: '', severity: 'info' });
   const [bestiaryModal, setBestiaryModal] = useState({ open: false, initialIndex: null });
   const [monsterDescModal, setMonsterDescModal] = useState({ open: false, index: null });
+  const [showSettings, setShowSettings] = useState(false);
 
   // If leaving bestiary draw mode, just clear selection intent (template may persist until finalize)
   useEffect(() => {
@@ -1439,6 +1441,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
         onLeaveGame={onLeaveGame}
         onJoinGame={onJoinGame}
         onFellowshipClick={onFellowshipClick}
+  onSettingsClick={() => setShowSettings(true)}
         isHost={isHost}
         currentChannel={channel}
         onToggleChannel={() => setChannel((c) => (c === 'draft' ? 'live' : 'draft'))}
@@ -1567,6 +1570,7 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
           </div>
         </div>
       </ToolProvider>
+  <UserSettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
       {/* AddCharacterModal removed: use Draw tool > Creatures to add to grid */}
       {/* Bestiary modal for description/import, can be opened programmatically */}
       <MonsterBrowserModal
