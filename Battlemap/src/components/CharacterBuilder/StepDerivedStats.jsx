@@ -6,7 +6,23 @@ export default function StepDerivedStats({ character, setCharacter, onNext, onBa
   const derived = useMemo(() => computeDerived(character), [character]);
 
   const update = (field, value) => {
-    setCharacter(c => ({ ...c, [field]: Number(value) || 0 }));
+    // Allow empty string while typing; clamp numeric values to >= 0
+    if (value === '') {
+      setCharacter(c => ({ ...c, [field]: '' }));
+      return;
+    }
+    const n = Number(value);
+    const clamped = isNaN(n) ? 0 : Math.max(0, n);
+    setCharacter(c => ({ ...c, [field]: clamped }));
+  };
+  const commitZeroIfEmpty = (field) => {
+    setCharacter(c => {
+      const v = c?.[field];
+      if (v === '' || v == null || isNaN(Number(v)) || Number(v) < 0) {
+        return { ...c, [field]: 0 };
+      }
+      return c;
+    });
   };
 
   const abilityMods = derived.abilityMods || {};
@@ -27,16 +43,22 @@ export default function StepDerivedStats({ character, setCharacter, onNext, onBa
           <TextField label="Prof Bonus" value={derived.proficiencyBonus} disabled fullWidth />
         </Grid>
         <Grid item xs={6} md={2}>
-          <TextField label="HP" value={character.max_hp || derived.hp} onChange={(e)=>update('max_hp', e.target.value)} fullWidth />
+          <TextField type="number" label="Max HP" value={character.max_hp ?? derived.hp ?? ''} onChange={(e)=>update('max_hp', e.target.value)} onBlur={()=>commitZeroIfEmpty('max_hp')} inputProps={{ min: 0 }} fullWidth />
         </Grid>
         <Grid item xs={6} md={2}>
-          <TextField label="AC" value={character.ac || derived.ac} onChange={(e)=>update('ac', e.target.value)} fullWidth />
+          <TextField type="number" label="Current HP" value={character.current_hp ?? ''} onChange={(e)=>update('current_hp', e.target.value)} onBlur={()=>commitZeroIfEmpty('current_hp')} inputProps={{ min: 0 }} fullWidth />
+        </Grid>
+        <Grid item xs={6} md={2}>
+          <TextField type="number" label="Temp HP" value={character.temp_hp ?? ''} onChange={(e)=>update('temp_hp', e.target.value)} onBlur={()=>commitZeroIfEmpty('temp_hp')} inputProps={{ min: 0 }} fullWidth />
+        </Grid>
+        <Grid item xs={6} md={2}>
+          <TextField type="number" label="AC" value={character.ac ?? derived.ac ?? ''} onChange={(e)=>update('ac', e.target.value)} onBlur={()=>commitZeroIfEmpty('ac')} inputProps={{ min: 0 }} fullWidth />
         </Grid>
         <Grid item xs={6} md={2}>
           <TextField label="Initiative" value={derived.initiative >=0?`+${derived.initiative}`:derived.initiative} disabled fullWidth />
         </Grid>
         <Grid item xs={6} md={2}>
-          <TextField label="Speed" value={character.speed || ''} onChange={(e)=>update('speed', e.target.value)} fullWidth />
+          <TextField type="number" label="Speed" value={character.speed ?? ''} onChange={(e)=>update('speed', e.target.value)} onBlur={()=>commitZeroIfEmpty('speed')} inputProps={{ min: 0 }} fullWidth />
         </Grid>
         <Grid item xs={6} md={2}>
           <TextField label="Passive Perception" value={derived.passivePerception} disabled fullWidth />

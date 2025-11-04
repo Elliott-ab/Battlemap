@@ -26,8 +26,8 @@ export default function StepBasics({ character, setCharacter, onNext }) {
         <Grid item xs={6} md={3}>
           <FormControl fullWidth>
             <InputLabel id="level-label">Level</InputLabel>
-            <Select labelId="level-label" label="Level" value={level} onChange={(e)=> setLevel(Number(e.target.value))}>
-              {Array.from({ length:20 }, (_,i)=>i+1).map(l => <MenuItem key={l} value={l}>{l}</MenuItem>)}
+            <Select labelId="level-label" label="Level" value={level} onChange={(e)=> setLevel(Math.max(0, Number(e.target.value)))}>
+              {Array.from({ length:21 }, (_,i)=>i).map(l => <MenuItem key={l} value={l}>{l}</MenuItem>)}
             </Select>
           </FormControl>
         </Grid>

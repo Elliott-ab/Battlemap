@@ -20,7 +20,7 @@ const CharacterSheetPane = ({ character, onClose }) => {
         </IconButton>
       </Box>
       <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
-        {character.race || 'Race'} {character.class || 'Class'} • Level {character.level || 1}
+  {character.race || 'Race'} {character.class || 'Class'} • Level {character.level ?? 1}
       </Typography>
       <Grid container spacing={2}>
         <Grid item xs={12} md={8}>

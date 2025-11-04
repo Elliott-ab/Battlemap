@@ -40,7 +40,13 @@ export default function StepAbilityScores({ character, setCharacter, onNext, onB
 	const mods = useMemo(() => Object.fromEntries(abilities.map(k=>[k, abilityMod(finalScores[k])])), [finalScores]);
 
 	const updateManual = (k, value) => {
-		const val = Math.max(1, Math.min(20, Number(value)||0));
+		// Allow empty string while typing so users can clear the field without it snapping to 0/1
+		if (value === '') {
+			setScores(s => ({ ...s, [k]: '' }));
+			return;
+		}
+		const n = Number(value);
+		const val = Math.max(1, Math.min(20, isNaN(n) ? 0 : n));
 		setScores(s => ({ ...s, [k]: val }));
 	};
 

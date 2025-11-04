@@ -117,12 +117,28 @@ function SectionCard({ title, action, children, sx }) {
 function AbilityBlock({ label, value, onChange }) {
   const mod = abilityMod(value);
   const upper = String(label || '').toUpperCase();
+  const handleChange = (e) => {
+    const raw = e.target.value;
+    if (raw === '') {
+      onChange?.('');
+    } else {
+      const n = Number(raw);
+      onChange?.(Number.isFinite(n) ? n : '');
+    }
+  };
+  const handleBlur = () => {
+    let n = Number(value);
+    if (!Number.isFinite(n)) n = 10; // default ability score
+    // clamp to typical 1-30 range
+    n = Math.max(1, Math.min(30, n));
+    onChange?.(n);
+  };
   return (
     <Paper elevation={1} sx={{ p: 1.5, textAlign: 'center', backgroundColor: '#3a3a3a', borderRadius: 1.5 }}>
       <Chip size="small" label={withSign(mod)} sx={{ mb: 1, bgcolor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)' }} />
       <Typography variant="h4" sx={{ fontWeight: 800, lineHeight: 1, mb: 1 }}>{Number(value || 0)}</Typography>
       <Typography variant="caption" sx={{ display: 'block', opacity: 0.8, mb: 1 }}>{upper}</Typography>
-      <TextField type="number" size="small" label="Score" value={value} onChange={(e)=>onChange?.(parseInt(e.target.value || '0', 10))} fullWidth />
+      <TextField type="number" size="small" label="Score" value={value} onChange={handleChange} onBlur={handleBlur} fullWidth />
     </Paper>
   );
 }
@@ -378,6 +394,24 @@ export default function CharacterBuilder() {
   }, [id]);
 
   const update = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
+  // Numeric input helpers: allow clearing while typing; clamp and default on blur
+  const setNum = (key, raw, { min = 0 } = {}) => {
+    setForm((f) => {
+      if (raw === '') return { ...f, [key]: '' };
+      const n = Number(raw);
+      if (!Number.isFinite(n)) return { ...f, [key]: '' };
+      return { ...f, [key]: Math.max(min, n) };
+    });
+  };
+  const commitNum = (key, { min = 0, fallback = 0 } = {}) => {
+    setForm((f) => {
+      const v = f[key];
+      let n = Number(v);
+      if (!Number.isFinite(n)) n = fallback;
+      n = Math.max(min, n);
+      return { ...f, [key]: n };
+    });
+  };
   // Resolve a signed URL for private buckets when icon_url changes
   useEffect(() => {
     let active = true;
@@ -407,11 +441,47 @@ export default function CharacterBuilder() {
   const spellSaveDC = 8 + profBonus + mod(spellAbility);
   const spellAttackMod = profBonus + mod(spellAbility);
 
+  // Ensure numeric fields are saved as numbers (no empty strings)
+  const normalizeForSave = (f) => {
+    const out = { ...f };
+    const num = (v, d = 0) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : d;
+    };
+    // top-level simple numbers
+    out.level = Math.max(0, num(out.level, 0));
+    out.xp = Math.max(0, num(out.xp, 0));
+    out.ac = Math.max(0, num(out.ac, 0));
+    out.speed = Math.max(0, num(out.speed, 0));
+    out.max_hp = Math.max(0, num(out.max_hp, 0));
+    out.current_hp = Math.max(0, num(out.current_hp, 0));
+    out.hp_temp = Math.max(0, num(out.hp_temp, 0));
+    // abilities
+    ['str','dex','con','int','wis','cha'].forEach((k) => {
+      out[k] = Math.max(1, Math.min(30, num(out[k], 10)));
+    });
+    // currency
+    out.currency = out.currency || {};
+    out.currency.gp = Math.max(0, num(out.currency.gp, 0));
+    out.currency.sp = Math.max(0, num(out.currency.sp, 0));
+    out.currency.cp = Math.max(0, num(out.currency.cp, 0));
+    // spell slots
+    const slots = out.spellcasting?.slots || {};
+    const fixedSlots = {};
+    Object.keys(slots).forEach((lvl) => {
+      const t = Math.max(0, num(slots[lvl]?.total, 0));
+      const u = Math.max(0, num(slots[lvl]?.used, 0));
+      fixedSlots[lvl] = { total: t, used: Math.min(u, t) };
+    });
+    out.spellcasting = { ...(out.spellcasting || {}), slots: fixedSlots };
+    return out;
+  };
+
   const handleSave = async () => {
     try {
       setLoading(true);
       setError('');
-      const payload = { ...form, user_id: user.id, hit_dice: hitDice };
+      const payload = { ...normalizeForSave(form), user_id: user.id, hit_dice: hitDice };
       const saved = await upsertCharacter(payload);
       setForm((f) => ({ ...f, id: saved.id }));
       // If this builder was opened from a battlemap double-click, return back after save
@@ -697,7 +767,16 @@ export default function CharacterBuilder() {
                     <TextField variant="outlined" size="small" label="Class" value={form.class} onChange={update('class')} fullWidth />
                   </Grid>
                   <Grid item xs={6} md={3}>
-                    <TextField variant="outlined" size="small" label="Level" type="number" value={form.level} onChange={(e)=>update('level')({ target: { value: parseInt(e.target.value||'1', 10) } })} fullWidth />
+                    <TextField
+                      variant="outlined"
+                      size="small"
+                      label="Level"
+                      type="number"
+                      value={form.level}
+                      onChange={(e)=> setNum('level', e.target.value, { min: 0 })}
+                      onBlur={()=> commitNum('level', { min: 0, fallback: 0 })}
+                      fullWidth
+                    />
                   </Grid>
                   <Grid item xs={6} md={3}>
                     <TextField variant="outlined" size="small" label="Race" value={form.race} onChange={update('race')} fullWidth />
@@ -719,7 +798,16 @@ export default function CharacterBuilder() {
                     </TextField>
                   </Grid>
                   <Grid item xs={12} md={3}>
-                    <TextField label="XP" type="number" size="small" variant="outlined" value={form.xp} onChange={(e)=>update('xp')({ target: { value: parseInt(e.target.value||'0',10) }})} fullWidth />
+                    <TextField
+                      label="XP"
+                      type="number"
+                      size="small"
+                      variant="outlined"
+                      value={form.xp}
+                      onChange={(e)=> setNum('xp', e.target.value, { min: 0 })}
+                      onBlur={()=> commitNum('xp', { min: 0, fallback: 0 })}
+                      fullWidth
+                    />
                   </Grid>
                   <Grid item xs={12} md={3}>
                     <TextField label="Hit Dice" size="small" variant="outlined" value={hitDice} onChange={(e)=>setHitDice(e.target.value)} fullWidth />
@@ -746,22 +834,31 @@ export default function CharacterBuilder() {
               <SectionCard title="Vitals">
                 <Grid container spacing={1}>
                   <Grid item xs={4}>
-                    <TextField label="Max" type="number" size="small" value={form.max_hp} onChange={(e)=>update('max_hp')({ target: { value: parseInt(e.target.value||'0',10) }})} fullWidth color="error" variant="outlined" sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(244,67,54,0.6)' } }} />
+                    <TextField label="Max" type="number" size="small" value={form.max_hp}
+                      onChange={(e)=> setNum('max_hp', e.target.value, { min: 0 })}
+                      onBlur={()=> commitNum('max_hp', { min: 0, fallback: 0 })}
+                      fullWidth color="error" variant="outlined" sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(244,67,54,0.6)' } }} />
                   </Grid>
                   <Grid item xs={4}>
-                    <TextField label="Current" type="number" size="small" value={form.current_hp} onChange={(e)=>update('current_hp')({ target: { value: parseInt(e.target.value||'0',10) }})} fullWidth color="error" variant="outlined" sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(244,67,54,0.6)' } }} />
+                    <TextField label="Current" type="number" size="small" value={form.current_hp}
+                      onChange={(e)=> setNum('current_hp', e.target.value, { min: 0 })}
+                      onBlur={()=> commitNum('current_hp', { min: 0, fallback: 0 })}
+                      fullWidth color="error" variant="outlined" sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(244,67,54,0.6)' } }} />
                   </Grid>
                   <Grid item xs={4}>
-                    <TextField label="Temp" type="number" size="small" value={form.hp_temp} onChange={(e)=>update('hp_temp')({ target: { value: parseInt(e.target.value||'0',10) }})} fullWidth color="error" variant="outlined" sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(244,67,54,0.6)' } }} />
+                    <TextField label="Temp" type="number" size="small" value={form.hp_temp}
+                      onChange={(e)=> setNum('hp_temp', e.target.value, { min: 0 })}
+                      onBlur={()=> commitNum('hp_temp', { min: 0, fallback: 0 })}
+                      fullWidth color="error" variant="outlined" sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(244,67,54,0.6)' } }} />
                   </Grid>
                 </Grid>
                 <Divider sx={{ my: 1.5, borderColor: 'rgba(255,255,255,0.1)' }} />
                 <Grid container spacing={1}>
                   <Grid item xs={6}>
-                    <TextField label="AC" type="number" size="small" value={form.ac} onChange={(e)=>update('ac')({ target: { value: parseInt(e.target.value||'0',10) }})} fullWidth />
+                    <TextField label="AC" type="number" size="small" value={form.ac} onChange={(e)=> setNum('ac', e.target.value, { min: 0 })} onBlur={()=> commitNum('ac', { min: 0, fallback: 0 })} fullWidth />
                   </Grid>
                   <Grid item xs={6}>
-                    <TextField label="Speed" type="number" size="small" value={form.speed} onChange={(e)=>update('speed')({ target: { value: parseInt(e.target.value||'0',10) }})} fullWidth />
+                    <TextField label="Speed" type="number" size="small" value={form.speed} onChange={(e)=> setNum('speed', e.target.value, { min: 0 })} onBlur={()=> commitNum('speed', { min: 0, fallback: 0 })} fullWidth />
                   </Grid>
                   <Grid item xs={12}>
                     <TextField label="Passive Perception" size="small" value={passivePerception} InputProps={{ readOnly: true }} fullWidth />
@@ -860,34 +957,95 @@ export default function CharacterBuilder() {
                 <Grid container spacing={1}>
                   {Array.from({ length: 9 }, (_, i) => i + 1).map((lvl) => {
                     const slots = form.spellcasting?.slots || {};
-                    const total = Number(slots?.[lvl]?.total || 0);
-                    const used = Math.min(Number(slots?.[lvl]?.used || 0), total);
+                    const rawTotal = slots?.[lvl]?.total;
+                    const rawUsed = slots?.[lvl]?.used;
+                    const total = Math.max(0, Number(rawTotal || 0));
+                    const used = Math.min(Math.max(0, Number(rawUsed || 0)), total);
                     return (
                       <Grid key={lvl} item xs={12} md={6} lg={4}>
                         <Paper elevation={1} sx={{ p: 1, backgroundColor: '#333', borderRadius: 1 }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
                             <Typography sx={{ color: '#d32f2f', fontWeight: 700 }}>Level {lvl}</Typography>
                             <Box sx={{ display: 'flex', gap: 1 }}>
-                              <TextField label="Total" size="small" type="number" value={total} onChange={(e)=>{
-                                const t = Math.max(0, parseInt(e.target.value||'0',10));
-                                setForm(f => ({
-                                  ...f,
-                                  spellcasting: {
-                                    ...(f.spellcasting||{}),
-                                    slots: { ...(f.spellcasting?.slots||{}), [lvl]: { total: t, used: Math.min(used, t) } }
-                                  }
-                                }));
-                              }} sx={{ width: 88 }} />
-                              <TextField label="Used" size="small" type="number" value={used} onChange={(e)=>{
-                                const u = Math.max(0, parseInt(e.target.value||'0',10));
-                                setForm(f => ({
-                                  ...f,
-                                  spellcasting: {
-                                    ...(f.spellcasting||{}),
-                                    slots: { ...(f.spellcasting?.slots||{}), [lvl]: { total, used: Math.min(u, total) } }
-                                  }
-                                }));
-                              }} sx={{ width: 88 }} />
+                              <TextField
+                                label="Total"
+                                size="small"
+                                type="number"
+                                value={rawTotal ?? ''}
+                                onChange={(e)=>{
+                                  const v = e.target.value;
+                                  setForm(f => {
+                                    const prevSlots = f.spellcasting?.slots || {};
+                                    const prevForLvl = prevSlots[lvl] || {};
+                                    const nextTotal = v === '' ? '' : Math.max(0, Number(v) || 0);
+                                    const normalizedTotal = Number(nextTotal || 0);
+                                    const prevUsed = prevForLvl.used;
+                                    const normPrevUsed = Math.max(0, Number(prevUsed || 0));
+                                    const nextUsed = Math.min(normPrevUsed, normalizedTotal);
+                                    return {
+                                      ...f,
+                                      spellcasting: {
+                                        ...(f.spellcasting||{}),
+                                        slots: { ...(prevSlots), [lvl]: { total: nextTotal, used: nextUsed } }
+                                      }
+                                    };
+                                  });
+                                }}
+                                onBlur={() => {
+                                  setForm(f => {
+                                    const prevSlots = f.spellcasting?.slots || {};
+                                    const prevForLvl = prevSlots[lvl] || {};
+                                    const normalizedTotal = Math.max(0, Number(prevForLvl.total || 0));
+                                    const normalizedUsed = Math.min(Math.max(0, Number(prevForLvl.used || 0)), normalizedTotal);
+                                    return {
+                                      ...f,
+                                      spellcasting: {
+                                        ...(f.spellcasting||{}),
+                                        slots: { ...(prevSlots), [lvl]: { total: normalizedTotal, used: normalizedUsed } }
+                                      }
+                                    };
+                                  });
+                                }}
+                                sx={{ width: 88 }}
+                              />
+                              <TextField
+                                label="Used"
+                                size="small"
+                                type="number"
+                                value={rawUsed ?? ''}
+                                onChange={(e)=>{
+                                  const v = e.target.value;
+                                  setForm(f => {
+                                    const prevSlots = f.spellcasting?.slots || {};
+                                    const prevForLvl = prevSlots[lvl] || {};
+                                    const normalizedTotal = Math.max(0, Number(prevForLvl.total || 0));
+                                    const nextUsed = v === '' ? '' : Math.min(Math.max(0, Number(v) || 0), normalizedTotal);
+                                    return {
+                                      ...f,
+                                      spellcasting: {
+                                        ...(f.spellcasting||{}),
+                                        slots: { ...(prevSlots), [lvl]: { total: prevForLvl.total ?? 0, used: nextUsed } }
+                                      }
+                                    };
+                                  });
+                                }}
+                                onBlur={() => {
+                                  setForm(f => {
+                                    const prevSlots = f.spellcasting?.slots || {};
+                                    const prevForLvl = prevSlots[lvl] || {};
+                                    const normalizedTotal = Math.max(0, Number(prevForLvl.total || 0));
+                                    const normalizedUsed = Math.min(Math.max(0, Number(prevForLvl.used || 0)), normalizedTotal);
+                                    return {
+                                      ...f,
+                                      spellcasting: {
+                                        ...(f.spellcasting||{}),
+                                        slots: { ...(prevSlots), [lvl]: { total: normalizedTotal, used: normalizedUsed } }
+                                      }
+                                    };
+                                  });
+                                }}
+                                sx={{ width: 88 }}
+                              />
                             </Box>
                           </Box>
                           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
@@ -1003,9 +1161,24 @@ export default function CharacterBuilder() {
                   <Grid item xs={12} md={4}>
                     <SectionCard title="Currency" sx={{ p: 1.5 }}>
                        <Grid container spacing={1}>
-                         <Grid item xs={4}><TextField label="GP" type="number" size="small" value={form.currency.gp} onChange={(e)=>setForm(f=>({ ...f, currency: { ...f.currency, gp: parseInt(e.target.value||'0',10) } }))} fullWidth /></Grid>
-                         <Grid item xs={4}><TextField label="SP" type="number" size="small" value={form.currency.sp} onChange={(e)=>setForm(f=>({ ...f, currency: { ...f.currency, sp: parseInt(e.target.value||'0',10) } }))} fullWidth /></Grid>
-                         <Grid item xs={4}><TextField label="CP" type="number" size="small" value={form.currency.cp} onChange={(e)=>setForm(f=>({ ...f, currency: { ...f.currency, cp: parseInt(e.target.value||'0',10) } }))} fullWidth /></Grid>
+                         <Grid item xs={4}>
+                           <TextField label="GP" type="number" size="small" value={form.currency.gp}
+                             onChange={(e)=> setForm(f=>({ ...f, currency: { ...f.currency, gp: (e.target.value === '' ? '' : Math.max(0, Number(e.target.value) || 0)) } }))}
+                             onBlur={()=> setForm(f=>({ ...f, currency: { ...f.currency, gp: Math.max(0, Number(f.currency.gp || 0)) } }))}
+                             fullWidth />
+                         </Grid>
+                         <Grid item xs={4}>
+                           <TextField label="SP" type="number" size="small" value={form.currency.sp}
+                             onChange={(e)=> setForm(f=>({ ...f, currency: { ...f.currency, sp: (e.target.value === '' ? '' : Math.max(0, Number(e.target.value) || 0)) } }))}
+                             onBlur={()=> setForm(f=>({ ...f, currency: { ...f.currency, sp: Math.max(0, Number(f.currency.sp || 0)) } }))}
+                             fullWidth />
+                         </Grid>
+                         <Grid item xs={4}>
+                           <TextField label="CP" type="number" size="small" value={form.currency.cp}
+                             onChange={(e)=> setForm(f=>({ ...f, currency: { ...f.currency, cp: (e.target.value === '' ? '' : Math.max(0, Number(e.target.value) || 0)) } }))}
+                             onBlur={()=> setForm(f=>({ ...f, currency: { ...f.currency, cp: Math.max(0, Number(f.currency.cp || 0)) } }))}
+                             fullWidth />
+                         </Grid>
                        </Grid>
                      </SectionCard>
                   </Grid>

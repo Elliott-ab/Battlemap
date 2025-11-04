@@ -107,7 +107,7 @@ export function aggregateRacialAbilityBonuses(raceDetail, subraceDetail) {
 }
 
 export function computeDerived(character) {
-	const lvl = character.level || 1;
+	const lvl = character.level ?? 1; // preserve 0 if explicitly set
 	const prof = proficiencyBonus(lvl);
 	const scores = ['str','dex','con','int','wis','cha'].reduce((acc,k)=>{acc[k]=Number(character[k]||10);return acc;},{});
 	const mods = Object.fromEntries(Object.entries(scores).map(([k,v])=>[k,abilityMod(v)]));
