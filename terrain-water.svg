@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" style="color:#1565c0;opacity:0.75">
+  <defs>
+    <pattern id="water_waves" width="8" height="8" patternUnits="userSpaceOnUse">
+      <rect width="8" height="8" fill="transparent"/>
+      <path d="M0 4 q2 -2 4 0 q2 2 4 0" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    </pattern>
+  </defs>
+  <rect width="64" height="64" fill="url(#water_waves)"/>
+</svg>
