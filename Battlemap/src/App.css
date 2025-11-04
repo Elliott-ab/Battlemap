@@ -282,10 +282,8 @@ body {
     align-items: center;
     gap: 0.25rem;
 }
-/* Always show hamburger on all pages/sizes */
-.toolbar-burger {
-    display: inline-flex !important;
-}
+/* Burger hidden by default (desktop/tablet); shown on mobile in media query below */
+.toolbar-burger { display: none; }
 
 /* Faint vertical divider between Global Modifiers button and icon group */
 .toolbar-divider-vert {
@@ -1701,6 +1699,9 @@ body {
         padding: 0 0.75rem;
         height: 72px;
     }
+    /* Hide settings and sign out in the top bar on mobile; available via burger menu */
+    .toolbar .toolbar-settings,
+    .toolbar .toolbar-signout { display: none !important; }
     .toolbar-logo {
         width: auto;
         max-width: 45vw; /* prevent logo from pushing controls */
@@ -1996,6 +1997,18 @@ body {
         position: relative;
         z-index: 200; /* keep above map overlays even on desktop */
     }
+}
+
+/* Toolbar sign out text button */
+.toolbar-signout {
+    color: #ffffff;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+}
+.toolbar-signout:hover {
+    color: #2196F3; /* blue on hover */
+    background: rgba(255,255,255,0.06);
 }
 
 /* Responsive swap for Global Modifiers card layouts */

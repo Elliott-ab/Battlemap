@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUserGear, faCircle, faBell } from '@fortawesome/free-solid-svg-icons';
+import { faUserGear, faCircle, faBell, faBars } from '@fortawesome/free-solid-svg-icons';
 import IconButton from './common/IconButton.jsx';
 import { useGameSession } from '../Utils/GameSessionContext.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
@@ -34,7 +34,7 @@ const Toolbar = ({
   onFellowshipClick,
   onNotificationsClick,
 }) => {
-  const { game, setSession } = useGameSession();
+  const { game, setSession, clearSession } = useGameSession();
   const { user } = useAuth();
   const navigate = useNavigate();
   // Normalize Vite base URL to always end with a single '/'
@@ -54,6 +54,7 @@ const Toolbar = ({
   const [notifs, setNotifs] = useState([]); // merged server + ephemeral
   const [ephemeralNotifs, setEphemeralNotifs] = useState([]); // realtime-only
   const [notifError, setNotifError] = useState('');
+  const [burgerOpen, setBurgerOpen] = useState(false);
   
 
   const mergeNotifications = useCallback((serverRows, ephemeralRows) => {
@@ -140,6 +141,7 @@ const Toolbar = ({
   }, [user?.email, mergeNotifications]);
 
   const handleBellClick = () => {
+    setBurgerOpen(false);
     if (onNotificationsClick) return onNotificationsClick();
     // Toggle internal popover
     setNotifOpen(v => !v);
@@ -152,6 +154,24 @@ const Toolbar = ({
       sessionStorage.setItem('open-settings', '1');
     } catch (_) {}
     navigate('/home');
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (_) {}
+    try { clearSession(); } catch (_) {}
+    try { navigate('/login'); } catch (_) {}
+  };
+
+  const handleBurgerClick = () => {
+    setNotifOpen(false);
+    setBurgerOpen(v => !v);
+  };
+
+  const navigateAndCloseBurger = (to) => {
+    try { setBurgerOpen(false); } catch {}
+    if (typeof to === 'string') navigate(to);
   };
 
   const handleNotifAction = async (n, action) => {
@@ -265,11 +285,30 @@ const Toolbar = ({
       )}
       <div className="toolbar-spacer" />
       <div className="controls">
+        <IconButton className="toolbar-burger" title="Menu" size="large" onClick={handleBurgerClick}>
+          <FontAwesomeIcon icon={faBars} style={{ color: 'white', fontSize: 18 }} />
+        </IconButton>
         {variant === 'battlemap' && (
           <>
             <div className="toolbar-icons" />
           </>
         )}
+        <button
+          type="button"
+          className="toolbar-signout"
+          title="Sign out"
+          onClick={handleSignOut}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            padding: '8px 10px',
+            marginRight: 6,
+            cursor: 'pointer',
+            fontSize: 14,
+          }}
+        >
+          Sign out
+        </button>
         <IconButton className="toolbar-settings" title="User Settings" size="large" onClick={handleSettingsClick}>
           <FontAwesomeIcon icon={faUserGear} style={{ color: 'white', fontSize: 18 }} />
         </IconButton>
@@ -321,6 +360,21 @@ const Toolbar = ({
                 )}
               </div>
             ))}
+          </div>
+        </>
+      )}
+      {burgerOpen && (
+        <>
+          <div className="toolbar-menu-backdrop" onClick={() => setBurgerOpen(false)} />
+          <div className="toolbar-menu" role="menu" aria-label="Main menu">
+            <NavLink to="/home" className="menu-item" onClick={() => navigateAndCloseBurger('/home')}>Home</NavLink>
+            <NavLink to="/library" className="menu-item" onClick={() => navigateAndCloseBurger('/library')}>Library</NavLink>
+            <NavLink to={game?.code ? `/battlemap/${game.code}` : '/battlemap/LOCAL'} className="menu-item" onClick={() => navigateAndCloseBurger(game?.code ? `/battlemap/${game.code}` : '/battlemap/LOCAL')}>Battlemap</NavLink>
+            <NavLink to="/characters" className="menu-item" onClick={() => navigateAndCloseBurger('/characters')}>Characters</NavLink>
+            <NavLink to="/fellowship" className="menu-item" onClick={() => navigateAndCloseBurger('/fellowship')}>Fellowship</NavLink>
+            <hr className="menu-item--mobile-only" />
+            <button className="menu-item" onClick={() => { setBurgerOpen(false); handleSettingsClick(); }}>User Settings</button>
+            <button className="menu-item" onClick={() => { setBurgerOpen(false); handleSignOut(); }}>Sign out</button>
           </div>
         </>
       )}

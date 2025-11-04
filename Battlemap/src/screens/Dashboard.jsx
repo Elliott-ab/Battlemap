@@ -145,7 +145,6 @@ export default function Dashboard() {
   <Box className="hide-scrollbar" sx={{ flex: 1, p: 2, overflow: 'auto' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h5">Home</Typography>
-            <Button onClick={signOut}>Sign out</Button>
           </Box>
       {message && (
         <Alert severity="success" sx={{ mb: 2 }}>
