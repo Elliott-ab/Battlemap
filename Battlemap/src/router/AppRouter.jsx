@@ -11,6 +11,7 @@ import CharacterBuilder from '../screens/CharacterBuilder.jsx';
 import CharacterBuilderWizard from '../screens/CharacterBuilderWizard.jsx';
 import Library from '../screens/Library.jsx';
 import ToolingDemo from '../screens/ToolingDemo.jsx';
+import Fellowship from '../screens/Fellowship.jsx';
 
 function RequireAuth({ children }) {
   const { user } = useAuth();
@@ -62,6 +63,14 @@ export default function AppRouter() {
             element={(
               <RequireAuth>
                 <Library />
+              </RequireAuth>
+            )}
+          />
+          <Route
+            path="/fellowship"
+            element={(
+              <RequireAuth>
+                <Fellowship />
               </RequireAuth>
             )}
           />

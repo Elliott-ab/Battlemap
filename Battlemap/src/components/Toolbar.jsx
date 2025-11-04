@@ -156,9 +156,9 @@ const Toolbar = ({
       if (n.type === 'fellowship_invite' && (action === 'accept' || action === 'decline')) {
         await respondToFellowshipInvite(n, action, user);
         if (action === 'accept') {
-          // Automatically open Fellowship after accepting
+          // Automatically open Fellowship page after accepting
           setNotifOpen(false);
-          if (onFellowshipClick) onFellowshipClick();
+          navigate('/fellowship');
         }
       } else if (n.type === 'game_invite' && (action === 'accept' || action === 'decline')) {
         if (action === 'accept') {
@@ -245,6 +245,13 @@ const Toolbar = ({
         >
           Characters
         </NavLink>
+        <NavLink
+          to="/fellowship"
+          className={({ isActive }) => `toolbar-link ${isActive ? 'active' : ''}`}
+          title="Fellowship"
+        >
+          Fellowship
+        </NavLink>
       </nav>
       {/* In-game indicator right after nav links; only when in an active game */}
       {game && game.id && game.code && (
@@ -318,6 +325,14 @@ const Toolbar = ({
             >
               <span>Characters</span>
             </NavLink>
+            <NavLink
+              to="/fellowship"
+              className={({ isActive }) => `menu-item menu-item--mobile-only ${isActive ? 'active' : ''}`}
+              onClick={() => setMenuOpen(false)}
+              role="menuitem"
+            >
+              <span>Fellowship</span>
+            </NavLink>
             <hr className="toolbar-divider-horiz menu-item--mobile-only" />
             {/* Grid Settings moved to Slim Toolbar (gear icon) */}
             {/* Undo moved to Slim Toolbar > Settings > Game Settings */}
@@ -328,9 +343,10 @@ const Toolbar = ({
             {/* Join/Host/Leave moved to Slim Toolbar > Settings > Game Settings; Push/Toggle moved to Slim Toolbar */}
             {/* Fellowship section (always available when handler is provided), above User Settings */}
             <hr className="toolbar-divider-horiz" />
+            {/* Fellowship now accessible via primary nav; keep legacy button only if handler provided */}
             {onFellowshipClick && (
               <button className="menu-item" onClick={() => { onFellowshipClick(); setMenuOpen(false); }} role="menuitem">
-                <span>Fellowship</span>
+                <span>Fellowship (legacy)</span>
               </button>
             )}
             <hr className="toolbar-divider-horiz" />

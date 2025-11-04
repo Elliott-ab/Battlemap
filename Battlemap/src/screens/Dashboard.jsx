@@ -12,7 +12,6 @@ import { hostGame, joinGameByCode, listCampaignsByHost } from '../Utils/gameServ
 import Toolbar from '../components/Toolbar.jsx';
 import { deleteUserAccountData } from '../Utils/userService.js';
 import { useGameSession } from '../Utils/GameSessionContext.jsx';
-import FellowshipModal from '../components/Modals/FellowshipModal.jsx';
 // Sidebar removed on Home page
 // Dialog imports consolidated above
 
@@ -41,7 +40,7 @@ export default function Dashboard() {
   const [hostResult, setHostResult] = useState(null);
   const [hostError, setHostError] = useState('');
   const [joinOpen, setJoinOpen] = useState(false);
-  const [fellowshipOpen, setFellowshipOpen] = useState(false);
+  
 
   // Creation happens via the Campaign modal (when selectedCampaign has no id)
 
@@ -180,7 +179,6 @@ export default function Dashboard() {
       <Toolbar
         variant="dashboard"
         onSettingsClick={() => setShowSettings(true)}
-  onFellowshipClick={() => setFellowshipOpen(true)}
         onJoinGame={() => setJoinOpen(true)}
         onHostGame={async () => {
           if (!user) return;
@@ -502,8 +500,7 @@ export default function Dashboard() {
           )}
         </DialogActions>
       </Dialog>
-      {/* Fellowship */}
-      <FellowshipModal open={fellowshipOpen} onClose={() => setFellowshipOpen(false)} gameId={null} />
+      
       {/* Toolbar: Join Game dialog */}
       <Dialog open={joinOpen} onClose={() => setJoinOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle>Join Game</DialogTitle>
