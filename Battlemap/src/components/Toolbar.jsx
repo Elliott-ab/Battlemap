@@ -55,6 +55,23 @@ const Toolbar = ({
   const [ephemeralNotifs, setEphemeralNotifs] = useState([]); // realtime-only
   const [notifError, setNotifError] = useState('');
   const [burgerOpen, setBurgerOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Track viewport size to render burger only on mobile
+  useEffect(() => {
+    const update = () => {
+      try {
+        setIsMobile(window.innerWidth <= 768);
+      } catch { setIsMobile(false); }
+    };
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('orientationchange', update);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('orientationchange', update);
+    };
+  }, []);
   
 
   const mergeNotifications = useCallback((serverRows, ephemeralRows) => {
@@ -248,18 +265,18 @@ const Toolbar = ({
           Home
         </NavLink>
         <NavLink
-          to="/library"
-          className={({ isActive }) => `toolbar-link ${isActive ? 'active' : ''}`}
-          title="Library"
-        >
-          Library
-        </NavLink>
-        <NavLink
           to={game?.code ? `/battlemap/${game.code}` : '/battlemap/LOCAL'}
           className={({ isActive }) => `toolbar-link ${isActive ? 'active' : ''}`}
           title="Battlemap"
         >
           Battlemap
+        </NavLink>
+        <NavLink
+          to="/library"
+          className={({ isActive }) => `toolbar-link ${isActive ? 'active' : ''}`}
+          title="Library"
+        >
+          Library
         </NavLink>
         <NavLink
           to="/characters"
@@ -285,9 +302,11 @@ const Toolbar = ({
       )}
       <div className="toolbar-spacer" />
       <div className="controls">
-        <IconButton className="toolbar-burger" title="Menu" size="large" onClick={handleBurgerClick}>
-          <FontAwesomeIcon icon={faBars} style={{ color: 'white', fontSize: 18 }} />
-        </IconButton>
+        {isMobile && (
+          <IconButton className="toolbar-burger" title="Menu" size="large" onClick={handleBurgerClick}>
+            <FontAwesomeIcon icon={faBars} style={{ color: 'white', fontSize: 18 }} />
+          </IconButton>
+        )}
         {variant === 'battlemap' && (
           <>
             <div className="toolbar-icons" />
@@ -363,13 +382,13 @@ const Toolbar = ({
           </div>
         </>
       )}
-      {burgerOpen && (
+      {burgerOpen && isMobile && (
         <>
           <div className="toolbar-menu-backdrop" onClick={() => setBurgerOpen(false)} />
           <div className="toolbar-menu" role="menu" aria-label="Main menu">
             <NavLink to="/home" className="menu-item" onClick={() => navigateAndCloseBurger('/home')}>Home</NavLink>
-            <NavLink to="/library" className="menu-item" onClick={() => navigateAndCloseBurger('/library')}>Library</NavLink>
             <NavLink to={game?.code ? `/battlemap/${game.code}` : '/battlemap/LOCAL'} className="menu-item" onClick={() => navigateAndCloseBurger(game?.code ? `/battlemap/${game.code}` : '/battlemap/LOCAL')}>Battlemap</NavLink>
+            <NavLink to="/library" className="menu-item" onClick={() => navigateAndCloseBurger('/library')}>Library</NavLink>
             <NavLink to="/characters" className="menu-item" onClick={() => navigateAndCloseBurger('/characters')}>Characters</NavLink>
             <NavLink to="/fellowship" className="menu-item" onClick={() => navigateAndCloseBurger('/fellowship')}>Fellowship</NavLink>
             <hr className="menu-item--mobile-only" />
