@@ -572,9 +572,8 @@ export default function MonsterBrowserModal({ open, onClose, onImport, initialIn
                                     const mStr = walkStr || (typeof speedObj === 'string' ? speedObj : '');
                                     const num = (mStr && /\d+/.test(mStr)) ? parseInt(mStr.match(/\d+/)[0], 10) : undefined;
                                     const movement = Number.isFinite(num) ? num : 30;
-                                    // Size mapping (ignored by import later if forced to 1)
-                                    const sizeMap = { Tiny: 1, Small: 1, Medium: 1, Large: 2, Huge: 3, Gargantuan: 4 };
-                                    const gridSize = sizeMap[d?.size] || 1;
+                                    // Temporarily limit all creatures to 1x1 footprint
+                                    const gridSize = 1;
                                     await onImport({
                                       index: m.index,
                                       name: m.name,
@@ -765,6 +764,7 @@ export default function MonsterBrowserModal({ open, onClose, onImport, initialIn
                           const hp = Number.parseInt(d?.hit_points, 10) || undefined;
                           const constructed = d?.index ? `https://www.dnd5eapi.co/api/images/monsters/${d.index}.png` : undefined;
                           const imageUrl = d?.image ? `https://www.dnd5eapi.co${d.image}` : constructed;
+                          // Temporarily limit all creatures to 1x1 footprint
                           await onImport({ index: d.index, name: d.name, hp, movement, size: 1, imageUrl }, d);
                         } catch(_) {}
                       }}

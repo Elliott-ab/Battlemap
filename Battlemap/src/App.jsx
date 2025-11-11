@@ -752,13 +752,15 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
               const movement = Number.isFinite(tpl?.movement) ? tpl.movement : 30;
               const iconUrl = tpl?.imageUrl || null;
               const index = tpl?.index || null;
-              // Force single-cell size regardless of Bestiary data (matches sidebar behavior)
+              // Temporarily limit all creatures to 1x1 footprint
               const size = 1;
+              // Place at staged anchor (occupied-by-anchor already checked above)
+              const pos = { x, y };
               const el = {
                 id: nextId++,
                 type: 'enemy',
                 name,
-                position: { x, y },
+                position: pos,
                 size,
                 color: '#f44336',
                 movement,
@@ -797,6 +799,8 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
       try {
         document.querySelectorAll('.drawing-cover-highlight').forEach(h => h.remove());
         document.querySelectorAll('.drawing-creature-ghost').forEach(h => h.remove());
+        document.querySelectorAll('.drawing-creature-stage').forEach(h => h.remove());
+        document.querySelectorAll('.creature-footprint-outline').forEach(h => h.remove());
       } catch {}
       pushUndo();
     }
@@ -1150,10 +1154,10 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
         return;
       }
       const name = monster?.name || 'Enemy';
-      const hp = Number.isFinite(monster?.hp) ? monster.hp : undefined;
-  const movement = Number.isFinite(monster?.movement) ? monster.movement : 30;
-  // Force size to 1 (Small) so the enemy occupies a single cell
-  const size = 1;
+    const hp = Number.isFinite(monster?.hp) ? monster.hp : undefined;
+    const movement = Number.isFinite(monster?.movement) ? monster.movement : 30;
+    // Temporarily limit all creatures to 1x1 footprint
+    const size = 1;
       const iconUrl = monster?.imageUrl || null;
       // Create enemy locally
       setState(prev => {
@@ -1162,18 +1166,12 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
           const n = typeof e.id === 'number' ? e.id : parseInt(e.id, 10);
           return Number.isFinite(n) ? n : 0;
         }))) + 1;
-        // find empty position
+        // find first empty anchor cell (ignore multi-cell footprints)
         let pos = { x: 0, y: 0 };
-        outer: for (let y = 0; y <= (prev.grid.height - size); y++) {
-          for (let x = 0; x <= (prev.grid.width - size); x++) {
-            let occ = false;
-            for (const el of (prev.elements || [])) {
-              if (!el || !el.position) continue;
-              if (x < el.position.x + el.size && x + size > el.position.x && y < el.position.y + el.size && y + size > el.position.y) {
-                occ = true; break;
-              }
-            }
-            if (!occ) { pos = { x, y }; break outer; }
+        outer: for (let yy = 0; yy < prev.grid.height; yy++) {
+          for (let xx = 0; xx < prev.grid.width; xx++) {
+            const occ = (prev.elements || []).some(el => el && el.position && el.position.x === xx && el.position.y === yy);
+            if (!occ) { pos = { x: xx, y: yy }; break outer; }
           }
         }
         const newEnemy = {
@@ -1595,7 +1593,8 @@ function App({ onHostGame, onLeaveGame, onJoinGame, onFellowshipClick, gameId = 
                 name: monster?.name || null,
                 hp: Number.isFinite(monster?.hp) ? monster.hp : undefined,
                 movement: Number.isFinite(monster?.movement) ? monster.movement : 30,
-                size: Number.isFinite(monster?.size) ? monster.size : 1,
+                // Temporarily force all creatures to 1x1 footprint
+                size: 1,
                 imageUrl: monster?.imageUrl || null,
               };
               const { x: px, y: py } = bestiaryPendingCell || {};

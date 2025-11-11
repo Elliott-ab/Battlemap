@@ -292,6 +292,10 @@ export const useElements = (state, setState) => {
         finalDy = 0;
       }
 
+      // If nothing actually moved, bail early to avoid redundant state updates
+      if (finalDx === 0 && finalDy === 0) {
+        return;
+      }
       const updatedElements = state.elements.map((e) => {
         if (e.type === 'cover' && e.groupId === el.groupId) {
           const newX = e.position.x + finalDx;
@@ -300,8 +304,8 @@ export const useElements = (state, setState) => {
         }
         return e;
       });
-  // After moving a cover group, do not preserve selection; UI clears highlight after one move
-  setState({ ...state, elements: updatedElements, highlightedElementId: null });
+      // After moving a cover group, do not preserve selection; UI clears highlight after one move
+      setState(prev => ({ ...prev, elements: updatedElements, highlightedElementId: null }));
       // Inform app about moved positions (batch-friendly): include all moved cover blocks
       try {
         const moves = state.elements
@@ -334,16 +338,19 @@ export const useElements = (state, setState) => {
       }
       const dx = clampedX - el.position.x;
       const dy = clampedY - el.position.y;
-      const shouldUpdateFacing = (dx !== 0 || dy !== 0) && (el.type === 'enemy');
+      // If target cell didn't change, avoid re-render churn
+      if (dx === 0 && dy === 0) {
+        return;
+      }
+      const shouldUpdateFacing = (el.type === 'enemy');
       const angleDeg = shouldUpdateFacing ? (Math.atan2(dy, dx) * 180 / Math.PI) : el.facing;
-      setState({
-        ...state,
-        elements: state.elements.map((e) =>
+      setState(prev => {
+        const nextEls = prev.elements.map((e) =>
           e.id === id
             ? { ...e, position: { x: clampedX, y: clampedY }, ...(shouldUpdateFacing ? { facing: angleDeg } : {}) }
             : e
-        ),
-        highlightedElementId: null,
+        );
+        return { ...prev, elements: nextEls, highlightedElementId: null };
       });
       // Notify app about this single-element move for fast broadcast to peers
       try {

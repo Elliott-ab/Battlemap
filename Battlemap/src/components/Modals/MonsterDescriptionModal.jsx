@@ -64,12 +64,14 @@ export default function MonsterDescriptionModal({ open, onClose, index, canSummo
     const hp = Number.parseInt(detail?.hit_points, 10) || undefined;
     const constructed = detail?.index ? `https://www.dnd5eapi.co/api/images/monsters/${detail.index}.png` : undefined;
     const imageUrl = detail?.image ? `https://www.dnd5eapi.co${detail.image}` : constructed;
+    // Temporarily limit all creatures to 1x1 footprint
+    const gridSize = 1;
     return {
       index: detail.index,
       name: detail.name,
       hp,
       movement,
-      size: 1, // force single-cell as requested
+      size: gridSize,
       imageUrl,
     };
   }, [detail]);

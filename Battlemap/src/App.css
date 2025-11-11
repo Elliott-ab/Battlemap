@@ -1098,20 +1098,18 @@ body {
     position: absolute;
     top: 50%;
     left: 50%;
+    /* Width/height now overridden in JS based on enemy size; fallback remains 2 cells */
     width: calc(var(--cell-px) * 2);
     height: calc(var(--cell-px) * 2);
     pointer-events: none;
-    z-index: 1; /* inside the cell, below tokens (which are separate grid items with higher z-index) */
-    transform-origin: 50% 50%; /* rotate around token center */
-    /* Radial gradient that fades from the center (token) outward */
+    z-index: 1; /* below tokens */
+    transform-origin: 50% 50%;
     background: radial-gradient(
         circle at 50% 50%,
         rgba(var(--cone-rgb, 244, 67, 54), 0.58) 0%,
         rgba(var(--cone-rgb, 244, 67, 54), 0.28) 56%,
         rgba(var(--cone-rgb, 244, 67, 54), 0) 85%
     );
-    /* Wedge shape with the tip at the center */
-    /* Mid-width wedge between original and current */
     clip-path: polygon(50% 50%, 24% 95%, 76% 95%);
     filter: drop-shadow(0 0 2px rgba(0,0,0,0.3));
 }
@@ -1568,6 +1566,18 @@ body {
 .drawing-creature-ghost.enemy {
     background: rgba(244, 67, 54, 0.65);
     border: 1px solid rgba(244, 67, 54, 0.9);
+}
+
+/* Circular outline spanning multi-cell creature footprint during staging */
+.creature-footprint-outline {
+    position: absolute;
+    box-sizing: border-box;
+    border: 3px dashed rgba(255,255,255,0.7);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 11; /* above per-cell stage (7), below ghost (12) */
+    /* subtle glow */
+    box-shadow: 0 0 8px rgba(255,255,255,0.35);
 }
 
 .cover-highlight {

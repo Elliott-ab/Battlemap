@@ -236,9 +236,11 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
       if (!drawCreatureMode) {
         map.querySelectorAll('.drawing-creature-ghost').forEach(n => n.remove());
         map.querySelectorAll('.drawing-creature-stage').forEach(n => n.remove());
+        map.querySelectorAll('.creature-footprint-outline').forEach(n => n.remove());
         return;
       }
       const wanted = new Set((creatureBlocks || []).map(b => `${b.x},${b.y}:${b.creatureType||'enemy'}`));
+      const anchorSet = new Set((creatureBlocks || []).map(b => `${b.x},${b.y}`));
       // Remove any ghosts not in current staging
       map.querySelectorAll('.drawing-creature-ghost').forEach(n => {
         const cell = n.closest('.grid-cell');
@@ -248,37 +250,58 @@ const BattleMap = ({ state, setState, isDrawingCover, coverBlocks, setCoverBlock
       });
       // Remove creature-stage highlights not in current staging
       map.querySelectorAll('.drawing-creature-stage').forEach(n => {
+        const anchor = n.getAttribute('data-creature-anchor');
+        if (anchor) {
+          if (!anchorSet.has(anchor)) { n.remove(); }
+          return;
+        }
         const cell = n.closest('.grid-cell');
         if (!cell) { n.remove(); return; }
         const k = `${parseInt(cell.dataset.x)},${parseInt(cell.dataset.y)}`;
-        if (!(creatureBlocks || []).some(b => `${b.x},${b.y}` === k)) n.remove();
+        if (!anchorSet.has(k)) n.remove();
+      });
+      // Remove footprint circular outlines not in current staging
+      map.querySelectorAll('.creature-footprint-outline').forEach(n => {
+        const anchor = n.getAttribute('data-creature-anchor');
+        if (!anchor || !anchorSet.has(anchor)) n.remove();
       });
       // Ensure each staged cell has a highlight and a ghost
       for (const b of (creatureBlocks || [])) {
+        const anchorKey = `${b.x},${b.y}`;
+        // Clear any previous multi-cell highlights or footprint outlines for this anchor (in case size changed)
+        map.querySelectorAll(`.drawing-creature-stage[data-creature-anchor="${anchorKey}"]`).forEach(n => n.remove());
+        map.querySelectorAll(`.creature-footprint-outline[data-creature-anchor="${anchorKey}"]`).forEach(n => n.remove());
+
+        // Footprint size temporarily fixed at 1x1
         const cell = map.querySelector(`.grid-cell[data-x="${b.x}"][data-y="${b.y}"]`);
-        if (!cell) continue;
-        if (!cell.querySelector('.drawing-creature-stage')) {
+        if (cell) {
           const hl = document.createElement('div');
           hl.classList.add('drawing-creature-stage');
+          hl.setAttribute('data-creature-anchor', anchorKey);
           cell.appendChild(hl);
         }
-        let ghost = cell.querySelector('.drawing-creature-ghost');
-        if (!ghost) {
-          ghost = document.createElement('div');
-          ghost.classList.add('drawing-creature-ghost');
-          cell.appendChild(ghost);
-        }
-        ghost.classList.toggle('player', b.creatureType === 'player');
-        ghost.classList.toggle('enemy', b.creatureType !== 'player');
-        // Label ghost: P for players; for enemies show E or short name if available
-        try {
-          if (b.creatureType === 'player') {
-            ghost.textContent = 'P';
-          } else {
-            const short = (b.bestiary?.name || '').trim();
-            ghost.textContent = short ? short.substring(0, 2).toUpperCase() : 'E';
+
+        // Ensure a single ghost at the anchor cell to label type/name
+        const anchorCell = map.querySelector(`.grid-cell[data-x="${b.x}"][data-y="${b.y}"]`);
+        if (anchorCell) {
+          let ghost = anchorCell.querySelector('.drawing-creature-ghost');
+          if (!ghost) {
+            ghost = document.createElement('div');
+            ghost.classList.add('drawing-creature-ghost');
+            anchorCell.appendChild(ghost);
           }
-        } catch {}
+          ghost.classList.toggle('player', b.creatureType === 'player');
+          ghost.classList.toggle('enemy', b.creatureType !== 'player');
+          // Label ghost: P for players; for enemies show E or short name if available
+          try {
+            if (b.creatureType === 'player') {
+              ghost.textContent = 'P';
+            } else {
+              const short = (b.bestiary?.name || '').trim();
+              ghost.textContent = short ? short.substring(0, 2).toUpperCase() : 'E';
+            }
+          } catch {}
+        }
       }
     } catch {}
   }, [creatureBlocks, drawCreatureMode, gridDomVersion]);

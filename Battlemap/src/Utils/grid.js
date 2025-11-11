@@ -239,7 +239,8 @@ export const useGrid = (state) => {
       }
       elDiv.dataset.id = el.id;
       // Map element anchor based on rotation and size (square span)
-  const size = Math.max(1, el.size || 1);
+  // Temporarily limit all tokens to 1x1 footprint regardless of saved size
+  const size = 1;
       let ax = el.position.x;
       let ay = el.position.y;
       switch (rot) {
@@ -287,10 +288,25 @@ export const useGrid = (state) => {
         };
         const rgb = toRgb(el.color || '#f44336');
         cone.style.setProperty('--cone-rgb', `${rgb.r}, ${rgb.g}, ${rgb.b}`);
-  const facingBase = typeof el.facing === 'number' ? el.facing : 90; // 90° = down
-  const facingAdj = (facingBase + rot * 90) % 360;
-  // Rotate cone so 0°=right, 90°=down
-  cone.style.transform = `translate(-50%, -50%) rotate(${facingAdj - 90}deg)`;
+  // Temporarily ignore token size; use 1x1 for cone sizing
+  const tokenSize = 1;
+        // Ensure the cone extends beyond the token footprint: base 2 cells scaled by size
+        const coneCells = Math.max(2, 2 * tokenSize);
+        cone.style.width = `calc(var(--cell-px) * ${coneCells})`;
+        cone.style.height = `calc(var(--cell-px) * ${coneCells})`;
+
+        // Re-center the cone origin to the center of the enemy's footprint
+        // Default class sets top/left to 50%; offset by half the extra size in cells
+        const offsetCells = (tokenSize - 1) / 2;
+        if (offsetCells !== 0) {
+          cone.style.left = `calc(50% + var(--cell-px) * ${offsetCells})`;
+          cone.style.top = `calc(50% + var(--cell-px) * ${offsetCells})`;
+        }
+
+        const facingBase = typeof el.facing === 'number' ? el.facing : 90; // 90° = down
+        const facingAdj = (facingBase + rot * 90) % 360;
+        // Rotate cone so 0°=right, 90°=down
+        cone.style.transform = `translate(-50%, -50%) rotate(${facingAdj - 90}deg)`;
         // Append cone to the grid cell so it renders beneath the token
         const cell = battleMap.querySelector(`.grid-cell[data-x="${el.position.x}"][data-y="${el.position.y}"]`);
         if (cell) {
