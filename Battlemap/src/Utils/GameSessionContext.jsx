@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { supabase } from '../supabaseClient';
+import { useAuth } from '../auth/AuthContext.jsx';
 
 const STORAGE_KEY = 'bm_current_game';
 
@@ -12,6 +14,7 @@ const GameSessionContext = createContext({
 
 export function GameSessionProvider({ children }) {
   const [game, setGame] = useState(null);
+  const { user } = useAuth() || { user: null };
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -35,6 +38,40 @@ export function GameSessionProvider({ children }) {
   };
 
   const value = useMemo(() => ({ game, setSession, clearSession, updateSession }), [game]);
+  // Global host-availability responder: if this client is the host of the active game,
+  // listen for host-check broadcasts and reply with host-ack regardless of which page we're on.
+  useEffect(() => {
+    const gameId = game?.id;
+    const iAmHost = !!(gameId && ((game?.role === 'host') || (user?.id && game?.host_id && user.id === game.host_id)));
+    if (!gameId || !iAmHost) return;
+    const sig = supabase.channel(`game-${gameId}-signals`);
+    sig
+      .on('broadcast', { event: 'host-check' }, async () => {
+        try {
+          await sig.send({ type: 'broadcast', event: 'host-ack', payload: { t: Date.now(), host_id: user?.id } });
+        } catch (_) { /* noop */ }
+      })
+      .subscribe();
+    return () => { try { supabase.removeChannel(sig); } catch {} };
+  }, [game?.id, game?.role, game?.host_id, user?.id]);
+
+  // Optional: lightweight presence tracking so others can see host online status across pages.
+  // Not required for joining, but helpful for UI and future features.
+  useEffect(() => {
+    const gameId = game?.id;
+    const userId = user?.id;
+    if (!gameId || !userId) return;
+    const presence = supabase.channel(`game-${gameId}-presence`, { config: { presence: { key: userId } } });
+    presence.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        try {
+          await presence.track({ role: game?.role || (userId === game?.host_id ? 'host' : 'player'), t: Date.now() });
+        } catch (_) { /* noop */ }
+      }
+    });
+    return () => { try { supabase.removeChannel(presence); } catch {} };
+  }, [game?.id, game?.role, game?.host_id, user?.id]);
+
   return <GameSessionContext.Provider value={value}>{children}</GameSessionContext.Provider>;
 }
 
