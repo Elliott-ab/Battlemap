@@ -7,10 +7,12 @@ import { faCopy } from '@fortawesome/free-regular-svg-icons';
 // Props:
 // - value: string to copy
 // - onCopied?: optional callback after successful copy
+// - onClick?: optional external click handler (for stopPropagation, etc.)
 // - title/aria-label/className/size: forwarded to IconButton
-export default function CopyToClipboardButton({ value, onCopied, title = 'Copy', ...rest }) {
-  const handleClick = async () => {
+export default function CopyToClipboardButton({ value, onCopied, title = 'Copy', onClick, ...rest }) {
+  const handleClick = async (event) => {
     try {
+      if (typeof onClick === 'function') onClick(event);
       if (!value) return;
       await navigator.clipboard.writeText(value);
       if (typeof onCopied === 'function') onCopied();
