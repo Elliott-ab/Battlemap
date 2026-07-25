@@ -36,6 +36,7 @@ export async function listNotificationsForUser(user) {
   let query = supabase
     .from('notifications')
     .select('id, type, message, payload, created_at, read_at')
+    .is('read_at', null)
     .order('created_at', { ascending: false });
   if (userId && email) {
     query = query.or(`recipient_id.eq.${userId},recipient_email.eq.${email}`);
