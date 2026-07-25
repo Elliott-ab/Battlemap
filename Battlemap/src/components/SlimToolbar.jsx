@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Box, IconButton, Tooltip } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faRuler, faRulerCombined, faArrowPointer, faArrowsUpDownLeftRight, faChevronRight, faGear, faTrashCan, faUpload, faDownload, faRightToBracket, faUserPlus, faRightFromBracket, faRotateLeft, faBook } from '@fortawesome/free-solid-svg-icons';
+import { faRuler, faRulerCombined, faArrowPointer, faArrowsUpDownLeftRight, faChevronRight, faGear, faTrashCan, faUpload, faDownload, faRightToBracket, faUserPlus, faRightFromBracket, faRotateLeft, faBook, faXmark, faBold, faItalic, faUnderline, faStrikethrough, faListUl, faListOl } from '@fortawesome/free-solid-svg-icons';
 import { faPenToSquare as faPenToSquareRegular } from '@fortawesome/free-regular-svg-icons';
 import { useTool, ToolIds, RulerModes } from '../context/ToolContext.jsx';
 
@@ -275,8 +275,10 @@ export default function SlimToolbar({
   }, [notesOpen]);
   const execNoteCmd = (cmd) => {
     try {
+      const editor = notesEditorRef.current;
+      if (editor) editor.focus();
       document.execCommand(cmd, false, null);
-      const next = notesEditorRef.current?.innerHTML || '';
+      const next = editor?.innerHTML || '';
       setNotesHtml(next);
     } catch {}
   };
@@ -523,41 +525,80 @@ export default function SlimToolbar({
                 overflowY: 'auto'
               } : { minWidth: 420, maxWidth: 520, padding: 10, maxHeight: '70vh', overflowY: 'auto' }}
             >
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8, alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                <button className="btn" onClick={() => execNoteCmd('bold')} title="Bold"><b>B</b></button>
-                <button className="btn" onClick={() => execNoteCmd('italic')} title="Italic"><i>I</i></button>
-                <button className="btn" onClick={() => execNoteCmd('underline')} title="Underline"><u>U</u></button>
-                <button className="btn" onClick={() => execNoteCmd('strikeThrough')} title="Strikethrough"><s>S</s></button>
-                <div style={{ width: 1, background: 'rgba(255,255,255,0.2)' }} />
-                <button className="btn" onClick={() => execNoteCmd('insertUnorderedList')} title="Bullet list">• List</button>
-                <button className="btn" onClick={() => execNoteCmd('insertOrderedList')} title="Numbered list">1. List</button>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8, position: 'relative' }}>
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <Tooltip title="Bold" placement="top">
+                    <IconButton size="small" onMouseDown={(e) => e.preventDefault()} onClick={() => execNoteCmd('bold')} sx={{ color: 'rgba(255,255,255,0.9)' }}>
+                      <FontAwesomeIcon icon={faBold} />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Italic" placement="top">
+                    <IconButton size="small" onMouseDown={(e) => e.preventDefault()} onClick={() => execNoteCmd('italic')} sx={{ color: 'rgba(255,255,255,0.9)' }}>
+                      <FontAwesomeIcon icon={faItalic} />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Underline" placement="top">
+                    <IconButton size="small" onMouseDown={(e) => e.preventDefault()} onClick={() => execNoteCmd('underline')} sx={{ color: 'rgba(255,255,255,0.9)' }}>
+                      <FontAwesomeIcon icon={faUnderline} />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Strikethrough" placement="top">
+                    <IconButton size="small" onMouseDown={(e) => e.preventDefault()} onClick={() => execNoteCmd('strikeThrough')} sx={{ color: 'rgba(255,255,255,0.9)' }}>
+                      <FontAwesomeIcon icon={faStrikethrough} />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Bullet list" placement="top">
+                    <IconButton size="small" onMouseDown={(e) => e.preventDefault()} onClick={() => execNoteCmd('insertUnorderedList')} sx={{ color: 'rgba(255,255,255,0.9)' }}>
+                      <FontAwesomeIcon icon={faListUl} />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Numbered list" placement="top">
+                    <IconButton size="small" onMouseDown={(e) => e.preventDefault()} onClick={() => execNoteCmd('insertOrderedList')} sx={{ color: 'rgba(255,255,255,0.9)' }}>
+                      <FontAwesomeIcon icon={faListOl} />
+                    </IconButton>
+                  </Tooltip>
                 </div>
-                <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-                  <button
-                    className="btn btn-primary"
-                    disabled={savingNotes || !gameId || (!isHost && !hasCharacter)}
-                    title={gameId ? (isHost ? 'Save campaign notes' : (hasCharacter ? 'Save to your character' : 'Select a character to save notes')) : 'Notes can be saved only in a game'}
-                    onClick={async () => {
-                      if (!onSaveNotes) return;
-                      setSavingNotes(true);
-                      const res = await Promise.resolve(onSaveNotes(notesHtml));
-                      setSavingNotes(false);
-                      if (res && res.ok) setNotesOpen(false);
-                    }}
-                  >
-                    {savingNotes ? 'Saving…' : 'Save'}
-                  </button>
-                </div>
+                <IconButton
+                  aria-label="Close notes"
+                  size="small"
+                  onClick={() => setNotesOpen(false)}
+                  sx={{ position: 'absolute', right: 0, top: 0, color: 'rgba(255,255,255,0.8)' }}
+                  title="Close notes"
+                >
+                  <FontAwesomeIcon icon={faXmark} />
+                </IconButton>
               </div>
               <div
                 ref={notesEditorRef}
                 contentEditable
                 suppressContentEditableWarning
                 onInput={() => { const next = notesEditorRef.current?.innerHTML || ''; setNotesHtml(next); }}
-                style={{ minHeight: 240, outline: 'none', border: '1px solid #555', borderRadius: 6, padding: '8px 10px', backgroundColor: '#2c2c2c', direction: 'ltr', textAlign: 'left', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowY: 'auto' }}
+                style={{ minHeight: 240, outline: 'none', border: '1px solid #555', borderRadius: 6, padding: '8px 10px', backgroundColor: '#2c2c2c', direction: 'ltr', textAlign: 'left', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowY: 'auto', listStylePosition: 'inside', paddingLeft: 16 }}
               />
-            </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+                <button
+                  className="btn btn-primary"
+                  disabled={savingNotes || !gameId || (!isHost && !hasCharacter)}
+                  title={gameId ? (isHost ? 'Save campaign notes' : (hasCharacter ? 'Save to your character' : 'Select a character to save notes')) : 'Notes can be saved only in a game'}
+                  onClick={async () => {
+                    if (!onSaveNotes) return;
+                    setSavingNotes(true);
+                    try {
+                      const res = await Promise.resolve(onSaveNotes(notesHtml));
+                      if (res?.ok ?? !!res) {
+                        setNotesOpen(false);
+                      }
+                    } catch (error) {
+                      // Keep the popover open to allow retry after an unexpected save failure.
+                    } finally {
+                      setSavingNotes(false);
+                    }
+                  }}
+                  style={{ minWidth: 100 }}
+                >
+                  {savingNotes ? 'Saving…' : 'Save'}
+                </button>
+              </div>            </div>
           </div>
         )}
       </div>
