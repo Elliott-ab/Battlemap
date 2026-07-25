@@ -44,6 +44,81 @@ export default function FellowshipContent() {
   const [rowsPerPage, setRowsPerPage] = React.useState(10);
   const [deleteTarget, setDeleteTarget] = React.useState(null);
 
+  const normalizeFellowshipRows = (sentArr, recvArr) => {
+    const emailByOtherId = new Map();
+    for (const r of sentArr) {
+      if (r?.invitee_id && (r?.invitee_email || '').trim()) {
+        emailByOtherId.set(r.invitee_id, r.invitee_email.trim());
+      }
+    }
+    const sentAccepted = new Set(sentArr.filter(r => r.status === 'accepted').map(r => r.invitee_id).filter(Boolean));
+    const recvAccepted = new Set(recvArr.filter(r => r.status === 'accepted').map(r => r.inviter_id).filter(Boolean));
+    const mutualAccepted = new Set([...sentAccepted].filter(id => recvAccepted.has(id)));
+
+    const byOtherId = new Map();
+    for (const r of sentArr) {
+      const otherId = r.invitee_id;
+      const otherEmail = (r?.invitee_email || '').trim();
+      if (!otherId && !otherEmail) continue;
+      if (r.status === 'accepted' && otherId && !mutualAccepted.has(otherId)) continue;
+      const key = otherId ? `id:${otherId}` : `email:${otherEmail.toLowerCase()}`;
+      byOtherId.set(key, {
+        key,
+        invitee_id: otherId || null,
+        invitee_email: r.invitee_email || '',
+        username: '',
+        status: r.status || 'pending',
+      });
+    }
+
+    for (const r of recvArr) {
+      const otherId = r.inviter_id;
+      if (!otherId) continue;
+      if (!mutualAccepted.has(otherId)) continue;
+      const key = `id:${otherId}`;
+      if (byOtherId.has(key)) {
+        const existing = byOtherId.get(key);
+        existing.status = 'accepted';
+        existing.invitee_email = existing.invitee_email || emailByOtherId.get(otherId) || '';
+        continue;
+      }
+      byOtherId.set(key, {
+        key,
+        invitee_id: otherId,
+        invitee_email: emailByOtherId.get(otherId) || '',
+        username: '',
+        status: 'accepted',
+      });
+    }
+
+    const mergedRows = new Map();
+    const priority = { accepted: 3, pending: 2, declined: 1 };
+    for (const v of byOtherId.values()) {
+      const email = (v.invitee_email || '').trim().toLowerCase();
+      const idKey = v.invitee_id ? `id:${v.invitee_id}` : null;
+      const emailKey = email ? `email:${email}` : null;
+      let key = idKey || emailKey || v.key;
+      if (idKey && emailKey && mergedRows.has(emailKey)) {
+        const existing = mergedRows.get(emailKey);
+        mergedRows.delete(emailKey);
+        key = idKey;
+        mergedRows.set(key, existing);
+      }
+      const existing = mergedRows.get(key);
+      if (existing) {
+        const existingStatus = (existing.status || 'pending').toLowerCase();
+        const currentStatus = (v.status || 'pending').toLowerCase();
+        existing.status = priority[existingStatus] >= priority[currentStatus] ? existingStatus : currentStatus;
+        existing.invitee_id = existing.invitee_id || v.invitee_id;
+        existing.invitee_email = existing.invitee_email || v.invitee_email;
+        continue;
+      }
+      mergedRows.set(key, { ...v, invitee_email: v.invitee_email || '' });
+    }
+
+    return Array.from(mergedRows.values());
+  };
+
   React.useEffect(() => {
     let active = true;
     (async () => {
@@ -64,49 +139,8 @@ export default function FellowshipContent() {
         if (errRecv) throw errRecv;
         const sentArr = Array.isArray(sent) ? sent : [];
         const recvArr = Array.isArray(receivedAccepted) ? receivedAccepted : [];
-        const emailByOtherId = new Map();
-        for (const r of sentArr) {
-          if (r?.invitee_id && (r?.invitee_email || '').trim()) {
-            emailByOtherId.set(r.invitee_id, r.invitee_email.trim());
-          }
-        }
-        const sentAccepted = new Set(sentArr.filter(r => r.status === 'accepted').map(r => r.invitee_id).filter(Boolean));
-        const recvAccepted = new Set(recvArr.filter(r => r.status === 'accepted').map(r => r.inviter_id).filter(Boolean));
-        const mutualAccepted = new Set([...sentAccepted].filter(id => recvAccepted.has(id)));
-        const byOtherId = new Map();
-        for (const r of sentArr) {
-          const otherId = r.invitee_id;
-          if (!otherId) continue;
-          if (r.status === 'accepted' && !mutualAccepted.has(otherId)) continue;
-          const key = `${otherId}|${r.invitee_email || ''}`;
-          byOtherId.set(otherId, {
-            key,
-            invitee_id: otherId,
-            invitee_email: r.invitee_email || '',
-            username: '',
-            status: r.status || 'pending',
-          });
-        }
-        for (const r of recvArr) {
-          const otherId = r.inviter_id;
-          if (!otherId) continue;
-          if (!mutualAccepted.has(otherId)) continue;
-          if (byOtherId.has(otherId)) {
-            const existing = byOtherId.get(otherId);
-            existing.status = 'accepted';
-            continue;
-          }
-          const key = `${otherId}|none`;
-          byOtherId.set(otherId, {
-            key,
-            invitee_id: otherId,
-            invitee_email: emailByOtherId.get(otherId) || '',
-            username: '',
-            status: 'accepted',
-          });
-        }
-        const values = Array.from(byOtherId.values());
-        const ids = values.map(v => v.invitee_id).filter(Boolean);
+        const finalValues = normalizeFellowshipRows(sentArr, recvArr);
+        const ids = finalValues.map(v => v.invitee_id).filter(Boolean);
         let profs = [];
         if (ids.length > 0) {
           const { data: pRows, error: pErr } = await supabase
@@ -118,7 +152,7 @@ export default function FellowshipContent() {
         }
         const usernameById = new Map(profs.map(p => [p.id, p.username || '']));
         if (!active) return;
-        setRows(values.map(v => ({
+        setRows(finalValues.map(v => ({
           ...v,
           username: usernameById.get(v.invitee_id) || '',
           invitee_email: (v.invitee_email && v.invitee_email !== (user?.email || '')) ? v.invitee_email : '',
@@ -205,50 +239,8 @@ export default function FellowshipContent() {
         .eq('status', 'accepted');
       const sentArr = Array.isArray(sent) ? sent : [];
       const recvArr = Array.isArray(receivedAccepted) ? receivedAccepted : [];
-      const emailByOtherId = new Map();
-      for (const r of sentArr) {
-        if (r?.invitee_id && (r?.invitee_email || '').trim()) {
-          emailByOtherId.set(r.invitee_id, r.invitee_email.trim());
-        }
-      }
-      const sentAccepted = new Set(sentArr.filter(r => r.status === 'accepted').map(r => r.invitee_id).filter(Boolean));
-      const recvAccepted = new Set(recvArr.filter(r => r.status === 'accepted').map(r => r.inviter_id).filter(Boolean));
-      const mutualAccepted = new Set([...sentAccepted].filter(id => recvAccepted.has(id)));
-      const byOtherId = new Map();
-      for (const r of sentArr) {
-        const otherId = r.invitee_id;
-        if (!otherId) continue;
-        if (r.status === 'accepted' && !mutualAccepted.has(otherId)) continue;
-        const key = `${otherId}|${r.invitee_email || ''}`;
-        byOtherId.set(otherId, {
-          key,
-          invitee_id: otherId,
-          invitee_email: r.invitee_email || '',
-          username: '',
-          status: r.status || 'pending',
-        });
-      }
-      for (const r of recvArr) {
-        const otherId = r.inviter_id;
-        if (!otherId) continue;
-        if (!mutualAccepted.has(otherId)) continue;
-        if (byOtherId.has(otherId)) {
-          const existing = byOtherId.get(otherId);
-          existing.status = 'accepted';
-          if (!existing.invitee_email) existing.invitee_email = emailByOtherId.get(otherId) || '';
-          continue;
-        }
-        const key = `${otherId}|none`;
-        byOtherId.set(otherId, {
-          key,
-          invitee_id: otherId,
-          invitee_email: emailByOtherId.get(otherId) || '',
-          username: '',
-          status: 'accepted',
-        });
-      }
-      const values = Array.from(byOtherId.values());
-      const ids = values.map(v => v.invitee_id).filter(Boolean);
+      const finalValues = normalizeFellowshipRows(sentArr, recvArr);
+      const ids = finalValues.map(v => v.invitee_id).filter(Boolean);
       let profs = [];
       if (ids.length > 0) {
         const { data: pRows } = await supabase
@@ -258,7 +250,7 @@ export default function FellowshipContent() {
         profs = Array.isArray(pRows) ? pRows : [];
       }
       const usernameById = new Map(profs.map(p => [p.id, p.username || '']));
-      setRows(values.map(v => ({
+      setRows(finalValues.map(v => ({
         ...v,
         username: usernameById.get(v.invitee_id) || '',
         invitee_email: (v.invitee_email && v.invitee_email !== (user?.email || '')) ? v.invitee_email : '',

@@ -2,7 +2,21 @@ import { supabase } from '../supabaseClient';
 
 export async function createNotification({ recipientId = null, recipientEmail = null, type, message, payload = {} }, opts = {}) {
   const { bestEffort = true } = opts || {};
-  const row = { recipient_id: recipientId, recipient_email: recipientEmail, type, message, payload };
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  const creatorId = authData?.user?.id || null;
+  if (!creatorId) {
+    const err = new Error('Unable to determine authenticated user for notification creation.');
+    if (bestEffort) return null;
+    throw err;
+  }
+  const row = {
+    recipient_id: recipientId,
+    recipient_email: recipientEmail,
+    created_by: creatorId,
+    type,
+    message,
+    payload,
+  };
   const { data, error } = await supabase.from('notifications').insert([row]).select('*').single();
   if (error) {
     // Swallow RLS/permission errors by default so calling UIs don't break
@@ -122,7 +136,8 @@ export async function respondToFellowshipInvite(notification, action, currentUse
     const email = currentUser.email || null;
     const updates = { status, invitee_id: currentUser.id };
     let didUpdate = false;
-    // Try update by email
+    let updatedRowId = null;
+    // Try update by email first
     if (email) {
       try {
         const { data: up1, error: err1 } = await supabase
@@ -130,21 +145,38 @@ export async function respondToFellowshipInvite(notification, action, currentUse
           .update(updates)
           .eq('inviter_id', inviterId)
           .eq('invitee_email', email)
-          .select('inviter_id');
+          .select('id');
         if (err1) throw err1;
-        if (Array.isArray(up1) && up1.length > 0) didUpdate = true;
+        if (Array.isArray(up1) && up1.length > 0) {
+          didUpdate = true;
+          updatedRowId = up1[0]?.id || null;
+        }
       } catch (_) {
         try {
-          await supabase
+          const { data: up1, error: err1 } = await supabase
             .from('fellowships')
             .update(updates)
             .eq('inviter_id', inviterId)
-            .eq('invitee_email', email);
-          didUpdate = true; // assume success if no error thrown
+            .eq('invitee_email', email)
+            .select('id');
+          if (!err1 && Array.isArray(up1) && up1.length > 0) {
+            didUpdate = true;
+            updatedRowId = up1[0]?.id || null;
+          }
+        } catch (_) {}
+      }
+      if (didUpdate && updatedRowId) {
+        try {
+          await supabase
+            .from('fellowships')
+            .delete()
+            .eq('inviter_id', inviterId)
+            .eq('invitee_email', email)
+            .neq('id', updatedRowId);
         } catch (_) {}
       }
     }
-    // Try update by invitee_id
+    // Try update by invitee_id next
     if (!didUpdate) {
       try {
         const { data: up2, error: err2 } = await supabase
@@ -152,17 +184,34 @@ export async function respondToFellowshipInvite(notification, action, currentUse
           .update(updates)
           .eq('inviter_id', inviterId)
           .eq('invitee_id', currentUser.id)
-          .select('inviter_id');
+          .select('id');
         if (err2) throw err2;
-        if (Array.isArray(up2) && up2.length > 0) didUpdate = true;
+        if (Array.isArray(up2) && up2.length > 0) {
+          didUpdate = true;
+          updatedRowId = up2[0]?.id || null;
+        }
       } catch (_) {
         try {
-          await supabase
+          const { data: up2, error: err2 } = await supabase
             .from('fellowships')
             .update(updates)
             .eq('inviter_id', inviterId)
-            .eq('invitee_id', currentUser.id);
-          didUpdate = true;
+            .eq('invitee_id', currentUser.id)
+            .select('id');
+          if (!err2 && Array.isArray(up2) && up2.length > 0) {
+            didUpdate = true;
+            updatedRowId = up2[0]?.id || null;
+          }
+        } catch (_) {}
+      }
+      if (didUpdate && updatedRowId) {
+        try {
+          await supabase
+            .from('fellowships')
+            .delete()
+            .eq('inviter_id', inviterId)
+            .eq('invitee_id', currentUser.id)
+            .neq('id', updatedRowId);
         } catch (_) {}
       }
     }
