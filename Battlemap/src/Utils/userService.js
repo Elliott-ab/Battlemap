@@ -90,13 +90,6 @@ export async function deleteUserAccountData(userId) {
   return results;
 }
 
-// Optional: if you deploy an Edge Function 'delete-account' using service role, you could call it here.
-// export async function requestAccountDeletion() {
-//   const { data, error } = await supabase.functions.invoke('delete-account', {});
-//   if (error) throw error;
-//   return data;
-// }
-
 // ===== User profile / username helpers =====
 
 // Get the profile row for a user; expects a 'profiles' table with PK 'id' matching auth.users.id

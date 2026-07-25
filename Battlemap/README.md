@@ -1,113 +1,62 @@
 # Battlemap
 
-A lightweight battlemap built with React + Vite. Supports tokens, cover blocks, initiative, and movement highlighting on a square grid.
+Battlemap is a simple shared battle map for tabletop games. It is designed for players and hosts to sit around a common map, track tokens, movement, and combat information, and keep the session flowing.
 
-## Character icon uploads (Supabase Storage)
+## Who this is for
 
-This project can upload circular character icons to Supabase Storage and display them across the app.
+- Players can join a session, move their own token, apply a character, and track health or status.
+- Hosts can run the session, manage the map, add or remove tokens, and control the shared state.
 
-Setup steps:
+## Getting started
 
-1. In your Supabase project, go to Storage and create a bucket named `character-icons` (or any name you prefer).
-	- If you use a different name, set an environment variable `VITE_SUPABASE_ICONS_BUCKET` to that bucket name.
-	- Make the bucket Public so the app can read images without auth headers.
-2. Ensure your environment contains:
-	- `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
-	- Optional: `VITE_SUPABASE_ICONS_BUCKET` (defaults to `character-icons`)
-3. Deploy: the app uses the bucket via Supabase Storage JS client and builds a public URL for display.
+1. Open the battlemap in your browser.
+2. Sign in if prompted.
+3. If you are the host, create or open a session and set up the map.
+4. Players join the session and choose or apply their character.
 
-If you see "Bucket not found" when uploading, either create the bucket in Supabase or set `VITE_SUPABASE_ICONS_BUCKET` to an existing bucket.
+## Player guide
 
-### Storage bucket policies (for uploads)
+### Moving around the map
 
-By default, Supabase Storage requires policies to permit uploads. Create storage policies so authenticated users can insert into your icons bucket and everyone can read public files.
+- Use the map tools to move your token across the grid.
+- Click a highlighted space to move your token if movement is enabled.
+- If you are using the ruler or another tool, the map may temporarily limit normal token dragging.
 
-In the Supabase SQL editor:
+### Managing your character
 
-```sql
--- Replace 'character-icons' with your bucket if different
--- Postgres doesn't support CREATE POLICY IF NOT EXISTS; use DROP IF EXISTS + CREATE
+- Apply a character to your token to see your name, health, and basic stats.
+- Update your current health or status from the character or token controls.
+- If your token is shared with the host, changes appear for everyone in the session.
 
-drop policy if exists "icons-insert" on storage.objects;
-create policy "icons-insert"
-on storage.objects for insert
-to authenticated
-with check (bucket_id = 'character-icons');
+### What players can do
 
-drop policy if exists "icons-update" on storage.objects;
-create policy "icons-update"
-on storage.objects for update
-to authenticated
-using (bucket_id = 'character-icons');
+- Move their own token.
+- View shared map state.
+- Track their own character details.
+- Interact with the current turn or session flow as allowed by the host.
 
--- Allow public read access (if bucket is public, this aligns with the UI setting)
-drop policy if exists "icons-read" on storage.objects;
-create policy "icons-read"
-on storage.objects for select
-to public
-using (bucket_id = 'character-icons');
-```
+## Host guide
 
-Alternatively, in the Storage UI, mark the bucket as Public for reads, and ensure an authenticated policy exists for INSERT into that bucket.
+### Setting up a session
 
-## Characters table and RLS
+- Create or open the map for the group.
+- Add terrain, cover, or other map features before play begins.
+- Place enemy or NPC tokens as needed.
+- Make sure players join and have access to the shared session.
 
-Create the `characters` table and enable Row Level Security so users can only access their own characters.
+### Running the game
 
-SQL (run in Supabase SQL editor):
+- Use the map tools to manage movement, turns, and combat flow.
+- Adjust token health, status, or positioning during play.
+- Use the grid and overlays to help explain positions or rules clearly.
 
-```sql
-create table if not exists public.characters (
-	id uuid primary key default gen_random_uuid(),
-	user_id uuid not null references auth.users(id) on delete cascade,
-	name text,
-	class text,
-	race text,
-	level int,
-	background text,
-	alignment text,
-	xp int,
-	str int, dex int, con int, int int, wis int, cha int,
-	ac int, speed int,
-	max_hp int, current_hp int, hp_temp int,
-	saving_throws jsonb,
-	skills jsonb,
-	attacks jsonb,
-	spellcasting jsonb,
-	spells jsonb,
-	currency jsonb,
-	equipment text,
-	class_features text,
-	racial_traits text,
-	feats text,
-	icon_url text,
-	created_at timestamptz default now(),
-	updated_at timestamptz default now()
-);
+## Helpful tips
 
-alter table public.characters enable row level security;
+- Grid size and movement rules can be adjusted from the in-map controls.
+- Cover and difficult terrain affect movement and positioning.
+- Diagonal movement is not currently supported, so movement is orthogonal.
+- Enemy facing can be changed during play when needed for line of sight or combat decisions.
 
--- Allow users to manage only their own rows
-create policy if not exists "own-characters"
-	on public.characters
-	for all
-	using (auth.uid() = user_id)
-	with check (auth.uid() = user_id);
-```
+## Notes
 
-If you get an error like "new row violates row-level security policy", ensure:
-- You're authenticated (the client has a valid user with `auth.uid()`), and
-- You set the `user_id` column to the current user's id when inserting/upserting.
-
-## Movement and terrain
-
-- Grid size: configurable in ft-per-cell from the Gear icon.
-- Normal movement cost: 1 cell costs gridSize feet (e.g., 5 ft).
-- Difficult terrain: add cover with type "Difficult Terrain" in the editor. These cells are passable but cost double movement (2 cells of cost) when entered.
-	- Example: with a 5 ft grid, entering a difficult cell costs 10 ft.
-	- Normal cover types (Half/Three-Quarters/Full) are impassable to movement.
-- Movement range: highlights use weighted reachability (Dijkstra). Difficult cells count as 2, normal as 1. Click any highlighted cell to move.
-
-Notes:
-- Diagonal movement is not currently supported; moves are orthogonal (up/down/left/right).
-- Enemy facing can be set by clicking a destination cell during their turn; difficult terrain rules do not affect facing.
+Battlemap is meant to support a shared tabletop experience. It is not a full replacement for a traditional game master tool, but it is useful for running quick, clear encounters at a table.

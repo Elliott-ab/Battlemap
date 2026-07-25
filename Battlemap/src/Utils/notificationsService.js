@@ -1,9 +1,5 @@
 import { supabase } from '../supabaseClient';
 
-// Notification shape suggestion (DB):
-// id uuid pk, recipient_id uuid nullable, recipient_email text nullable,
-// type text, message text, payload jsonb, created_at timestamptz default now(), read_at timestamptz nullable, status text
-
 export async function createNotification({ recipientId = null, recipientEmail = null, type, message, payload = {} }, opts = {}) {
   const { bestEffort = true } = opts || {};
   const row = { recipient_id: recipientId, recipient_email: recipientEmail, type, message, payload };

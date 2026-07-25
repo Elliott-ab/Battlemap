@@ -1,46 +1,5 @@
 import { supabase } from '../supabaseClient';
 
-// Suggested SQL (run in Supabase):
-// create table public.map_states (
-//   game_id uuid not null references public.games(id) on delete cascade,
-//   channel text not null check (channel in ('live','draft')),
-//   state jsonb not null default '{}'::jsonb,
-//   updated_by uuid references auth.users(id),
-//   updated_at timestamptz not null default now(),
-//   primary key (game_id, channel)
-// );
-// alter table public.map_states enable row level security;
-// create policy "participants can read live"
-//   on public.map_states for select
-//   using (
-//     exists (select 1 from public.participants p where p.game_id = map_states.game_id and p.user_id = auth.uid())
-//     or exists (select 1 from public.games g where g.id = map_states.game_id and g.host_id = auth.uid())
-//   );
-// create policy "participants write live"
-//   on public.map_states for insert
-//   with check (
-//     channel = 'live' and (
-//       exists (select 1 from public.participants p where p.game_id = map_states.game_id and p.user_id = auth.uid())
-//       or exists (select 1 from public.games g where g.id = map_states.game_id and g.host_id = auth.uid())
-//     )
-//   );
-// create policy "participants update live"
-//   on public.map_states for update
-//   using (channel = 'live')
-//   with check (
-//     channel = 'live' and (
-//       exists (select 1 from public.participants p where p.game_id = map_states.game_id and p.user_id = auth.uid())
-//       or exists (select 1 from public.games g where g.id = map_states.game_id and g.host_id = auth.uid())
-//     )
-//   );
-// create policy "host manages draft"
-//   on public.map_states for all
-//   using (
-//     exists (select 1 from public.games g where g.id = map_states.game_id and g.host_id = auth.uid())
-//   ) with check (
-//     exists (select 1 from public.games g where g.id = map_states.game_id and g.host_id = auth.uid())
-//   );
-
 export async function getMapState(gameId, channel = 'live') {
   const { data, error } = await supabase
     .from('map_states')
